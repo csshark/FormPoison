@@ -4,4 +4,11 @@ It automates testing common missconfigurations in sanitization in input fields.<
 
 Type <code>python3 formposion.py -h</code> for possible usage. 
 
+![running inject scans](scan.png)
+
 *Tip: use some payloads even if they are not being executed directly on the page, they could work if they are being displayed on different endpoints.* 
+
+### payload sources:
+- **payloadbox**: https://github.com/payloadbox/sql-injection-payload-list
+- **varunsulakhe**: https://github.com/Varunsulakhe/HTML-INJECTOR/blob/main/html-injection-payload.txt
+- **custom payloads made by me**
