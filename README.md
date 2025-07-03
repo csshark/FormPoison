@@ -15,7 +15,7 @@ Type <code>python3 formposion.py -h</code> for possible usage. Using this tool i
 
 ![running inject scans](scan.png)
 
-*Tip: use some payloads even if they are not being executed directly on the page, they could work if they are being displayed on different endpoints.* 
+*Tip: use some payloads even if they are not being executed directly on the page, they could work if they are being displayed on different endpoints (stored XSS).* 
 
 ### payload sources:
 - **payloadbox**: https://github.com/payloadbox/sql-injection-payload-list
