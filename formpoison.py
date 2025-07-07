@@ -12,10 +12,11 @@ import time
 from rich.progress import Progress, BarColumn, TimeRemainingColumn
 import threading
 
+# Deklaracja globalnej flagi
 skip_flag = False
 
 def monitor_skip():
-    global skip_flag
+    global skip_flag  # Deklaracja globalnej flagi
     while True:
         user_input = input("Type 'skip' to move to the next field: ")
         if user_input.strip().lower() == "skip":
@@ -193,7 +194,7 @@ def analyze_response(response):
     return vulnerabilities
 
 def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, verbose=False, secs=0):
-    global skip_flag
+    global skip_flag  # Deklaracja globalnej flagi
     results = []  # Store results in a list
 
     # Create a table with text wrapping enabled
@@ -271,9 +272,8 @@ def test_input_field(url, payloads, threat_type, cookies, user_agent, input_fiel
 
     console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
 
-
-def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, verbose=False):
-    global skip_flag
+def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, verbose=False,seconds=0):
+    global skip_flag  # Deklaracja globalnej flagi
     results = []
 
     # pls work table...
@@ -381,7 +381,7 @@ def main():
         args.url = f'https://{args.url}'
         console.print(f"[bold yellow]User has not provided security protocol. Automatically added 'https://' to the URL: {args.url}[/bold yellow]")
 
-    # currently i filter only SQL
+    # Load payloads
     payloads = load_payloads(args.payloads)
     if args.threat:
         payloads = [payload for payload in payloads if payload['category'] == args.threat]
@@ -422,11 +422,11 @@ def main():
         console.print(f"[bold green]Testing with User-Agent: {user_agent}[/bold green]")
         for input_field in input_fields:
             console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
-            test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.secs)
+            test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.seconds)
 
         if args.login:
             console.print(f"[bold green]Testing login fields with User-Agent: {user_agent}[/bold green]")
-            test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, args.verbose)
+            test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, args.verbose, args.seconds)  # Zmiana z args.secs na args.seconds
 
 
 if __name__ == "__main__":
