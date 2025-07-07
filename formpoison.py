@@ -30,11 +30,11 @@ def sanitize_user_agent(user_agent):
 
 def show_banner():
     banner = r"""
-  [bold blue]Form[/bold blue]                                 .--.          
-      [bold red]Poison[/bold red]                  ,-.------+-.|  ,-.     
-                  ,--=======* )"("")===)===* )    
-                              `-"---==-+-"|  `-"     
-                                       '--'      
+  [bold blue]Form[/bold blue]                                 .--.
+      [bold red]Poison[/bold red]                  ,-.------+-.|  ,-.
+                  ,--=======* )"("")===)===* )
+                              `-"---==-+-"|  `-"
+                                       '--'
     """
     RED = '\033[91m'
     GREEN = '\033[92m'
@@ -42,16 +42,16 @@ def show_banner():
     RESET = '\033[0m'
 
     staticbanner = f"""
-  {BLUE}Form{RESET}                                 .--.          
-      {RED}Poison{RESET}                  ,-.------+-.|  ,-.     
-                  ,--=======* )"("")===)===* )    
-                              `-"---==-+-"|  `-"     
-                                       '--'      
+  {BLUE}Form{RESET}                                 .--.
+      {RED}Poison{RESET}                  ,-.------+-.|  ,-.
+                  ,--=======* )"("")===)===* )
+                              `-"---==-+-"|  `-"
+                                       '--'
               Input fields and forms injection framework.
               Developed by: https://github.com/csshark
-              Note: This tool is amateur I didn't launch thousands of tests so there might be bugs. 
+              Note: This tool is amateur I didn't launch thousands of tests so there might be bugs.
     """
-    
+
     def animate_falling_texts(texts, banner, start_line=0, end_line=3):
         banner_lines = banner.split('\n')
         max_lines = len(banner_lines) + end_line
@@ -63,16 +63,16 @@ def show_banner():
                 time.sleep(0.01)
 
     falling_words = [
-        "<script>", 
-        "alert(1)", 
-        "' OR 1=1;", 
-        "<audio src=x onerror=alert('XSS')>", 
+        "<script>",
+        "alert(1)",
+        "' OR 1=1;",
+        "<audio src=x onerror=alert('XSS')>",
         "<noscript>Sorry, your browser does not support Html</noscript>",
-        "<img src=x onerror=alert(1)>", 
-        "1=1; --",  
-        "<svg/onload=alert(1)>",  
-        "'; DROP TABLE users; --",  
-        "<iframe src=javascript:alert(1)>",   
+        "<img src=x onerror=alert(1)>",
+        "1=1; --",
+        "<svg/onload=alert(1)>",
+        "'; DROP TABLE users; --",
+        "<iframe src=javascript:alert(1)>",
         "H4CK3D",
         "403 HTTP",
         "User-Agent: Fake Geco",
@@ -80,7 +80,6 @@ def show_banner():
     ]
 
     animate_falling_texts(falling_words, banner)
-    os.system('cls' if os.name == 'nt' else 'clear')
     print(staticbanner)
     print("Framework Initialization Done.")
 
@@ -120,13 +119,86 @@ def get_string_input_fields(content):
     textareas = soup.find_all('textarea')
     return input_fields + textareas
 
-def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, verbose=False):
-    global skip_flag
-    results = []  
+def analyze_response_content(content):
+    content = content.lower()
+    vulnerabilities = []
 
-    # wrapping...
+    if "sql syntax" in content or "sql error" in content or "mysql" in content:
+        vulnerabilities.append("SQL Injection (SQL error in response)")
+
+    if "<script>" in content or "alert(" in content:
+        vulnerabilities.append("XSS (Cross-Site Scripting)")
+
+    if "<html>" in content or "<body>" in content:
+        vulnerabilities.append("HTML Injection")
+
+    if "error" in content or "exception" in content or "stack trace" in content:
+        vulnerabilities.append("Verbose Error Message (potential information leak)")
+
+    return vulnerabilities
+
+def analyze_response_headers(headers):
+    vulnerabilities = []
+
+    # Missing Security Headers Warning
+    security_headers = [
+        "Content-Security-Policy",
+        "X-Frame-Options",
+        "X-XSS-Protection: 1",
+        "Strict-Transport-Security"
+    ]
+    for header in security_headers:
+        if header not in headers:
+            vulnerabilities.append(f"Missing Security Header: {header}")
+
+    if "Server" in headers:
+        vulnerabilities.append(f"Server Information Leak: {headers['Server']}")
+    if "X-Powered-By" in headers:
+        vulnerabilities.append(f"Framework Information Leak: {headers['X-Powered-By']}")
+
+    if "Access-Control-Allow-Origin" in headers and headers["Access-Control-Allow-Origin"] == "*":
+        vulnerabilities.append("Insecure CORS Configuration: Access-Control-Allow-Origin: *")
+
+    return vulnerabilities
+
+def analyze_cookies(cookies):
+    vulnerabilities = []
+
+    for cookie in cookies:
+        if "Secure" not in cookie:
+            vulnerabilities.append(f"Insecure Cookie (Missing Secure Flag): {cookie}")
+        if "HttpOnly" not in cookie:
+            vulnerabilities.append(f"Insecure Cookie (Missing HttpOnly Flag): {cookie}")
+        if "SameSite" not in cookie:
+            vulnerabilities.append(f"Insecure Cookie (Missing SameSite Attribute): {cookie}")
+
+    return vulnerabilities
+
+def analyze_response(response):
+
+    vulnerabilities = []
+
+    # response content
+    content_vulns = analyze_response_content(response.text)
+    vulnerabilities.extend(content_vulns)
+
+    # response headers
+    header_vulns = analyze_response_headers(response.headers)
+    vulnerabilities.extend(header_vulns)
+
+    # cookies
+    cookie_vulns = analyze_cookies(response.cookies)
+    vulnerabilities.extend(cookie_vulns)
+
+    return vulnerabilities
+
+def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, verbose=False, syntax=0):
+    global skip_flag
+    results = []  # Store results in a list
+
+    # Create a table with text wrapping enabled
     table = Table(title=f"Input Field Test Results (User-Agent: {user_agent})")
-    table.add_column("Payload", style="cyan", no_wrap=False)  
+    table.add_column("Payload", style="cyan", no_wrap=False)  # Enable text wrapping
     table.add_column("Response Code", justify="right", style="magenta")
     table.add_column("Vulnerability Detected", style="bold green")
 
@@ -141,46 +213,45 @@ def test_input_field(url, payloads, threat_type, cookies, user_agent, input_fiel
         for payload in payloads:
             if skip_flag:
                 console.print(f"[bold yellow]Skipped to field: {input_field.get('name', 'input_field')}[/bold yellow]")
-                skip_flag = False  
-                break  
+                skip_flag = False
+                break
 
             try:
                 headers = {'User-Agent': sanitize_user_agent(user_agent)}
-                data = {input_field.get('name', 'input_field'): payload['inputField']}
-                response = requests.post(url, data=data, cookies=cookies, headers=headers)
-                vuln_detected = "None"
-                content = response.text.lower()
 
-                if payload['category'] == "HTML":
-                    if "<script>" in content or "alert(" in content:
-                        vuln_detected = "HTML Injection"
-                elif payload['category'] == "Java":
-                    if "javascript:" in content or "alert(" in content:
-                        vuln_detected = "JavaScript Injection"
-                elif payload['category'] == "SQL":
-                    if "sql syntax" in content or "sql" in content:
-                        vuln_detected = "SQL Injection"
-                elif payload['category'] == "XML":
-                    if "xml" in content or "xmlns" in content:
-                        vuln_detected = "injected via XML"
+                if input_field.get('type') == 'password':
+                    # for password fuzzing username is filled to send complete request
+                    data = {
+                        'username': 'User123',  # static username
+                        input_field.get('name', 'input_field'): payload['inputField']
+                    }
+                else:
+                    # for login/username fuzzing password is filled for the same purpose as above
+                    data = {
+                        input_field.get('name', 'input_field'): payload['inputField'],
+                        'password': 'Value1337'  # Static value for password
+                    }
+
+                response = requests.post(url, data=data, cookies=cookies, headers=headers)
+
+                vulnerabilities = analyze_response(response)
 
                 results.append({
                     "payload": payload['inputField'],
                     "response_code": response.status_code,
-                    "vulnerability_detected": vuln_detected
+                    "vulnerabilities": vulnerabilities
                 })
 
-                
-                table.add_row(payload['inputField'], str(response.status_code), vuln_detected)
+                table.add_row(payload['inputField'], str(response.status_code), ", ".join(vulnerabilities))
                 if verbose:
                     console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
                     console.print(f"[bold blue]Response code: {response.status_code}[/bold blue]")
-                    console.print(f"[bold blue]Vulnerability detected: {vuln_detected}[/bold blue]")
+                    console.print(f"[bold blue]Vulnerabilities detected: {', '.join(vulnerabilities)}[/bold blue]")
             except requests.exceptions.RequestException as e:
                 results.append({
                     "payload": payload['inputField'],
                     "response_code": "Error",
-                    "vulnerability_detected": f"Request Failed: {str(e)}"
+                    "vulnerabilities": [f"Request Failed: {str(e)}"]
                 })
                 table.add_row(payload['inputField'], "Error", f"Request Failed: {str(e)}")
                 if verbose:
@@ -189,21 +260,26 @@ def test_input_field(url, payloads, threat_type, cookies, user_agent, input_fiel
 
             progress.update(task, advance=1)
 
-    
+            # delay flag in work:
+            if syntax > 0:
+                time.sleep(syntax)
+
     console.print(table)
 
     with open("test_results.json", "w") as f:
         json.dump(results, f, indent=4)
 
     console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
-    
+
+
 def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, verbose=False):
     global skip_flag
-    results = []  
-    # wrapping...
+    results = []
+
+    # pls work table...
     table = Table(title=f"Login Input Field Test Results (User-Agent: {user_agent})")
-    table.add_column("Login Payload", style="cyan", no_wrap=False)  
-    table.add_column("Password Payload", style="cyan", no_wrap=False)  
+    table.add_column("Login Payload", style="cyan", no_wrap=False)  # Enable text wrapping
+    table.add_column("Password Payload", style="cyan", no_wrap=False)  # Enable text wrapping
     table.add_column("Response Code", justify="right", style="magenta")
     table.add_column("Vulnerability Detected", style="bold green")
 
@@ -220,16 +296,15 @@ def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, ve
         console.print("[bold yellow]No login or password fields found for login testing.[/bold yellow]")
         return
 
-    # Common login payloads
+    # logins for sql tests
     login_payloads = ["admin", "test", "user", "' OR 1='1"]
 
-    # Trying SQL injection for logins
     sql_payloads = [payload['inputField'] for payload in payloads if payload['category'] == "SQL"]
-    
+
     skip_thread = threading.Thread(target=monitor_skip)
     skip_thread.daemon = True
     skip_thread.start()
-    
+
     with Progress() as progress:
         task = progress.add_task("[cyan]Testing login...", total=len(login_payloads) * len(sql_payloads))
 
@@ -239,7 +314,7 @@ def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, ve
                     if skip_flag:
                         console.print(f"[bold yellow]Skipped to field {login_field.get('name', 'login')}[/bold yellow]")
                         skip_flag = False
-                        break  
+                        break
 
                     headers = {'User-Agent': sanitize_user_agent(user_agent)}
                     data = {
@@ -247,33 +322,27 @@ def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, ve
                         password_field.get('name', 'password'): password_payload
                     }
                     response = requests.post(url, data=data, cookies=cookies, headers=headers)
-                    vuln_detected = "None"
-                    content = response.text.lower()
 
-                    if "sql syntax" in content or "sql" in content:
-                        vuln_detected = "SQL Injection"
-                    elif "login failed" not in content and "incorrect" not in content:
-                        vuln_detected = "Possible Bypass"
+                    vulnerabilities = analyze_response(response)
 
                     results.append({
                         "login_payload": login_payload,
                         "password_payload": password_payload,
                         "response_code": response.status_code,
-                        "vulnerability_detected": vuln_detected
+                        "vulnerabilities": vulnerabilities
                     })
 
-                    # pls wrapping work...
-                    table.add_row(login_payload, password_payload, str(response.status_code), vuln_detected)
+                    table.add_row(login_payload, password_payload, str(response.status_code), ", ".join(vulnerabilities))
                     if verbose:
                         console.print(f"[bold blue]Testing login: {login_payload}, password: {password_payload}[/bold blue]")
                         console.print(f"[bold blue]Response code: {response.status_code}[/bold blue]")
-                        console.print(f"[bold blue]Vulnerability detected: {vuln_detected}[/bold blue]")
-                except requests.exceptions.RequestException as e
+                        console.print(f"[bold blue]Vulnerabilities detected: {', '.join(vulnerabilities)}[/bold blue]")
+                except requests.exceptions.RequestException as e:
                     results.append({
                         "login_payload": login_payload,
                         "password_payload": password_payload,
                         "response_code": "Error",
-                        "vulnerability_detected": f"Request Failed: {str(e)}"
+                        "vulnerabilities": [f"Request Failed: {str(e)}"]
                     })
                     table.add_row(login_payload, password_payload, "Error", f"Request Failed: {str(e)}")
                     if verbose:
@@ -281,10 +350,9 @@ def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, ve
                         console.print(f"[bold red]Error: {str(e)}[/bold red]")
                 progress.update(task, advance=1)
 
-    
     console.print(table)
 
-    
+    # save results to a JSON file if selected
     with open("login_test_results.json", "w") as f:
         json.dump(results, f, indent=4)
 
@@ -295,11 +363,12 @@ def main():
     show_banner()
     parser = argparse.ArgumentParser(description="Over 500 payloads included!")
     parser.add_argument("url", help="Form URL")
-    parser.add_argument("-t", "--threat", choices=["HTML", "Java", "SQL"], help="Threat type to test")
+    parser.add_argument("-t", "--threat", choices=["HTML", "Java", "SQL"], help="Threat type to test (HTML, Java, SQL)")
     parser.add_argument("-p", "--payloads", default="payloads.json", help="JSON file with payloads")
     parser.add_argument("--cookies", help="Cookies: 'key1=value1; key2=value2'")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose mode")
     parser.add_argument("--login", action="store_true", help="Enable login testing for login and password fields mode")
+    parser.add_argument("-s", "--syntax", type=float, default=0, help="Delay between requests in seconds (to avoid firewall detection)")
 
     if len(sys.argv) == 1:
         console.print("[bold red]Enter valid command[/bold red]")
@@ -312,7 +381,12 @@ def main():
         args.url = f'https://{args.url}'
         console.print(f"[bold yellow]User has not provided security protocol. Automatically added 'https://' to the URL: {args.url}[/bold yellow]")
 
+    # currently i filter only SQL
     payloads = load_payloads(args.payloads)
+    if args.threat:
+        payloads = [payload for payload in payloads if payload['category'] == args.threat]
+        console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
+
     cookies = parse_cookies(args.cookies) if args.cookies else {}
 
     user_agents = [
@@ -337,25 +411,23 @@ def main():
         console.print("[bold red]Failed to fetch page content.[/bold red]")
         sys.exit()
 
-    # Finding ALL input fields (needs adjustments but works) 
+    # Finding ALL input fields (needs adjustments but works)
     input_fields = get_string_input_fields(page_content)
     console.print(f"[bold green]{len(input_fields)} String input fields found[/bold green]")
 
     # Everyday I'm shuffling
     random.shuffle(user_agents)
 
-    threats_to_test = ["HTML", "JavaScript", "SQL"] if not args.threat else [args.threat]
+    for user_agent in user_agents:
+        console.print(f"[bold green]Testing with User-Agent: {user_agent}[/bold green]")
+        for input_field in input_fields:
+            console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
+            test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.syntax)
 
-    for threat in threats_to_test:
-        for user_agent in user_agents:
-            console.print(f"[bold green]Testing {threat} with User-Agent: {user_agent}[/bold green]")
-            for input_field in input_fields:
-                console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
-                test_input_field(args.url, payloads, threat, cookies, user_agent, input_field, args.verbose)
+        if args.login:
+            console.print(f"[bold green]Testing login fields with User-Agent: {user_agent}[/bold green]")
+            test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, args.verbose)
 
-            if args.login:
-                console.print(f"[bold green]Testing login fields with User-Agent: {user_agent}[/bold green]")
-                test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, args.verbose)
 
 if __name__ == "__main__":
     main()
