@@ -11,7 +11,7 @@ for line in lines:
     
     
     result_entry = {
-        "inputField": f"<your>malicious</code>",
+        "inputField": f"", #leave it empty!!!
         "category": "CATEGORY" #example "SQL"
     }
     
