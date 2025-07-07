@@ -192,7 +192,7 @@ def analyze_response(response):
 
     return vulnerabilities
 
-def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, verbose=False, syntax=0):
+def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, verbose=False, secs=0):
     global skip_flag
     results = []  # Store results in a list
 
@@ -261,8 +261,8 @@ def test_input_field(url, payloads, threat_type, cookies, user_agent, input_fiel
             progress.update(task, advance=1)
 
             # delay flag in work:
-            if syntax > 0:
-                time.sleep(syntax)
+            if secs > 0:
+                time.sleep(secs)
 
     console.print(table)
 
@@ -368,7 +368,7 @@ def main():
     parser.add_argument("--cookies", help="Cookies: 'key1=value1; key2=value2'")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose mode")
     parser.add_argument("--login", action="store_true", help="Enable login testing for login and password fields mode")
-    parser.add_argument("-s", "--syntax", type=float, default=0, help="Delay between requests in seconds (to avoid firewall detection)")
+    parser.add_argument("-s", "--seconds", type=float, default=0, help="Delay between requests in seconds")
 
     if len(sys.argv) == 1:
         console.print("[bold red]Enter valid command[/bold red]")
@@ -422,7 +422,7 @@ def main():
         console.print(f"[bold green]Testing with User-Agent: {user_agent}[/bold green]")
         for input_field in input_fields:
             console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
-            test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.syntax)
+            test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.secs)
 
         if args.login:
             console.print(f"[bold green]Testing login fields with User-Agent: {user_agent}[/bold green]")
