@@ -367,6 +367,7 @@ def main():
     parser.add_argument("-p", "--payloads", default="payloads.json", help="JSON file with payloads")
     parser.add_argument("--cookies", help="Cookies: 'key1=value1; key2=value2'")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose mode")
+    parser.add_argument("--fieldname", help="Specific input field name to test (e.g., 'username')")
     parser.add_argument("--login", action="store_true", help="Enable login testing for login and password fields mode")
     parser.add_argument("-s", "--seconds", type=float, default=0, help="Delay between requests in seconds")
 
@@ -420,10 +421,18 @@ def main():
 
     for user_agent in user_agents:
         console.print(f"[bold green]Testing with User-Agent: {user_agent}[/bold green]")
-        for input_field in input_fields:
-            console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
-            test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.seconds)
+        filtered_fields = input_fields
+if args.fieldname:
+    filtered_fields = [field for field in input_fields if field.get('name') == args.fieldname]
+    if not filtered_fields:
+        console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
+        continue
+    console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
 
+for input_field in filtered_fields:
+    console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
+    test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.seconds)
+    
         if args.login:
             console.print(f"[bold green]Testing login fields with User-Agent: {user_agent}[/bold green]")
             test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, args.verbose, args.seconds)  # Zmiana z args.secs na args.seconds
