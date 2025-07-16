@@ -12,7 +12,6 @@ import time
 from rich.progress import Progress, BarColumn, TimeRemainingColumn
 import threading
 
-# Deklaracja globalnej flagi
 skip_flag = False
 
 def monitor_skip():
