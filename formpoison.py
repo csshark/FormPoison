@@ -425,7 +425,6 @@ if args.fieldname:
     filtered_fields = [field for field in input_fields if field.get('name') == args.fieldname]
     if not filtered_fields:
         console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
-        continue
     console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
 
 for input_field in filtered_fields:
