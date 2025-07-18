@@ -420,21 +420,21 @@ def main():
 
     for user_agent in user_agents:
         console.print(f"[bold green]Testing with User-Agent: {user_agent}[/bold green]")
-        filtered_fields = input_fields
-if args.fieldname:
-    filtered_fields = [field for field in input_fields if field.get('name') == args.fieldname]
-    if not filtered_fields:
-        console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
-    console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
+    filtered_fields = input_fields
+    if args.fieldname:
+        filtered_fields = [field for field in input_fields if field.get('name') == args.fieldname]
+        if not filtered_fields:
+            console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
+        else:
+            console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
 
-for input_field in filtered_fields:
-    console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
-    test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.seconds)
-    
+    for input_field in filtered_fields:
+        console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
+        test_input_field(args.url, payloads, args.threat, cookies, user_agent, input_field, args.verbose, args.seconds)
+
     if args.login:
         console.print(f"[bold green]Testing login fields with User-Agent: {user_agent}[/bold green]")
-        test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, args.verbose, args.seconds)  # Zmiana z args.secs na args.seconds
-
+        test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, args.verbose, args.seconds)
 
 if __name__ == "__main__":
     main()
