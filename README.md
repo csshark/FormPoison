@@ -22,6 +22,12 @@ Type <code>python3 formposion.py -h</code> for possible usage. Using this tool i
 
 ### Expanding payload list:
 To make payloads.json more powerfull use *converter.py* to categorize and write payloads in .json format. Create *input.txt* file and store all additional payloads to convert. Remember to convert same type payloads at once, you are hardcoding category.
+Example *input.txt* file format:
+<pre><code>script>alert('XSS')</script>
+  \<samp>XSS\</samp>
+  <a href=javascript:alert('XSS')>Click\</a>
+    ...and so goes on
+</code></pre>
 
 ## New functions: 
 <ul>
