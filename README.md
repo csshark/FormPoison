@@ -21,7 +21,7 @@ Type <code>python3 formposion.py -h</code> for possible usage. Using this tool i
 - **custom payloads made by me**
 
 ### Expanding payload list:
-To make payloads.json more powerfull use *converter.py* to categorize and write payloads in .json format. Create *input.txt* file and store all additional payloads to convert.
+To make payloads.json more powerfull use *converter.py* to categorize and write payloads in .json format. Create *input.txt* file and store all additional payloads to convert. Remember to convert same type payloads at once, you are hardcoding category.
 
 ## New functions: 
 <ul>
