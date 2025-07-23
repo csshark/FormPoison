@@ -13,7 +13,7 @@ Type <code>python3 formposion.py -h</code> for possible usage. Using this tool i
 
 ![running inject scans](scan.png)
 
-*Tip: use some payloads even if they are not being executed directly on the page, they could work if they are being displayed on different endpoints (stored XSS).* 
+*Tip: use some payloads manually even if they are not being executed directly on the page, they could work if they are being sent to database and displayed on different endpoints (stored XSS).* 
 
 ### payload sources:
 - **payloadbox**: https://github.com/payloadbox/sql-injection-payload-list
@@ -22,3 +22,14 @@ Type <code>python3 formposion.py -h</code> for possible usage. Using this tool i
 
 ### Expanding payload list:
 To make payloads.json more powerfull use *converter.py* to categorize and write payloads in .json format. Create *input.txt* file and store all additional payloads to convert.
+
+## New functions: 
+<ul>
+  <li>Verifying response headers precisely</li>
+  <li>Ensuring payload was executed (it <b>doesn't</b> mean there is vulnerability, there are still false-positives)</li>
+  <li>Specify field to test (rely on fieldname from DevTools)</li>
+  <li>Cookie analysis</li>
+  <li>Common web frameworks detection</li>
+</ul>
+
+InjOy! 💉
