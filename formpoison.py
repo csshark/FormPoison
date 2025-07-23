@@ -11,6 +11,8 @@ import os
 import time
 from rich.progress import Progress, BarColumn, TimeRemainingColumn
 import threading
+from selenium import webdriver
+from selenium.webdriver.common.by import By
 
 skip_flag = False
 
@@ -93,7 +95,6 @@ def parse_cookies(cookie_str):
     return cookies
 
 def load_payloads(file_path):
-    """Load payloads from a JSON file."""
     try:
         with open(file_path, 'r') as f:
             return json.load(f)
@@ -119,37 +120,112 @@ def get_string_input_fields(content):
     textareas = soup.find_all('textarea')
     return input_fields + textareas
 
+def find_field_by_name(input_fields, field_name):
+    if not field_name:
+        return None
+
+    field_name = field_name.lower()
+
+    for field in input_fields:
+        field_attrs = [
+            field.get('name', '').lower(),
+            field.get('id', '').lower(),
+            field.get('class', '').lower(),
+            field.get('placeholder', '').lower(),
+            field.get('input','').lower()
+        ]
+        if any(field_name in attr for attr in field_attrs):
+            return field
+
+    return None  # Return None if no field is found
+
+def detect_framework(content):
+    soup = BeautifulSoup(content, 'html.parser')
+
+    # Check for Bootstrap
+    if soup.find('link', {'href': re.compile(r'bootstrap')}):
+        return "Bootstrap"
+
+    # Check for Material-UI
+    if soup.find('link', {'href': re.compile(r'material-ui')}):
+        return "Material-UI"
+
+    # Check for React
+    if soup.find('script', {'src': re.compile(r'react')}):
+        return "React"
+
+    # Check for Angular
+    if soup.find('script', {'src': re.compile(r'angular')}):
+        return "Angular"
+
+    return "Unknown"
+
 def analyze_response_content(content):
     content = content.lower()
     vulnerabilities = []
 
-    if "sql syntax" in content or "sql error" in content or "mysql" in content:
-        vulnerabilities.append("SQL Injection (SQL error in response)")
+    # SQL Injection
+    sql_errors = [
+        r"sql syntax.*error",
+        r"warning: mysql",
+        r"unclosed quotation mark",
+        r"you have an error in your sql syntax",
+        r"ora-\d{5}",
+        r"postgresql.*error",
+        r"sql server.*error"
+    ]
+    for error in sql_errors:
+        if re.search(error, content):
+            vulnerabilities.append(f"SQL Injection (Detected: {error})")
 
-    if "<script>" in content or "alert(" in content:
-        vulnerabilities.append("XSS (Cross-Site Scripting)")
+    # XSS
+    xss_patterns = [
+        r"<script>",
+        r"alert\(",
+        r"onerror=",
+        r"onload=",
+        r"javascript:"
+    ]
+    for pattern in xss_patterns:
+        if re.search(pattern, content):
+            vulnerabilities.append(f"XSS (Detected: {pattern})")
 
+    # HTML Injection
     if "<html>" in content or "<body>" in content:
         vulnerabilities.append("HTML Injection")
 
-    if "error" in content or "exception" in content or "stack trace" in content:
-        vulnerabilities.append("Verbose Error Message (potential information leak)")
+    # error messages
+    error_messages = [
+        r"error",
+        r"exception",
+        r"stack trace",
+        r"warning"
+    ]
+    for message in error_messages:
+        if re.search(message, content):
+            vulnerabilities.append(f"Verbose Error Message (Detected: {message})")
 
     return vulnerabilities
+
 
 def analyze_response_headers(headers):
     vulnerabilities = []
 
-    # Missing Security Headers Warning
-    security_headers = [
-        "Content-Security-Policy",
-        "X-Frame-Options",
-        "X-XSS-Protection: 1",
-        "Strict-Transport-Security"
-    ]
-    for header in security_headers:
+    security_headers = {
+        "Content-Security-Policy": "Missing Content-Security-Policy header",
+        "X-Frame-Options": "Missing X-Frame-Options header",
+        "X-XSS-Protection": "Missing X-XSS-Protection header",
+        "Strict-Transport-Security": "Missing Strict-Transport-Security header",
+        "Referrer-Policy": "Missing Referrer-Policy header",
+        "Feature-Policy": "Missing Feature-Policy header",
+        "Expect-CT": "Missing Expect-CT header",
+        "X-Content-Type-Options": "Missing X-Content-Type-Options header",
+        "Cache-Control": "Insecure Cache-Control settings"
+    }
+
+    for header, message in security_headers.items():
         if header not in headers:
-            vulnerabilities.append(f"Missing Security Header: {header}")
+            vulnerabilities.append(message)
 
     if "Server" in headers:
         vulnerabilities.append(f"Server Information Leak: {headers['Server']}")
@@ -161,42 +237,104 @@ def analyze_response_headers(headers):
 
     return vulnerabilities
 
+
 def analyze_cookies(cookies):
     vulnerabilities = []
 
     for cookie in cookies:
-        if "Secure" not in cookie:
-            vulnerabilities.append(f"Insecure Cookie (Missing Secure Flag): {cookie}")
-        if "HttpOnly" not in cookie:
-            vulnerabilities.append(f"Insecure Cookie (Missing HttpOnly Flag): {cookie}")
-        if "SameSite" not in cookie:
-            vulnerabilities.append(f"Insecure Cookie (Missing SameSite Attribute): {cookie}")
+        # Check Secure flag
+        if not cookie.secure:
+            vulnerabilities.append(f"Insecure Cookie (Missing Secure Flag): {cookie.name}")
+
+        # Check HttpOnly flag
+        if not cookie._rest.get('HttpOnly', False):  # HttpOnly is stored in _rest dictionary
+            vulnerabilities.append(f"Insecure Cookie (Missing HttpOnly Flag): {cookie.name}")
+
+        # Check SameSite attribute
+        if not cookie._rest.get('SameSite', False):  # SameSite is stored in _rest dictionary
+            vulnerabilities.append(f"Insecure Cookie (Missing SameSite Attribute): {cookie.name}")
 
     return vulnerabilities
 
-def analyze_response(response):
-
+def analyze_response(response, payload_category, payload):
     vulnerabilities = []
 
-    # response content
     content_vulns = analyze_response_content(response.text)
     vulnerabilities.extend(content_vulns)
 
-    # response headers
     header_vulns = analyze_response_headers(response.headers)
     vulnerabilities.extend(header_vulns)
 
-    # cookies
     cookie_vulns = analyze_cookies(response.cookies)
     vulnerabilities.extend(cookie_vulns)
 
+    if payload_category == "SQL" and is_sql_injection_successful(response.text, payload):
+        console.print("[bold red]💀 SQL INJECTED 💀[/bold red]")
+    elif payload_category == "HTML" and is_xss_successful(response.text, payload):
+        console.print("[bold red]💀 XSS INJECTED 💀[/bold red]")
+    elif payload_category == "Java" and is_java_injection_successful(response.text, payload):
+        console.print("[bold red]💀 JAVA INJECTED 💀[/bold red]")
+
     return vulnerabilities
 
-def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, verbose=False, secs=0):
-    global skip_flag  # Deklaracja globalnej flagi
-    results = []  # Store results in a list
+def get_dynamic_form_content(url):
+    """Gets the content of a dynamically generated form using Selenium."""
+    driver = webdriver.Chrome()  # Make sure you have ChromeDriver installed
+    driver.get(url)
 
-    # Create a table with text wrapping enabled
+    # Wait for the form to load (you can adjust the timeout)
+    driver.implicitly_wait(10)
+
+    # Get the form content
+    form = driver.find_element(By.TAG_NAME, 'form')
+    form_content = form.get_attribute('innerHTML')
+
+    driver.quit()
+    return form_content
+
+
+
+def is_xss_successful(content, payload):
+
+    if payload.lower() in content.lower():
+        return True
+    return False
+
+
+def is_sql_injection_successful(content, payload):
+
+    sql_errors = [
+        r"sql syntax.*error",
+        r"warning: mysql",
+        r"unclosed quotation mark",
+        r"you have an error in your sql syntax",
+        r"ora-\d{5}",
+        r"postgresql.*error",
+        r"sql server.*error"
+    ]
+    for error in sql_errors:
+        if re.search(error, content, re.IGNORECASE) and payload.lower() in content.lower():
+            return True
+    return False
+
+
+def is_java_injection_successful(content, payload):
+    java_errors = [
+        r"java\.lang\..*Exception",
+        r"NullPointerException",
+        r"ClassNotFoundException",
+        r"java\.io\..*Exception"
+    ]
+    for error in java_errors:
+        if re.search(error, content, re.IGNORECASE) and payload.lower() in content.lower():
+            return True
+    return False
+
+
+def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, verbose=False, secs=0):
+    global skip_flag
+    results = []
+
     table = Table(title=f"Input Field Test Results (User-Agent: {user_agent})")
     table.add_column("Payload", style="cyan", no_wrap=False)  # Enable text wrapping
     table.add_column("Response Code", justify="right", style="magenta")
@@ -234,7 +372,8 @@ def test_input_field(url, payloads, threat_type, cookies, user_agent, input_fiel
 
                 response = requests.post(url, data=data, cookies=cookies, headers=headers)
 
-                vulnerabilities = analyze_response(response)
+                # Pass the payload category and payload to analyze_response
+                vulnerabilities = analyze_response(response, payload['category'], payload['inputField'])
 
                 results.append({
                     "payload": payload['inputField'],
@@ -270,6 +409,9 @@ def test_input_field(url, payloads, threat_type, cookies, user_agent, input_fiel
         json.dump(results, f, indent=4)
 
     console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
+
+
+
 
 def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, verbose=False,seconds=0):
     global skip_flag  # Deklaracja globalnej flagi
@@ -357,6 +499,19 @@ def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, ve
 
     console.print(f"[bold green]Login test results saved to 'login_test_results.json'[/bold green]")
 
+def save_full_response(response, payload, field_name):
+    filename = f"response_{field_name}_{payload.replace('/', '_')}.txt"
+    with open(filename, 'w') as f:
+        f.write(f"Payload: {payload}\n")
+        f.write(f"Status Code: {response.status_code}\n")
+        f.write("Headers:\n")
+        for header, value in response.headers.items():
+            f.write(f"{header}: {value}\n")
+        f.write("\nContent:\n")
+        f.write(response.text)
+    console.print(f"[bold green]Full response saved to '{filename}'[/bold green]")
+
+
 def main():
     console.clear()
     show_banner()
@@ -401,32 +556,46 @@ def main():
         "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
     ]
 
+    # Try to fetch page content with different user agents
     page_content = None
     for user_agent in user_agents:
         page_content = get_page_content(args.url, user_agent)
         if page_content:
-            break
+            break  # Exit the loop if content is successfully fetched
+
+    if not page_content:
+        # If failed, try with Selenium for dynamic content
+        console.print("[bold yellow]Trying to fetch dynamic content with Selenium...[/bold yellow]")
+        page_content = get_dynamic_form_content(args.url)
 
     if not page_content:
         console.print("[bold red]Failed to fetch page content.[/bold red]")
         sys.exit()
 
-    # Finding ALL input fields (needs adjustments but works)
+    # framework detection
+    framework = detect_framework(page_content)
+    console.print(f"[bold green]Detected framework: {framework}[/bold green]")
+
+    # Finding ALL input fields
     input_fields = get_string_input_fields(page_content)
     console.print(f"[bold green]{len(input_fields)} String input fields found[/bold green]")
 
-    # Everyday I'm shuffling
+    # Shuffle user agents
     random.shuffle(user_agents)
 
     for user_agent in user_agents:
         console.print(f"[bold green]Testing with User-Agent: {user_agent}[/bold green]")
+
+    # Filter fields by name if provided
     filtered_fields = input_fields
     if args.fieldname:
-        filtered_fields = [field for field in input_fields if field.get('name') == args.fieldname]
-        if not filtered_fields:
-            console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
-        else:
+        field = find_field_by_name(input_fields, args.fieldname)
+        if field:
+            filtered_fields = [field]
             console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
+        else:
+            console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
+            sys.exit(1)
 
     for input_field in filtered_fields:
         console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
