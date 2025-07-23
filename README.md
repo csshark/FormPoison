@@ -5,7 +5,7 @@ It automates testing common missconfigurations in sanitization in input fields.<
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
 cd FormPoison
-pip install -r requirements. txt </code></pre>
+pip install -r requirements.txt </code></pre>
 
 ## Quick start 
 
