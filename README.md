@@ -3,11 +3,9 @@ Form Input Fuzzing Framework made with Python based on my experience with data v
 It automates testing common missconfigurations in sanitization in input fields.<p> There is also payload list (my own + AI generated and these frequently used by bounty hunters). 
 
 ## Installation:
-Clone repo:
-<pre><code>git clone https://github.com/csshark/FormPoison.git</code></pre>
-Try to run:
-<pre><code>python3 formpoison.py [url]</code></pre>
-Install missing libraries and you are ready to go!
+<pre><code>git clone https://github.com/csshark/FormPoison.git
+cd FormPoison
+pip install -r requirements. txt </code></pre>
 
 ## Quick start 
 
