@@ -17,7 +17,7 @@ from selenium.webdriver.common.by import By
 skip_flag = False
 
 def monitor_skip():
-    global skip_flag  # Deklaracja globalnej flagi
+    global skip_flag
     while True:
         user_input = input("Type 'skip' to move to the next field: ")
         if user_input.strip().lower() == "skip":
@@ -137,8 +137,8 @@ def find_field_by_name(input_fields, field_name):
         if any(field_name in attr for attr in field_attrs):
             return field
 
-    return None  # Return None if no field is found
-
+    return None  
+#more frameworks needed, hoping for Java Devs to contribute
 def detect_framework(content):
     soup = BeautifulSoup(content, 'html.parser')
 
@@ -157,7 +157,10 @@ def detect_framework(content):
     # Check for Angular
     if soup.find('script', {'src': re.compile(r'angular')}):
         return "Angular"
-
+        
+    #if soup.find('another framework', {'src': re.compile(r'framework')}):
+        #return "Framework"
+    
     return "Unknown"
 
 def analyze_response_content(content):
@@ -267,7 +270,7 @@ def analyze_response(response, payload_category, payload):
 
     cookie_vulns = analyze_cookies(response.cookies)
     vulnerabilities.extend(cookie_vulns)
-
+#NOTE: this might not work with 100% accuracy, response analysis is not good enough to provide that XSS is definitely executable
     if payload_category == "SQL" and is_sql_injection_successful(response.text, payload):
         console.print("[bold red]💀 SQL INJECTED 💀[/bold red]")
     elif payload_category == "HTML" and is_xss_successful(response.text, payload):
@@ -279,13 +282,11 @@ def analyze_response(response, payload_category, payload):
 
 def get_dynamic_form_content(url):
     """Gets the content of a dynamically generated form using Selenium."""
-    driver = webdriver.Chrome()  # Make sure you have ChromeDriver installed
+    driver = webdriver.Chrome()  #ensure you have ChromeDriver installed
     driver.get(url)
 
-    # Wait for the form to load (you can adjust the timeout)
     driver.implicitly_wait(10)
 
-    # Get the form content
     form = driver.find_element(By.TAG_NAME, 'form')
     form_content = form.get_attribute('innerHTML')
 
@@ -317,7 +318,7 @@ def is_sql_injection_successful(content, payload):
             return True
     return False
 
-
+# for java you can modify code to detect more common errors 
 def is_java_injection_successful(content, payload):
     java_errors = [
         r"java\.lang\..*Exception",
@@ -372,7 +373,7 @@ def test_input_field(url, payloads, threat_type, cookies, user_agent, input_fiel
 
                 response = requests.post(url, data=data, cookies=cookies, headers=headers)
 
-                # Pass the payload category and payload to analyze_response
+              
                 vulnerabilities = analyze_response(response, payload['category'], payload['inputField'])
 
                 results.append({
@@ -493,7 +494,7 @@ def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, ve
 
     console.print(table)
 
-    # save results to a JSON file if selected
+    # save results to a JSON file for better analysis
     with open("login_test_results.json", "w") as f:
         json.dump(results, f, indent=4)
 
@@ -556,15 +557,15 @@ def main():
         "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
     ]
 
-    # Try to fetch page content with different user agents
+
     page_content = None
     for user_agent in user_agents:
         page_content = get_page_content(args.url, user_agent)
         if page_content:
-            break  # Exit the loop if content is successfully fetched
+            break  
 
     if not page_content:
-        # If failed, try with Selenium for dynamic content
+        # if failed, try with Selenium for dynamic content
         console.print("[bold yellow]Trying to fetch dynamic content with Selenium...[/bold yellow]")
         page_content = get_dynamic_form_content(args.url)
 
