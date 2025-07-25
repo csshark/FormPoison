@@ -9,11 +9,26 @@ pip install -r requirements.txt </code></pre>
 
 ## Quick start 
 
-Type <code>python3 formposion.py -h</code> for possible usage. Using this tool is very easy so I gave up on flags table this time.
+Type <code>python3 formposion.py -h</code> for possible usage. Flags and examples of usage: 
 
 ![running inject scans](scan.png)
 
 *Tip: use some payloads manually even if they are not being executed directly on the page, they could work if they are being sent to database and displayed on different endpoints (stored XSS).* 
+
+### Possible flags: 
+
+| flag    | function |
+| -------- | ------- |
+| -h --help  | display help message |
+| -t --threat | select threat type, possible values: HTML, Java, SQL |
+| -p --payloads | select path to your custom payloads file if necessary |
+| --cookies | specify user cookie ex. for testing endpoints that require authorization |
+| -v --verbose | enable verbose mode, highly recommended for debugging | 
+| --login | enter login+password mode only testing |
+| -s --seconds | delay between requests to aviod blacklisting | 
+
+basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code> <br>
+example advanced usage: <pre><code>python3 formpoison.py --cookie "JSESSIONID=9875643544376543211D32" https://www.hackthissite.org/user/login --login -t HTML -s 2</code></pre>
 
 ### payload sources:
 - **payloadbox**: https://github.com/payloadbox/sql-injection-payload-list
@@ -23,7 +38,7 @@ Type <code>python3 formposion.py -h</code> for possible usage. Using this tool i
 ### Expanding payload list:
 To make payloads.json more powerfull use *converter.py* to categorize and write payloads in .json format. Create *input.txt* file and store all additional payloads to convert. Remember to convert same type payloads at once, you are hardcoding category.
 Example *input.txt* file format:
-<pre><code>script>alert('XSS')</script>
+<pre><code><script>alert('XSS')</script>
   \<samp>XSS\</samp>
   <a href=javascript:alert('XSS')>Click\</a>
     ...and so goes on
