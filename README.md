@@ -16,7 +16,8 @@ Type <code>python3 formposion.py -h</code> for possible usage. Flags and example
 *Tip: use some payloads manually even if they are not being executed directly on the page, they could work if they are being sent to database and displayed on different endpoints (stored XSS).* 
 
 ### Possible flags: 
-
+<div align ="center">
+  
 | flag    | function |
 | -------- | ------- |
 | -h --help  | display help message |
@@ -27,6 +28,7 @@ Type <code>python3 formposion.py -h</code> for possible usage. Flags and example
 | --login | enter login+password mode only testing |
 | -s --seconds | delay between requests to aviod blacklisting | 
 
+</div>
 basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code> <br>
 example advanced usage: <pre><code>python3 formpoison.py --cookie "JSESSIONID=9875643544376543211D32" https://www.hackthissite.org/user/login --login -t HTML -s 2</code></pre>
 
