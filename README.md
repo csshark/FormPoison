@@ -26,6 +26,8 @@ Type <code>python3 formposion.py -h</code> for possible usage. Flags and example
 | --cookies | specify user cookie ex. for testing endpoints that require authorization |
 | -v --verbose | enable verbose mode, highly recommended for debugging | 
 | --login | enter login+password mode only testing |
+| --proxy | specify proxy for authentication | 
+| --method | select request method (GET, POST, PUT, DELETE) |
 | -s --seconds | delay between requests to aviod blacklisting | 
 
 </div>
