@@ -59,10 +59,10 @@ Example *input.txt* file format:
 ## New functions: 
 <ul>
   <li>Verifying response headers precisely</li>
-  <li>Ensuring payload was executed (it <b>doesn't</b> mean there is vulnerability, there are still false-positives)</li>
-  <li>Specify field to test (rely on fieldname from DevTools)</li>
-  <li>Cookie analysis</li>
-  <li>Common web frameworks detection</li>
+  <li>Filtering payloads easy way</li>
+  <li>Proxy and SSL certificate support</li>
+  <li>Multithreading to speed up injecting attemps</li>
+  <li>Requests method choice</li>
 </ul>
 
 InjOy! 💉
