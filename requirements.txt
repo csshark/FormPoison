@@ -1,5 +1,6 @@
-requests
-rich
-beautifulsoup4
-lxml
-selenium
+aiohttp>=3.8.1
+asyncio>=3.4.3
+rich>=12.4.4
+beautifulsoup4>=4.11.1
+selenium>=4.4.3
+urllib3>=1.26.12
