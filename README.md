@@ -7,6 +7,8 @@ It automates testing common missconfigurations in sanitization in input fields.<
 cd FormPoison
 pip install -r requirements.txt </code></pre>
 
+<sup><sub>ensure you have <b>webdriver-manager</b> installed, to use selenium with Chrome</sub></sup>
+
 ## Quick start 
 
 Type <code>python3 formposion.py -h</code> for possible usage. Flags and examples of usage: 
