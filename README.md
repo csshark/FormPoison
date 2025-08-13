@@ -15,20 +15,26 @@ Type <code>python3 formposion.py -h</code> for possible usage. Flags and example
 
 *Tip: use some payloads manually even if they are not being executed directly on the page, they could work if they are being sent to database and displayed on different endpoints (stored XSS).* 
 
-### Possible flags: 
+### Possible optional flags: 
 <div align ="center">
   
-| flag    | function |
-| -------- | ------- |
-| -h --help  | display help message |
-| -t --threat | select threat type, possible values: HTML, Java, SQL |
-| -p --payloads | select path to your custom payloads file if necessary |
-| --cookies | specify user cookie ex. for testing endpoints that require authorization |
-| -v --verbose | enable verbose mode, highly recommended for debugging | 
-| --login | enter login+password mode only testing |
-| --proxy | specify proxy for authentication | 
-| --method | select request method (GET, POST, PUT, DELETE) |
-| -s --seconds | delay between requests to aviod blacklisting | 
+| flag    | function | type & value(s) | 
+| -------- | ------- | ------- | 
+| -h --help  | display help message | None |
+| -t --threat | select threat type | String: Java, SQL, HTML | 
+| --filter | filter payloads by user-defined pattern | String, example: 'xss, script, DROP' |
+| --fieldname | specify a fieldname to target directly | String, example: Second Name | 
+| -p --payloads | select path to your custom payloads file if necessary | String: /home/user/payloads-folder/payloads.json |
+| --cookies | specify user cookie ex. for testing endpoints that require authorization | String, example: 'key1=value1; key2=value2' |
+| -v --verbose | enable verbose mode, highly recommended for debugging | None | 
+| --verbose-all | advanced output with response body | None |
+| --login | enter login+password mode only testing | None |
+| --ssl-cert | use ssl certificate file | String: /home/user/certs/cert.pem | 
+| --ssl-key | use ssl private key | String: /home/user/certs/key.pem |
+| --ssl-verify | verify ssl certificate | bool: True/False |
+| --proxy | specify proxy for authentication | String, example: http://login:password@proxy.com:8080/ | 
+| --method | select request method | String: GET, POST, PUT, DELETE |  
+| -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
 
 </div>
 basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code> <br>
