@@ -174,7 +174,7 @@ def get_page_content_with_selenium(url):
     driver.quit()
     return content
 
-async def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0):
+async def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter, secs=0):
     global skip_flag
     results = []
     positive_responses = 0
