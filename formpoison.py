@@ -86,7 +86,7 @@ def show_banner():
         "POST /api/endpoint 1.1. HTTP",
         "password",
         "MySQL: error.",
-        "[ XSS! ]", 
+        "[ XSS! ]",
         "Response: 200 OK"
     ]
 
@@ -147,7 +147,7 @@ def filter_payloads(payloads, filter_patterns):
         for pattern in filter_patterns:
             if pattern.lower() in payload['inputField'].lower():
                 filtered_payloads.append(payload)
-                break 
+                break
 
     return filtered_payloads
 
@@ -166,15 +166,15 @@ async def get_page_content(url, user_agent, proxies=None, ssl_cert=None, ssl_key
 
 def get_page_content_with_selenium(url):
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless')  
+    options.add_argument('--headless')
     driver = webdriver.Chrome(options=options)
     driver.get(url)
-    time.sleep(3)  
+    time.sleep(3)
     content = driver.page_source
     driver.quit()
     return content
 
-async def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter, secs=0):
+async def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0):
     global skip_flag
     results = []
     positive_responses = 0
@@ -296,7 +296,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agent, input_fiel
         id_ = field.get('id', '').lower()
         placeholder = field.get('placeholder', '').lower()
 
-        login_keywords = ['login', 'username', 'user', 'email', 'e-mail', 'mail', 'userid', 'user_id', 'loginname', 'account', 'mat-input-1'] 
+        login_keywords = ['login', 'username', 'user', 'email', 'e-mail', 'mail', 'userid', 'user_id', 'loginname', 'account', 'mat-input-1']
         if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in login_keywords):
             login_field = field
             console.print(f"[bold green]Found login field: id={id_}[/bold green]")  # Debug
@@ -443,7 +443,7 @@ def analyze_response_content(content):
         vulnerabilities.append("HTML Injection")
 
     return vulnerabilities
-    
+
 def analyze_response_headers(headers):
     vulnerabilities = []
     security_headers = {
@@ -500,7 +500,7 @@ def is_sql_injection_successful(content, payload):
             return True
     return False
 
-async def test_all_forms(url, payloads, threat_type, cookies, user_agent, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, secs=0):
+async def test_all_forms(url, payloads, threat_type, cookies, user_agent, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, secs=0):
     forms_with_inputs = get_forms_and_inputs(await get_page_content(url, user_agent, proxies, ssl_cert, ssl_key, ssl_verify))
     for form, inputs in forms_with_inputs:
         console.print(f"[bold cyan]Testing form with {len(inputs)} inputs[/bold cyan]")
