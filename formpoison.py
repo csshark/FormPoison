@@ -32,26 +32,33 @@ signal.signal(signal.SIGINT, handle_sigint)
 #########################DETECTIONS###################
 def detect_framework(headers, content):
     framework_detected = None
+    version = None
 
     # by headers
     if 'X-Powered-By' in headers:
         x_powered_by = headers['X-Powered-By'].lower()
         if 'express' in x_powered_by:
             framework_detected = 'Express.js'
+            version = x_powered_by.split('express/')[-1].split()[0] if 'express/' in x_powered_by else None
         elif 'laravel' in x_powered_by:
             framework_detected = 'Laravel'
+            version = x_powered_by.split('laravel/')[-1].split()[0] if 'laravel/' in x_powered_by else None
         elif 'django' in x_powered_by:
             framework_detected = 'Django'
+            version = x_powered_by.split('django/')[-1].split()[0] if 'django/' in x_powered_by else None
         elif 'flask' in x_powered_by:
             framework_detected = 'Flask'
+            version = x_powered_by.split('flask/')[-1].split()[0] if 'flask/' in x_powered_by else None
         elif 'asp.net' in x_powered_by:
             framework_detected = 'ASP.NET'
+            version = x_powered_by.split('asp.net/')[-1].split()[0] if 'asp.net/' in x_powered_by else None
 
     # by html code
     if not framework_detected:
         content_lower = content.lower()
         if '<!-- django version' in content_lower:
             framework_detected = 'Django'
+            version = content_lower.split('<!-- django version ')[1].split('-->')[0].strip()
         elif '<div id="root"></div>' in content_lower:
             framework_detected = 'React'
         elif '<app-root></app-root>' in content_lower:
@@ -60,10 +67,13 @@ def detect_framework(headers, content):
             framework_detected = 'Vue.js'
         elif '<!-- laravel' in content_lower:
             framework_detected = 'Laravel'
+            version = content_lower.split('<!-- laravel ')[1].split('-->')[0].strip()
         elif '<!-- symfony' in content_lower:
             framework_detected = 'Symfony'
+            version = content_lower.split('<!-- symfony ')[1].split('-->')[0].strip()
         elif '<!-- ruby on rails' in content_lower:
             framework_detected = 'Ruby on Rails'
+            version = content_lower.split('<!-- ruby on rails ')[1].split('-->')[0].strip()
 
     # by different endpoints
     if not framework_detected:
@@ -74,34 +84,45 @@ def detect_framework(headers, content):
         elif '/api/' in content_lower:
             framework_detected = 'Laravel'
 
-    return framework_detected
+    return framework_detected, version
 
 def detect_cms(content):
     cms_detected = None
+    version = None
 
     content_lower = content.lower()
 
     # WordPress
     if '/wp-content/' in content_lower or '/wp-admin/' in content_lower:
         cms_detected = 'WordPress'
+        if '<!-- wordpress version' in content_lower:
+            version = content_lower.split('<!-- wordpress version ')[1].split('-->')[0].strip()
 
     # Joomla
     elif '/media/jui/' in content_lower or '/administrator/' in content_lower:
         cms_detected = 'Joomla'
+        if '<!-- joomla version' in content_lower:
+            version = content_lower.split('<!-- joomla version ')[1].split('-->')[0].strip()
 
     # Drupal
     elif '/sites/default/' in content_lower or '/core/assets/' in content_lower:
         cms_detected = 'Drupal'
+        if '<!-- drupal version' in content_lower:
+            version = content_lower.split('<!-- drupal version ')[1].split('-->')[0].strip()
 
     # Magento
     elif '/skin/frontend/' in content_lower or '/media/css/' in content_lower:
         cms_detected = 'Magento'
+        if '<!-- magento version' in content_lower:
+            version = content_lower.split('<!-- magento version ')[1].split('-->')[0].strip()
 
     # Shopify
     elif 'shopify' in content_lower or 'cdn.shopify.com' in content_lower:
         cms_detected = 'Shopify'
+        if '<!-- shopify version' in content_lower:
+            version = content_lower.split('<!-- shopify version ')[1].split('-->')[0].strip()
 
-    return cms_detected
+    return cms_detected, version
 
 def detect_libraries(content):
     libraries_detected = []
@@ -110,75 +131,113 @@ def detect_libraries(content):
 
     # Bootstrap
     if 'bootstrap.min.css' in content_lower or 'bootstrap.min.js' in content_lower:
-        libraries_detected.append('Bootstrap')
+        version = None
+        if 'bootstrap.min.css' in content_lower:
+            version = content_lower.split('bootstrap.min.css?v=')[1].split('"')[0] if 'bootstrap.min.css?v=' in content_lower else None
+        libraries_detected.append(('Bootstrap', version))
     elif 'container' in content_lower and 'row' in content_lower and 'col-md-' in content_lower:
-        libraries_detected.append('Bootstrap')
+        libraries_detected.append(('Bootstrap', None))
 
     # Tailwind CSS
     if 'tailwind.min.css' in content_lower or 'bg-blue-' in content_lower or 'text-center' in content_lower:
-        libraries_detected.append('Tailwind CSS')
+        version = None
+        if 'tailwind.min.css' in content_lower:
+            version = content_lower.split('tailwind.min.css?v=')[1].split('"')[0] if 'tailwind.min.css?v=' in content_lower else None
+        libraries_detected.append(('Tailwind CSS', version))
 
     # jQuery
     if 'jquery.min.js' in content_lower or 'jquery.js' in content_lower or 'jquery(' in content_lower:
-        libraries_detected.append('jQuery')
+        version = None
+        if 'jquery.min.js' in content_lower:
+            version = content_lower.split('jquery.min.js?v=')[1].split('"')[0] if 'jquery.min.js?v=' in content_lower else None
+        libraries_detected.append(('jQuery', version))
 
     # Lodash
     if 'lodash.min.js' in content_lower or '_.' in content_lower:
-        libraries_detected.append('Lodash')
+        version = None
+        if 'lodash.min.js' in content_lower:
+            version = content_lower.split('lodash.min.js?v=')[1].split('"')[0] if 'lodash.min.js?v=' in content_lower else None
+        libraries_detected.append(('Lodash', version))
 
     # Materialize
     if 'materialize.min.css' in content_lower or 'materialize.min.js' in content_lower:
-        libraries_detected.append('Materialize')
+        version = None
+        if 'materialize.min.css' in content_lower:
+            version = content_lower.split('materialize.min.css?v=')[1].split('"')[0] if 'materialize.min.css?v=' in content_lower else None
+        libraries_detected.append(('Materialize', version))
 
     # Foundation
     if 'foundation.min.css' in content_lower or 'foundation.min.js' in content_lower:
-        libraries_detected.append('Foundation')
+        version = None
+        if 'foundation.min.css' in content_lower:
+            version = content_lower.split('foundation.min.css?v=')[1].split('"')[0] if 'foundation.min.css?v=' in content_lower else None
+        libraries_detected.append(('Foundation', version))
 
     # Bulma
     if 'bulma.min.css' in content_lower or 'bulma.css' in content_lower:
-        libraries_detected.append('Bulma')
+        version = None
+        if 'bulma.min.css' in content_lower:
+            version = content_lower.split('bulma.min.css?v=')[1].split('"')[0] if 'bulma.min.css?v=' in content_lower else None
+        libraries_detected.append(('Bulma', version))
 
     # Semantic UI
     if 'semantic.min.css' in content_lower or 'semantic.min.js' in content_lower:
-        libraries_detected.append('Semantic UI')
+        version = None
+        if 'semantic.min.css' in content_lower:
+            version = content_lower.split('semantic.min.css?v=')[1].split('"')[0] if 'semantic.min.css?v=' in content_lower else None
+        libraries_detected.append(('Semantic UI', version))
 
     # Moment.js
     if 'moment.min.js' in content_lower or 'moment.js' in content_lower:
-        libraries_detected.append('Moment.js')
+        version = None
+        if 'moment.min.js' in content_lower:
+            version = content_lower.split('moment.min.js?v=')[1].split('"')[0] if 'moment.min.js?v=' in content_lower else None
+        libraries_detected.append(('Moment.js', version))
 
     # Chart.js
     if 'chart.min.js' in content_lower or 'chart.js' in content_lower:
-        libraries_detected.append('Chart.js')
+        version = None
+        if 'chart.min.js' in content_lower:
+            version = content_lower.split('chart.min.js?v=')[1].split('"')[0] if 'chart.min.js?v=' in content_lower else None
+        libraries_detected.append(('Chart.js', version))
 
     return libraries_detected
     
 def detect_server_technology(headers):
     server_tech = None
+    version = None
 
     if 'Server' in headers:
         server = headers['Server'].lower()
         if 'apache' in server:
             server_tech = 'Apache'
+            version = server.split('apache/')[-1].split()[0] if 'apache/' in server else None
         elif 'nginx' in server:
             server_tech = 'Nginx'
+            version = server.split('nginx/')[-1].split()[0] if 'nginx/' in server else None
         elif 'iis' in server:
             server_tech = 'IIS'
+            version = server.split('iis/')[-1].split()[0] if 'iis/' in server else None
 
-    return server_tech
+    return server_tech, version
 
 def detect_cdn(headers):
     cdn_detected = None
+    version = None
 
     if 'Server' in headers:
         server = headers['Server'].lower()
         if 'cloudflare' in server:
             cdn_detected = 'Cloudflare'
+            version = server.split('cloudflare/')[-1].split()[0] if 'cloudflare/' in server else None
         elif 'akamai' in server:
             cdn_detected = 'Akamai'
+            version = server.split('akamai/')[-1].split()[0] if 'akamai/' in server else None
         elif 'aws' in server:
             cdn_detected = 'AWS CloudFront'
+            version = server.split('aws/')[-1].split()[0] if 'aws/' in server else None
 
-    return cdn_detected
+    return cdn_detected, version
 
 def detect_ssl(url):
     import ssl
@@ -210,29 +269,47 @@ async def scan_website(url, headers, content):
     results = []
 
     # detect framework
-    framework_detected = detect_framework(headers, content)
+    framework_detected, framework_version = detect_framework(headers, content)
     if framework_detected:
-        results.append(("Framework", framework_detected))
+        if framework_version:
+            results.append(("Framework", f"{framework_detected} (v{framework_version})"))
+        else:
+            results.append(("Framework", framework_detected))
 
-    # detect CSS/JS
+    # detect CSS/JS libraries
     libraries_detected = detect_libraries(content)
     if libraries_detected:
-        results.append(("Libraries", ", ".join(libraries_detected)))
+        libraries_info = []
+        for lib, version in libraries_detected:
+            if version:
+                libraries_info.append(f"{lib} (v{version})")
+            else:
+                libraries_info.append(lib)
+        results.append(("Libraries", ", ".join(libraries_info)))
 
     # detect CMS
-    cms_detected = detect_cms(content)
+    cms_detected, cms_version = detect_cms(content)
     if cms_detected:
-        results.append(("CMS", cms_detected))
+        if cms_version:
+            results.append(("CMS", f"{cms_detected} (v{cms_version})"))
+        else:
+            results.append(("CMS", cms_detected))
 
-    # detect server
-    server_tech = detect_server_technology(headers)
+    # detect server technology
+    server_tech, server_version = detect_server_technology(headers)
     if server_tech:
-        results.append(("Server Technology", server_tech))
+        if server_version:
+            results.append(("Server Technology", f"{server_tech} (v{server_version})"))
+        else:
+            results.append(("Server Technology", server_tech))
 
-    # CDN
-    cdn_detected = detect_cdn(headers)
+    # detect CDN
+    cdn_detected, cdn_version = detect_cdn(headers)
     if cdn_detected:
-        results.append(("CDN", cdn_detected))
+        if cdn_version:
+            results.append(("CDN", f"{cdn_detected} (v{cdn_version})"))
+        else:
+            results.append(("CDN", cdn_detected))
 
     # SSL/TLS
     ssl_info = detect_ssl(url)
