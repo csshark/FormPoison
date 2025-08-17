@@ -29,7 +29,240 @@ def handle_sigint(signum, frame):
 
 signal.signal(signal.SIGINT, handle_sigint)
 
+#########################DETECTIONS###################
+def detect_framework(headers, content):
+    framework_detected = None
+
+    # by headers
+    if 'X-Powered-By' in headers:
+        x_powered_by = headers['X-Powered-By'].lower()
+        if 'express' in x_powered_by:
+            framework_detected = 'Express.js'
+        elif 'laravel' in x_powered_by:
+            framework_detected = 'Laravel'
+        elif 'django' in x_powered_by:
+            framework_detected = 'Django'
+        elif 'flask' in x_powered_by:
+            framework_detected = 'Flask'
+        elif 'asp.net' in x_powered_by:
+            framework_detected = 'ASP.NET'
+
+    # by html code
+    if not framework_detected:
+        content_lower = content.lower()
+        if '<!-- django version' in content_lower:
+            framework_detected = 'Django'
+        elif '<div id="root"></div>' in content_lower:
+            framework_detected = 'React'
+        elif '<app-root></app-root>' in content_lower:
+            framework_detected = 'Angular'
+        elif '<div id="app"></div>' in content_lower:
+            framework_detected = 'Vue.js'
+        elif '<!-- laravel' in content_lower:
+            framework_detected = 'Laravel'
+        elif '<!-- symfony' in content_lower:
+            framework_detected = 'Symfony'
+        elif '<!-- ruby on rails' in content_lower:
+            framework_detected = 'Ruby on Rails'
+
+    # by different endpoints
+    if not framework_detected:
+        if '/static/' in content_lower:
+            framework_detected = 'Django'
+        elif '/public/' in content_lower:
+            framework_detected = 'Express.js'
+        elif '/api/' in content_lower:
+            framework_detected = 'Laravel'
+
+    return framework_detected
+
+def detect_cms(content):
+    cms_detected = None
+
+    content_lower = content.lower()
+
+    # WordPress
+    if '/wp-content/' in content_lower or '/wp-admin/' in content_lower:
+        cms_detected = 'WordPress'
+
+    # Joomla
+    elif '/media/jui/' in content_lower or '/administrator/' in content_lower:
+        cms_detected = 'Joomla'
+
+    # Drupal
+    elif '/sites/default/' in content_lower or '/core/assets/' in content_lower:
+        cms_detected = 'Drupal'
+
+    # Magento
+    elif '/skin/frontend/' in content_lower or '/media/css/' in content_lower:
+        cms_detected = 'Magento'
+
+    # Shopify
+    elif 'shopify' in content_lower or 'cdn.shopify.com' in content_lower:
+        cms_detected = 'Shopify'
+
+    return cms_detected
+
+def detect_libraries(content):
+    libraries_detected = []
+
+    content_lower = content.lower()
+
+    # Bootstrap
+    if 'bootstrap.min.css' in content_lower or 'bootstrap.min.js' in content_lower:
+        libraries_detected.append('Bootstrap')
+    elif 'container' in content_lower and 'row' in content_lower and 'col-md-' in content_lower:
+        libraries_detected.append('Bootstrap')
+
+    # Tailwind CSS
+    if 'tailwind.min.css' in content_lower or 'bg-blue-' in content_lower or 'text-center' in content_lower:
+        libraries_detected.append('Tailwind CSS')
+
+    # jQuery
+    if 'jquery.min.js' in content_lower or 'jquery.js' in content_lower or 'jquery(' in content_lower:
+        libraries_detected.append('jQuery')
+
+    # Lodash
+    if 'lodash.min.js' in content_lower or '_.' in content_lower:
+        libraries_detected.append('Lodash')
+
+    # Materialize
+    if 'materialize.min.css' in content_lower or 'materialize.min.js' in content_lower:
+        libraries_detected.append('Materialize')
+
+    # Foundation
+    if 'foundation.min.css' in content_lower or 'foundation.min.js' in content_lower:
+        libraries_detected.append('Foundation')
+
+    # Bulma
+    if 'bulma.min.css' in content_lower or 'bulma.css' in content_lower:
+        libraries_detected.append('Bulma')
+
+    # Semantic UI
+    if 'semantic.min.css' in content_lower or 'semantic.min.js' in content_lower:
+        libraries_detected.append('Semantic UI')
+
+    # Moment.js
+    if 'moment.min.js' in content_lower or 'moment.js' in content_lower:
+        libraries_detected.append('Moment.js')
+
+    # Chart.js
+    if 'chart.min.js' in content_lower or 'chart.js' in content_lower:
+        libraries_detected.append('Chart.js')
+
+    return libraries_detected
+    
+def detect_server_technology(headers):
+    server_tech = None
+
+    if 'Server' in headers:
+        server = headers['Server'].lower()
+        if 'apache' in server:
+            server_tech = 'Apache'
+        elif 'nginx' in server:
+            server_tech = 'Nginx'
+        elif 'iis' in server:
+            server_tech = 'IIS'
+
+    return server_tech
+
+def detect_cdn(headers):
+    cdn_detected = None
+
+    if 'Server' in headers:
+        server = headers['Server'].lower()
+        if 'cloudflare' in server:
+            cdn_detected = 'Cloudflare'
+        elif 'akamai' in server:
+            cdn_detected = 'Akamai'
+        elif 'aws' in server:
+            cdn_detected = 'AWS CloudFront'
+
+    return cdn_detected
+
+def detect_ssl(url):
+    import ssl
+    import socket
+    from datetime import datetime
+
+    try:
+        hostname = url.split('//')[1].split('/')[0]
+        context = ssl.create_default_context()
+        with socket.create_connection((hostname, 443)) as sock:
+            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                cert = ssock.getpeercert()
+
+        # valid until
+        expire_date = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
+        issuer = dict(x[0] for x in cert['issuer'])['organizationName']
+
+        return f"Valid until {expire_date}, Issuer: {issuer}"
+    except Exception as e:
+        return f"SSL/TLS Error: {e}"
+###############################################################
+
+
 console = Console()
+
+
+##################SCANNING MODE##############################
+async def scan_website(url, headers, content):
+    results = []
+
+    # detect framework
+    framework_detected = detect_framework(headers, content)
+    if framework_detected:
+        results.append(("Framework", framework_detected))
+
+    # detect CSS/JS
+    libraries_detected = detect_libraries(content)
+    if libraries_detected:
+        results.append(("Libraries", ", ".join(libraries_detected)))
+
+    # detect CMS
+    cms_detected = detect_cms(content)
+    if cms_detected:
+        results.append(("CMS", cms_detected))
+
+    # detect server
+    server_tech = detect_server_technology(headers)
+    if server_tech:
+        results.append(("Server Technology", server_tech))
+
+    # CDN
+    cdn_detected = detect_cdn(headers)
+    if cdn_detected:
+        results.append(("CDN", cdn_detected))
+
+    # SSL/TLS
+    ssl_info = detect_ssl(url)
+    if ssl_info:
+        results.append(("SSL/TLS", ssl_info))
+
+    return results
+
+async def scan(url):
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    try:
+        ssl_context = ssl.create_default_context()
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+            async with session.get(url, headers=headers) as response:
+                content = await response.text()
+                headers = response.headers
+                results = await scan_website(url, headers, content)
+
+                # table w results
+                table = Table(title="Scan Results")
+                table.add_column("Category", style="cyan")
+                table.add_column("Value", style="magenta")
+
+                for category, value in results:
+                    table.add_row(category, value)
+
+                console.print(table)
+    except Exception as e:
+        console.print(f"[bold red]Error scanning {url}: {e}[/bold red]")
+#######################################################################
 
 def sanitize_user_agent(user_agent):
     return re.sub(r'[^\x00-\x7F]+', '', user_agent)
@@ -210,101 +443,6 @@ def analyze_response_content(content):
 
     return vulnerabilities
 
-def detect_framework(headers, content):
-    framework_detected = None
-
-    # by headers
-    if 'X-Powered-By' in headers:
-        x_powered_by = headers['X-Powered-By'].lower()
-        if 'express' in x_powered_by:
-            framework_detected = 'Express.js'
-        elif 'laravel' in x_powered_by:
-            framework_detected = 'Laravel'
-        elif 'django' in x_powered_by:
-            framework_detected = 'Django'
-        elif 'flask' in x_powered_by:
-            framework_detected = 'Flask'
-        elif 'asp.net' in x_powered_by:
-            framework_detected = 'ASP.NET'
-
-    # by html code
-    if not framework_detected:
-        content_lower = content.lower()
-        if '<!-- django version' in content_lower:
-            framework_detected = 'Django'
-        elif '<div id="root"></div>' in content_lower:
-            framework_detected = 'React'
-        elif '<app-root></app-root>' in content_lower:
-            framework_detected = 'Angular'
-        elif '<div id="app"></div>' in content_lower:
-            framework_detected = 'Vue.js'
-        elif '<!-- laravel' in content_lower:
-            framework_detected = 'Laravel'
-        elif '<!-- symfony' in content_lower:
-            framework_detected = 'Symfony'
-        elif '<!-- ruby on rails' in content_lower:
-            framework_detected = 'Ruby on Rails'
-
-    # by different endpoints
-    if not framework_detected:
-        if '/static/' in content_lower:
-            framework_detected = 'Django'
-        elif '/public/' in content_lower:
-            framework_detected = 'Express.js'
-        elif '/api/' in content_lower:
-            framework_detected = 'Laravel'
-
-    return framework_detected
-
-def detect_libraries(content):
-    libraries_detected = []
-
-    content_lower = content.lower()
-
-    # Bootstrap
-    if 'bootstrap.min.css' in content_lower or 'bootstrap.min.js' in content_lower:
-        libraries_detected.append('Bootstrap')
-    elif 'container' in content_lower and 'row' in content_lower and 'col-md-' in content_lower:
-        libraries_detected.append('Bootstrap')
-
-    # Tailwind CSS
-    if 'tailwind.min.css' in content_lower or 'bg-blue-' in content_lower or 'text-center' in content_lower:
-        libraries_detected.append('Tailwind CSS')
-
-    # jQuery
-    if 'jquery.min.js' in content_lower or 'jquery.js' in content_lower or 'jquery(' in content_lower:
-        libraries_detected.append('jQuery')
-
-    # Lodash
-    if 'lodash.min.js' in content_lower or '_.' in content_lower:
-        libraries_detected.append('Lodash')
-
-    # Materialize
-    if 'materialize.min.css' in content_lower or 'materialize.min.js' in content_lower:
-        libraries_detected.append('Materialize')
-
-    # Foundation
-    if 'foundation.min.css' in content_lower or 'foundation.min.js' in content_lower:
-        libraries_detected.append('Foundation')
-
-    # Bulma
-    if 'bulma.min.css' in content_lower or 'bulma.css' in content_lower:
-        libraries_detected.append('Bulma')
-
-    # Semantic UI
-    if 'semantic.min.css' in content_lower or 'semantic.min.js' in content_lower:
-        libraries_detected.append('Semantic UI')
-
-    # Moment.js
-    if 'moment.min.js' in content_lower or 'moment.js' in content_lower:
-        libraries_detected.append('Moment.js')
-
-    # Chart.js
-    if 'chart.min.js' in content_lower or 'chart.js' in content_lower:
-        libraries_detected.append('Chart.js')
-
-    return libraries_detected
-
 def analyze_response_headers(headers):
     vulnerabilities = []
     security_headers = {
@@ -385,7 +523,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agent, inpu
     table.add_column("Response Code", justify="right", style="magenta")
     table.add_column("Vulnerability Detected", style="bold green")
 
-    # get all form data
+    # Pobierz wszystkie pola formularza
     content = await get_page_content(url, user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
     soup = BeautifulSoup(content, 'html.parser')
     all_input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
@@ -395,24 +533,24 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agent, inpu
             headers = {'User-Agent': sanitize_user_agent(user_agent)}
             data = {}
 
-            # fuzz
+            # typical input fill
             for field in all_input_fields:
                 field_name = field.get('name', 'input_field')
                 if field_name == input_field.get('name', 'input_field'):
-                    # payload filling
+                    # payload fill
                     data[field_name] = payload['inputField']
                 else:
-                    # email type value
+                    # rest of fields common values
                     if field.get('type') == 'email':
                         data[field_name] = 'test@example.com'
                     elif field.get('type') == 'password':
-                        # common value
+                        # password case
                         data[field_name] = 'password123'
                     elif field.get('name', '').lower() in ['username', 'user', 'login']:
-                        # common value
+                        # login case
                         data[field_name] = 'test_user'
                     else:
-                        # undefined text fields
+                        # rest of cases
                         data[field_name] = 'test_value'
 
             ssl_context = ssl.create_default_context()
@@ -468,7 +606,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agent, inpu
                 console.print(f"[bold red]Error testing payload: {payload['inputField']}[/bold red]")
                 console.print(f"[bold red]Error: {str(e)}[/bold red]")
 
-    # Wyświetlanie progressbara
+    # bar
     with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
         task = progress.add_task("[cyan]Testing...", total=len(payloads))
         
@@ -621,7 +759,7 @@ def find_field_by_name(input_fields, field_name):
     field_name = field_name.lower()
     
     for field in input_fields:
-        # get field attributes
+        # Pobierz wszystkie możliwe atrybuty pola
         field_attrs = [
             field.get('name', '').lower(),          # fieldname
             field.get('id', '').lower(),           # field id
@@ -650,6 +788,7 @@ async def main():
     show_banner()
     parser = argparse.ArgumentParser(description="Over 500 payloads included!")
     parser.add_argument("url", help="Form URL")
+    parser.add_argument("--scan", action="store_true", help="Perform a quick scan of the website")
     parser.add_argument("-t", "--threat", choices=["HTML", "Java", "SQL"], help="Threat type to test (HTML, Java, SQL)")
     parser.add_argument("-p", "--payloads", default="payloads.json", help="JSON file with payloads")
     parser.add_argument("--cookies", help="Cookies: 'key1=value1; key2=value2'")
@@ -694,6 +833,9 @@ async def main():
     if args.threat:
         payloads = [payload for payload in payloads if payload['category'] == args.threat]
         console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
+        
+    if args.scan:
+        await scan(args.url)  # Używamy await zamiast asyncio.run()
 
     cookies = parse_cookies(args.cookies) if args.cookies else {}
     proxies = parse_proxy(args.proxy) if args.proxy else None
