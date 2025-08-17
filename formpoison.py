@@ -16,18 +16,18 @@ from selenium.webdriver.common.by import By
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import urllib3
 import ssl
+import signal
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 skip_flag = False
 
-async def monitor_skip():
-    global skip_flag
-    while True:
-        user_input = await asyncio.get_event_loop().run_in_executor(None, input, "Type 'skip' to move to the next field: ")
-        if user_input.strip().lower() == "skip":
-            skip_flag = True
-            break
+# Ctrl+C
+def handle_sigint(signum, frame):
+    console.print("[bold red]Received Ctrl+C. Shutting down gracefully...[/bold red]")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, handle_sigint)
 
 console = Console()
 
@@ -174,240 +174,6 @@ def get_page_content_with_selenium(url):
     driver.quit()
     return content
 
-async def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0):
-    global skip_flag
-    results = []
-    positive_responses = 0
-    threshold = len(payloads) * 0.5
-
-    table = Table(title=f"Input Field Test Results (User-Agent: {user_agent}, Method: {method})")
-    table.add_column("Payload", style="cyan", no_wrap=False)
-    table.add_column("Response Code", justify="right", style="magenta")
-    table.add_column("Vulnerability Detected", style="bold green")
-
-    async def test_payload(payload):
-        if skip_flag:
-            console.print(f"[bold yellow]Skipped to field: {input_field.get('name', 'input_field')}[/bold yellow]")
-            skip_flag = False
-            return
-
-        try:
-            headers = {'User-Agent': sanitize_user_agent(user_agent)}
-            data = {
-                input_field.get('name', 'input_field'): payload['inputField']
-            }
-
-            ssl_context = ssl.create_default_context()
-            if ssl_cert and ssl_key:
-                ssl_context.load_cert_chain(ssl_cert, ssl_key)
-
-            cookie_jar = aiohttp.CookieJar()
-            for key, value in cookies.items():
-                cookie_jar.update_cookies({key: value})
-
-            async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
-                if method == "GET":
-                    async with session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                        content = await response.text()
-                        status_code = response.status
-                elif method == "POST":
-                    async with session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                        content = await response.text()
-                        status_code = response.status
-                elif method == "PUT":
-                    async with session.put(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                        content = await response.text()
-                        status_code = response.status
-                elif method == "DELETE":
-                    async with session.delete(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                        content = await response.text()
-                        status_code = response.status
-
-                if status_code == 200:
-                    positive_responses += 1
-
-                vulnerabilities = analyze_response(content, response.headers, payload['category'], payload['inputField'])
-
-                results.append({
-                    "payload": payload['inputField'],
-                    "response_code": status_code,
-                    "vulnerabilities": vulnerabilities
-                })
-
-                table.add_row(payload['inputField'], str(status_code), ", ".join(vulnerabilities))
-                if verbose or verbose_all:
-                    console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
-                    console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
-                    console.print(f"[bold blue]Vulnerabilities detected: {', '.join(vulnerabilities)}[/bold blue]")
-                    if verbose_all:
-                        console.print(f"[bold yellow]Response content:[/bold yellow]")
-                        console.print(f"[yellow]{content}[/yellow]")
-        except Exception as e:
-            results.append({
-                "payload": payload['inputField'],
-                "response_code": "Error",
-                "vulnerabilities": [f"Request Failed: {str(e)}"]
-            })
-            table.add_row(payload['inputField'], "Error", f"Request Failed: {str(e)}")
-            if verbose or verbose_all:
-                console.print(f"[bold red]Error testing payload: {payload['inputField']}[/bold red]")
-                console.print(f"[bold red]Error: {str(e)}[/bold red]")
-
-    with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
-        task = progress.add_task("[cyan]Testing...", total=len(payloads))
-
-        await asyncio.gather(*[test_payload(payload) for payload in payloads])
-
-    if positive_responses > threshold:
-        console.print(f"[bold red]Too many positive responses were given ({positive_responses}/{len(payloads)}). You might consider this result as false-positive.[/bold red]")
-
-    console.print(table)
-    with open("test_results.json", "w") as f:
-        json.dump(results, f, indent=4)
-    console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
-
-async def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, proxies=None, verbose=False, verbose_all=False, secs=0):
-    global skip_flag
-    results = []
-
-    table = Table(title=f"Login Input Field Test Results (User-Agent: {user_agent})")
-    table.add_column("Login Payload", style="cyan", no_wrap=False)
-    table.add_column("Password Payload", style="cyan", no_wrap=False)
-    table.add_column("Response Code", justify="right", style="magenta")
-    table.add_column("Vulnerability Detected", style="propbold green")
-
-    login_field = None
-    password_field = None
-
-    # selenium is goat
-    content = get_page_content_with_selenium(url)
-    soup = BeautifulSoup(content, 'html.parser')
-    input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
-
-    console.print(f"[bold yellow]Found input fields:[/bold yellow]")
-    for field in input_fields:
-        name = field.get('name', '')
-        id_ = field.get('id', '')
-        placeholder = field.get('placeholder', '')
-        console.print(f"[bold blue]Field: name={name}, id={id_}, placeholder={placeholder}[/bold blue]")
-
-    for field in input_fields:
-        name = field.get('name', '').lower()
-        id_ = field.get('id', '').lower()
-        placeholder = field.get('placeholder', '').lower()
-
-        login_keywords = ['login', 'username', 'user', 'email', 'e-mail', 'mail', 'userid', 'user_id', 'loginname', 'account', 'mat-input-1']
-        if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in login_keywords):
-            login_field = field
-            console.print(f"[bold green]Found login field: id={id_}[/bold green]")  # Debug
-
-        # Szukaj pola hasła
-        password_keywords = ['password', 'pass', 'passwd', 'pwd', 'userpassword', 'user_pass']
-        if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in password_keywords):
-            password_field = field
-            console.print(f"[bold green]Found password field: {name}[/bold green]")  # Debug
-
-    if not login_field or not password_field:
-        console.print("[bold yellow]No login or password fields found for login testing.[/bold yellow]")
-        return
-
-    login_payloads = ["admin", "test", "user", "' OR 1='1"]
-    sql_payloads = [payload['inputField'] for payload in payloads if payload['category'] == "SQL"]
-
-    skip_thread = threading.Thread(target=monitor_skip)
-    skip_thread.daemon = True
-    skip_thread.start()
-
-    with Progress() as progress:
-        task = progress.add_task("[cyan]Testing login...", total=len(login_payloads) * len(sql_payloads))
-
-        for login_payload in login_payloads:
-            for password_payload in sql_payloads:
-                try:
-                    if skip_flag:
-                        console.print(f"[bold yellow]Skipped to field {login_field.get('name', 'login')}[/bold yellow]")
-                        skip_flag = False
-                        break
-
-                    headers = {'User-Agent': sanitize_user_agent(user_agent)}
-                    data = {
-                        login_field.get('name', 'login'): login_payload,
-                        password_field.get('name', 'password'): password_payload
-                    }
-                    async with aiohttp.ClientSession() as session:
-                        async with session.post(url, data=data, cookies=cookies, headers=headers, proxy=proxies.get('http') if proxies else None) as response:
-                            content = await response.text()
-                            status_code = response.status
-
-                            vulnerabilities = analyze_response(content, response.headers, "SQL", password_payload)
-
-                            results.append({
-                                "login_payload": login_payload,
-                                "password_payload": password_payload,
-                                "response_code": status_code,
-                                "vulnerabilities": vulnerabilities
-                            })
-
-                            table.add_row(login_payload, password_payload, str(status_code), ", ".join(vulnerabilities))
-                            if verbose or verbose_all:
-                                console.print(f"[bold blue]Testing login: {login_payload}, password: {password_payload}[/bold blue]")
-                                console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
-                                console.print(f"[bold blue]Vulnerabilities detected: {', '.join(vulnerabilities)}[/bold blue]")
-                                if verbose_all:
-                                    console.print(f"[bold yellow]Response content:[/bold yellow]")
-                                    console.print(f"[yellow]{content}[/yellow]")
-                except Exception as e:
-                    results.append({
-                        "login_payload": login_payload,
-                        "password_payload": password_payload,
-                        "response_code": "Error",
-                        "vulnerabilities": [f"Request Failed: {str(e)}"]
-                    })
-                    table.add_row(login_payload, password_payload, "Error", f"Request Failed: {str(e)}")
-                    if verbose or verbose_all:
-                        console.print(f"[bold red]Error testing login: {login_payload}, password: {password_payload}[/bold red]")
-                        console.print(f"[bold red]Error: {str(e)}[/bold red]")
-                progress.update(task, advance=1)
-
-    console.print(table)
-
-    with open("login_test_results.json", "w") as f:
-        json.dump(results, f, indent=4)
-
-    console.print(f"[bold green]Login test results saved to 'login_test_results.json'[/bold green]")
-
-
-def get_string_input_fields(content):
-    soup = BeautifulSoup(content, 'html.parser')
-    input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
-    textareas = soup.find_all('textarea')
-    return input_fields + textareas
-
-def get_forms_and_inputs(content):
-    soup = BeautifulSoup(content, 'html.parser')
-    forms = soup.find_all('form')
-    forms_with_inputs = []
-    for form in forms:
-        inputs = form.find_all('input')
-        textareas = form.find_all('textarea')
-        forms_with_inputs.append((form, inputs + textareas))
-    return forms_with_inputs
-
-def find_field_by_name(input_fields, field_name):
-    if not field_name:
-        return None
-    field_name = field_name.lower()
-    for field in input_fields:
-        field_attrs = [
-            field.get('name', '').lower(),
-            field.get('id', '').lower(),
-            field.get('class', '').lower(),
-            field.get('placeholder', '').lower()
-        ]
-        if any(field_name in attr for attr in field_attrs):
-            return field
-    return None
-
 def analyze_response_content(content):
     content = content.lower()
     vulnerabilities = []
@@ -444,6 +210,101 @@ def analyze_response_content(content):
 
     return vulnerabilities
 
+def detect_framework(headers, content):
+    framework_detected = None
+
+    # by headers
+    if 'X-Powered-By' in headers:
+        x_powered_by = headers['X-Powered-By'].lower()
+        if 'express' in x_powered_by:
+            framework_detected = 'Express.js'
+        elif 'laravel' in x_powered_by:
+            framework_detected = 'Laravel'
+        elif 'django' in x_powered_by:
+            framework_detected = 'Django'
+        elif 'flask' in x_powered_by:
+            framework_detected = 'Flask'
+        elif 'asp.net' in x_powered_by:
+            framework_detected = 'ASP.NET'
+
+    # by html code
+    if not framework_detected:
+        content_lower = content.lower()
+        if '<!-- django version' in content_lower:
+            framework_detected = 'Django'
+        elif '<div id="root"></div>' in content_lower:
+            framework_detected = 'React'
+        elif '<app-root></app-root>' in content_lower:
+            framework_detected = 'Angular'
+        elif '<div id="app"></div>' in content_lower:
+            framework_detected = 'Vue.js'
+        elif '<!-- laravel' in content_lower:
+            framework_detected = 'Laravel'
+        elif '<!-- symfony' in content_lower:
+            framework_detected = 'Symfony'
+        elif '<!-- ruby on rails' in content_lower:
+            framework_detected = 'Ruby on Rails'
+
+    # by different endpoints
+    if not framework_detected:
+        if '/static/' in content_lower:
+            framework_detected = 'Django'
+        elif '/public/' in content_lower:
+            framework_detected = 'Express.js'
+        elif '/api/' in content_lower:
+            framework_detected = 'Laravel'
+
+    return framework_detected
+
+def detect_libraries(content):
+    libraries_detected = []
+
+    content_lower = content.lower()
+
+    # Bootstrap
+    if 'bootstrap.min.css' in content_lower or 'bootstrap.min.js' in content_lower:
+        libraries_detected.append('Bootstrap')
+    elif 'container' in content_lower and 'row' in content_lower and 'col-md-' in content_lower:
+        libraries_detected.append('Bootstrap')
+
+    # Tailwind CSS
+    if 'tailwind.min.css' in content_lower or 'bg-blue-' in content_lower or 'text-center' in content_lower:
+        libraries_detected.append('Tailwind CSS')
+
+    # jQuery
+    if 'jquery.min.js' in content_lower or 'jquery.js' in content_lower or 'jquery(' in content_lower:
+        libraries_detected.append('jQuery')
+
+    # Lodash
+    if 'lodash.min.js' in content_lower or '_.' in content_lower:
+        libraries_detected.append('Lodash')
+
+    # Materialize
+    if 'materialize.min.css' in content_lower or 'materialize.min.js' in content_lower:
+        libraries_detected.append('Materialize')
+
+    # Foundation
+    if 'foundation.min.css' in content_lower or 'foundation.min.js' in content_lower:
+        libraries_detected.append('Foundation')
+
+    # Bulma
+    if 'bulma.min.css' in content_lower or 'bulma.css' in content_lower:
+        libraries_detected.append('Bulma')
+
+    # Semantic UI
+    if 'semantic.min.css' in content_lower or 'semantic.min.js' in content_lower:
+        libraries_detected.append('Semantic UI')
+
+    # Moment.js
+    if 'moment.min.js' in content_lower or 'moment.js' in content_lower:
+        libraries_detected.append('Moment.js')
+
+    # Chart.js
+    if 'chart.min.js' in content_lower or 'chart.js' in content_lower:
+        libraries_detected.append('Chart.js')
+
+    return libraries_detected
+
 def analyze_response_headers(headers):
     vulnerabilities = []
     security_headers = {
@@ -468,17 +329,31 @@ def analyze_response_headers(headers):
 
     return vulnerabilities
 
-def analyze_response(content, headers, payload_category, payload):
+def analyze_response(content, headers, payload_category, payload, verbose_all=False):
     vulnerabilities = []
     content_vulns = analyze_response_content(content)
     vulnerabilities.extend(content_vulns)
     header_vulns = analyze_response_headers(headers)
     vulnerabilities.extend(header_vulns)
 
+    # framework detection
+    framework_detected = detect_framework(headers, content)
+    if framework_detected:
+        vulnerabilities.append(f"Framework Detected: {framework_detected}")
+
+    # libs detection
+    libraries_detected = detect_libraries(content)
+    if libraries_detected:
+        vulnerabilities.append(f"Libraries Detected: {', '.join(libraries_detected)}")
+
     if payload_category == "SQL" and is_sql_injection_successful(content, payload):
         console.print("[bold red]💀 SQL INJECTED 💀[/bold red]")
     elif payload_category == "HTML" and is_xss_successful(content, payload):
         console.print("[bold red]💀 XSS INJECTED 💀[/bold red]")
+
+    if verbose_all:
+        console.print(f"[bold yellow]Full response analysis:[/bold yellow]")
+        console.print(f"[yellow]{vulnerabilities}[/yellow]")
 
     return vulnerabilities
 
@@ -500,13 +375,275 @@ def is_sql_injection_successful(content, payload):
             return True
     return False
 
-async def test_all_forms(url, payloads, threat_type, cookies, user_agent, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, secs=0):
+async def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0):
+    results = []
+    positive_responses = 0
+    threshold = len(payloads) * 0.5
+
+    table = Table(title=f"Input Field Test Results (User-Agent: {user_agent}, Method: {method})")
+    table.add_column("Payload", style="cyan", no_wrap=False)
+    table.add_column("Response Code", justify="right", style="magenta")
+    table.add_column("Vulnerability Detected", style="bold green")
+
+    # get all form data
+    content = await get_page_content(url, user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
+    soup = BeautifulSoup(content, 'html.parser')
+    all_input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
+
+    async def test_payload(payload):
+        try:
+            headers = {'User-Agent': sanitize_user_agent(user_agent)}
+            data = {}
+
+            # fuzz
+            for field in all_input_fields:
+                field_name = field.get('name', 'input_field')
+                if field_name == input_field.get('name', 'input_field'):
+                    # payload filling
+                    data[field_name] = payload['inputField']
+                else:
+                    # email type value
+                    if field.get('type') == 'email':
+                        data[field_name] = 'test@example.com'
+                    elif field.get('type') == 'password':
+                        # common value
+                        data[field_name] = 'password123'
+                    elif field.get('name', '').lower() in ['username', 'user', 'login']:
+                        # common value
+                        data[field_name] = 'test_user'
+                    else:
+                        # undefined text fields
+                        data[field_name] = 'test_value'
+
+            ssl_context = ssl.create_default_context()
+            if ssl_cert and ssl_key:
+                ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+            cookie_jar = aiohttp.CookieJar()
+            for key, value in cookies.items():
+                cookie_jar.update_cookies({key: value})
+
+            async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+                if method == "GET":
+                    async with session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                        content = await response.text()
+                        status_code = response.status
+                elif method == "POST":
+                    async with session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                        content = await response.text()
+                        status_code = response.status
+                elif method == "PUT":
+                    async with session.put(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                        content = await response.text()
+                        status_code = response.status
+                elif method == "DELETE":
+                    async with session.delete(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                        content = await response.text()
+                        status_code = response.status
+
+                vulnerabilities = analyze_response(content, response.headers, payload['category'], payload['inputField'], verbose_all)
+
+                results.append({
+                    "payload": payload['inputField'],
+                    "response_code": status_code,
+                    "vulnerabilities": vulnerabilities
+                })
+
+                table.add_row(payload['inputField'], str(status_code), ", ".join(vulnerabilities))
+                if verbose or verbose_all:
+                    console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
+                    console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
+                    console.print(f"[bold blue]Possible Vulnerabilities/Issues: {', '.join(vulnerabilities)}[/bold blue]")
+                    if verbose_all:
+                        console.print(f"[bold yellow]Response content:[/bold yellow]")
+                        console.print(f"[yellow]{content}[/yellow]")
+        except Exception as e:
+            results.append({
+                "payload": payload['inputField'],
+                "response_code": "Error",
+                "vulnerabilities": [f"Request Failed: {str(e)}"]
+            })
+            table.add_row(payload['inputField'], "Error", f"Request Failed: {str(e)}")
+            if verbose or verbose_all:
+                console.print(f"[bold red]Error testing payload: {payload['inputField']}[/bold red]")
+                console.print(f"[bold red]Error: {str(e)}[/bold red]")
+
+    # Wyświetlanie progressbara
+    with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
+        task = progress.add_task("[cyan]Testing...", total=len(payloads))
+        
+        for payload in payloads:
+            await test_payload(payload)
+            progress.update(task, advance=1)
+            if secs > 0:
+                await asyncio.sleep(secs)
+
+    positive_responses = sum(1 for r in results if r['response_code'] == 200)
+    if positive_responses > threshold:
+        console.print(f"[bold red]Too many positive responses were given ({positive_responses}/{len(payloads)}). You might consider this result as false-positive.[/bold red]")
+
+    console.print(table)
+    with open("test_results.json", "w") as f:
+        json.dump(results, f, indent=4)
+    console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
+
+
+async def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, proxies=None, verbose=False, verbose_all=False, secs=0):
+    results = []
+
+    table = Table(title=f"Login Input Field Test Results (User-Agent: {user_agent})")
+    table.add_column("Login Payload", style="cyan", no_wrap=False)
+    table.add_column("Password Payload", style="cyan", no_wrap=False)
+    table.add_column("Response Code", justify="right", style="magenta")
+    table.add_column("Vulnerability Detected", style="bold green")
+
+    login_field = None
+    password_field = None
+
+    content = get_page_content_with_selenium(url)
+    soup = BeautifulSoup(content, 'html.parser')
+    input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
+
+    console.print(f"[bold yellow]Found input fields:[/bold yellow]")
+    for field in input_fields:
+        name = field.get('name', '')
+        id_ = field.get('id', '')
+        placeholder = field.get('placeholder', '')
+        console.print(f"[bold blue]Field: name={name}, id={id_}, placeholder={placeholder}[/bold blue]")
+
+    for field in input_fields:
+        name = field.get('name', '').lower()
+        id_ = field.get('id', '').lower()
+        placeholder = field.get('placeholder', '').lower()
+
+        login_keywords = ['login', 'username', 'user', 'email', 'e-mail', 'mail', 'userid', 'user_id', 'loginname', 'account', 'mat-input-1']
+        if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in login_keywords):
+            login_field = field
+            console.print(f"[bold green]Found login field: id={id_}[/bold green]")
+
+        password_keywords = ['password', 'pass', 'passwd', 'pwd', 'userpassword', 'user_pass']
+        if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in password_keywords):
+            password_field = field
+            console.print(f"[bold green]Found password field: {name}[/bold green]")
+
+    if not login_field or not password_field:
+        console.print("[bold yellow]No login or password fields found for login testing.[/bold yellow]")
+        return
+
+    login_payloads = ["admin", "test", "user", "' OR 1='1"]
+    sql_payloads = [payload['inputField'] for payload in payloads if payload['category'] == "SQL"]
+
+    skip_thread = threading.Thread(target=lambda: asyncio.run(monitor_skip()))
+    skip_thread.daemon = True
+    skip_thread.start()
+
+    with Progress() as progress:
+        task = progress.add_task("[cyan]Testing login...", total=len(login_payloads) * len(sql_payloads))
+
+        for login_payload in login_payloads:
+            for password_payload in sql_payloads:
+                try:
+                    if skip_flag:
+                        console.print(f"[bold yellow]Skipped to field {login_field.get('name', 'login')}[/bold yellow]")
+                        skip_flag = False
+                        break
+
+                    headers = {'User-Aagent': sanitize_user_agent(user_agent)}
+                    data = {
+                        login_field.get('name', 'login'): login_payload,
+                        password_field.get('name', 'password'): password_payload
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, data=data, cookies=cookies, headers=headers, proxy=proxies.get('http') if proxies else None) as response:
+                            content = await response.text()
+                            status_code = response.status
+
+                            vulnerabilities = analyze_response(content, response.headers, "SQL", password_payload, verbose_all)
+
+                            results.append({
+                                "login_payload": login_payload,
+                                "password_payload": password_payload,
+                                "response_code": status_code,
+                                "vulnerabilities": vulnerabilities
+                            })
+
+                            table.add_row(login_payload, password_payload, str(status_code), ", ".join(vulnerabilities))
+                            if verbose or verbose_all:
+                                console.print(f"[bold blue]Testing login: {login_payload}, password: {password_payload}[/bold blue]")
+                                console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
+                                console.print(f"[bold blue]Vulnerabilities detected: {', '.join(vulnerabilities)}[/bold blue]")
+                                if verbose_all:
+                                    console.print(f"[bold yellow]Response content:[/bold yellow]")
+                                    console.print(f"[yellow]{content}[/yellow]")
+                except Exception as e:
+                    results.append({
+                        "login_payload": login_payload,
+                        "password_payload": password_payload,
+                        "response_code": "Error",
+                        "vulnerabilities": [f"Request Failed: {str(e)}"]
+                    })
+                    table.add_row(login_payload, password_payload, "Error", f"Request Failed: {str(e)}")
+                    if verbose or verbose_all:
+                        console.print(f"[bold red]Error testing login: {login_payload}, password: {password_payload}[/bold red]")
+                        console.print(f"[bold red]Error: {str(e)}[/bold red]")
+                progress.update(task, advance=1)
+                if secs > 0:
+                    await asyncio.sleep(secs)
+
+    console.print(table)
+
+    with open("login_test_results.json", "w") as f:
+        json.dump(results, f, indent=4)
+
+    console.print(f"[bold green]Login test results saved to 'login_test_results.json'[/bold green]")
+
+def get_string_input_fields(content):
+    soup = BeautifulSoup(content, 'html.parser')
+    input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
+    textareas = soup.find_all('textarea')
+    return input_fields + textareas
+
+def get_forms_and_inputs(content):
+    soup = BeautifulSoup(content, 'html.parser')
+    forms = soup.find_all('form')
+    forms_with_inputs = []
+    for form in forms:
+        inputs = form.find_all('input')
+        textareas = form.find_all('textarea')
+        forms_with_inputs.append((form, inputs + textareas))
+    return forms_with_inputs
+
+def find_field_by_name(input_fields, field_name):
+    if not field_name:
+        return None
+    
+    # to_lower for better interpretation
+    field_name = field_name.lower()
+    
+    for field in input_fields:
+        # get field attributes
+        field_attrs = [
+            field.get('name', '').lower(),          # fieldname
+            field.get('id', '').lower(),           # field id
+            ' '.join(field.get('class', [])).lower(),  # class -> string
+            field.get('placeholder', '').lower(),  # placeholder
+            field.get('type', '').lower(),         # field type ( text, password)
+            field.get('value', '').lower(),        # field value
+            field.get('aria-label', '').lower()    # ARIA
+        ]
+        
+        if any(field_name in attr for attr in field_attrs):
+            return field
+    
+    return None
+
+async def test_all_forms(url, payloads, threat_type, cookies, user_agent, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0):
     forms_with_inputs = get_forms_and_inputs(await get_page_content(url, user_agent, proxies, ssl_cert, ssl_key, ssl_verify))
     for form, inputs in forms_with_inputs:
         console.print(f"[bold cyan]Testing form with {len(inputs)} inputs[/bold cyan]")
         for input_field in inputs:
             console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
-            await test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method, proxies, ssl_cert, ssl_key, ssl_verify, verbose, secs)
+            await test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method, proxies, ssl_cert, ssl_key, ssl_verify, verbose, verbose_all, filter, secs)
 
 async def main():
     console.clear()
@@ -536,8 +673,16 @@ async def main():
     args = parser.parse_args()
 
     if not args.url.startswith(('http://', 'https://')):
-        args.url = f'https://{args.url}'
-        console.print(f"[bold yellow]Automatically added 'https://' to the URL: {args.url}[/bold yellow]")
+        response = console.input(f"You entered site '{args.url}' without https protocol provided[bold yellow] Switch to https? (Y/n): [/bold yellow]")
+        if response.lower() in ('yes', 'y'):
+            args.url = f'https://{args.url}'
+            console.print(f"[bold green]Switched to HTTPS: {args.url}[/bold green]")
+        else:
+            console.print("[bold red]Keeping the original URL without HTTPS.[/bold red]")
+    elif args.url.startswith('https://'):
+        console.print(f"[bold green]URL already starts with HTTPS: {args.url}[/bold green]")
+    else:
+        console.print(f"[bold green]URL starts with HTTP: {args.url}[/bold green]")
 
     payloads = load_payloads(args.payloads)
 
@@ -552,15 +697,14 @@ async def main():
 
     cookies = parse_cookies(args.cookies) if args.cookies else {}
     proxies = parse_proxy(args.proxy) if args.proxy else None
-
     user_agents = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv=89.0) Gecko/20100101 Firefox/89.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
         "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36",
         "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0. containers2.124 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
         "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
     ]
@@ -595,7 +739,7 @@ async def main():
         console.print(f"[bold green]Testing login fields with User-Agent: {user_agent}[/bold green]")
         await test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, proxies, args.verbose, args.verbose_all, args.seconds)
     else:
-        await test_all_forms(args.url, payloads, args.threat, cookies, user_agent, args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify, args.verbose, args.verbose_all, args.seconds)
+        await test_all_forms(args.url, payloads, args.threat, cookies, user_agent, args.method, proxies, args.ssl_cert, args.ssl_key, args.filter, args.ssl_verify, args.verbose, args.verbose_all, args.seconds)
 
 if __name__ == "__main__":
     asyncio.run(main())
