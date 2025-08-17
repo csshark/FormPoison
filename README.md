@@ -37,6 +37,7 @@ Type <code>python3 formposion.py -h</code> for possible usage. Flags and example
 | --proxy | specify proxy for authentication | String, example: http://login:password@proxy.com:8080/ | 
 | --method | select request method | String: GET, POST, PUT, DELETE |  
 | -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
+| --scan | additional quick scan to leak more information from response and crawling | None |
 
 </div>
 basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code> <br>
