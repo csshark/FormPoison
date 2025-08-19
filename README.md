@@ -1,6 +1,6 @@
 # FormPoison 📄💉
-Form Input Fuzzing Framework made with Python based on my experience with data validation issues and XSS attacks executed by me.
-It automates testing common missconfigurations in sanitization in input fields and helps penetration testers find out where to start digging without code review.<p> There is also payload list (my own + AI generated and these frequently used by bounty hunters). 
+Form Input Fuzzing Framework made with Python based onexperience with data validation issues and XSS attacks executed so far.
+It automates testing common missconfigurations in sanitization in input fields and helps penetration testers find out where to start digging without code review.<p> There is also payload list (cistom + AI generated and these frequently used by bounty hunters). 
 
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
