@@ -33,7 +33,7 @@ Type <code>python3 formposion.py -h</code> for possible usage. Flags and example
 | --login | enter login+password mode only testing | None |
 | --ssl-cert | use ssl certificate file | String: /home/user/certs/cert.pem | 
 | --ssl-key | use ssl private key | String: /home/user/certs/key.pem |
-| --ssl-verify | verify ssl certificate | bool: True/False |
+| --ssl-verify | verify ssl certificate | bool: None |
 | --proxy | specify proxy for authentication | String, example: http://login:password@proxy.com:8080/ | 
 | --method | select request method | String: GET, POST, PUT, DELETE |  
 | -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
