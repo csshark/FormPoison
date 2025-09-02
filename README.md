@@ -1,5 +1,5 @@
-# FormPoison 📄💉
-Form Input Fuzzing Framework made with Python based on experience with data validation issues and XSS attacks executed so far.
+# FormPoison (FP)📄💉
+Form-focused Web Application Security Testing Framework made with Python based on experience with data validation issues and XSS attacks executed so far.
 It automates testing common missconfigurations in sanitization in input fields and helps penetration testers find out where to start digging without code review.<p> There is also payload list (custom + AI generated and these frequently used by bounty hunters). 
 
 ## Installation:
@@ -59,6 +59,7 @@ Example *input.txt* file format:
 
 ## New functions: 
 <ul>
+  <li>JavaScript source-code scanner</li>
   <li>Verifying response headers precisely</li>
   <li>Filtering payloads easy way</li>
   <li>Proxy and SSL certificate support</li>
