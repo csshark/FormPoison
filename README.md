@@ -37,11 +37,14 @@ Type <code>python3 formposion.py -h</code> for possible usage. Flags and example
 | --proxy | specify proxy for authentication | String, example: http://login:password@proxy.com:8080/ | 
 | --method | select request method | String: GET, POST, PUT, DELETE |  
 | -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
-| --scan | deep scan for .js code and audit | None |
+| --scan | deep scan for .js code and overall web audit | None |
 
 </div>
 basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code> <br>
 example advanced usage: <pre><code>python3 formpoison.py --cookie "JSESSIONID=9875643544376543211D32" https://www.hackthissite.org/user/login --login -t HTML -s 2</code></pre>
+
+### Scan mode
+Scan mode has been extended into JavaScript code scanning and looking for common vectors of code / inproper value injection to bypass some filters. The scanner is separate project integrated into FormPoison by default. It is recommended to run scan firs to identify attack vectors by yourself first.
 
 ### payload sources:
 - **payloadbox**: https://github.com/payloadbox/sql-injection-payload-list
