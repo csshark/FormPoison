@@ -16,7 +16,16 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/fatih/color"
 )
+
+func getFileExtension(urlStr string) string {
+    parsed, err := url.Parse(urlStr)
+    if err != nil {
+        return ""
+    }
+    return path.Ext(parsed.Path)
+}
 
 type Vulnerability struct {
 	URL         string `json:"url"`
@@ -45,6 +54,9 @@ type Crawler struct {
 	patterns       map[string]*regexp.Regexp
 	maxDepth       int
 	maxURLs        int
+	urlCount       int
+	mu             sync.Mutex
+	progress       chan string
 }
 
 var javaPatterns = map[string]string{
@@ -60,27 +72,29 @@ var javaPatterns = map[string]string{
 }
 
 var owaspPatterns = map[string]string{
-	"sql_injection":            `SELECT.*FROM.*\$\{|\+.*\w+|executeQuery.*\$\{|\+.*\w+`,
-	"xss":                      `innerHTML\s*=|outerHTML\s*=|document\.write\(|eval\(|\.append\(.*\$\{`,
-	"path_traversal":           `FileInputStream.*\$\{|\+|new File\(.*\$\{|\+|Paths\.get\(.*\$\{|\+`,
-	"command_injection":        `Runtime\.getRuntime\(\).exec\(.*\$\{|\+|ProcessBuilder\(.*\$\{|\+`,
-	"insecure_deserialization": `ObjectInputStream|readObject\(|readResolve\(|Serializable|JSON\.parse\(|XMLDecoder`,
+	"sql_injection":            `(?i)(SELECT.*FROM.*\$\{|\+.*\w+|executeQuery.*\$\{|\+.*\w+|Statement\.execute|PreparedStatement)`,
+	"xss":                      `(?i)(innerHTML\s*=|outerHTML\s*=|document\.write\(|eval\(|\.append\(.*\$\{|alert\(|script\.src)`,
+	"path_traversal":           `(?i)(FileInputStream.*\$\{|\+|new File\(.*\$\{|\+|Paths\.get\(.*\$\{|\+|\.\./|\.\.\\)`,
+	"command_injection":        `(?i)(Runtime\.getRuntime\(\).exec\(.*\$\{|\+|ProcessBuilder\(.*\$\{|\+|exec\(|system\(|popen\()`,
+	"insecure_deserialization": `(?i)(ObjectInputStream|readObject\(|readResolve\(|Serializable|JSON\.parse\(|XMLDecoder)`,
 }
 
-func NewCrawler(startURL string, maxDepth, maxURLs int) *Crawler {
+func NewCrawler(startURL string, maxDepth, maxURLs int, progress chan string) *Crawler {
 	c := &Crawler{
-		discoveredURLs: make(chan string, 1000),
+		discoveredURLs: make(chan string, 10000),
 		client: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 15 * time.Second,
 			Transport: &http.Transport{
 				MaxIdleConns:        100,
 				MaxIdleConnsPerHost: 100,
 				IdleConnTimeout:     30 * time.Second,
+				TLSHandshakeTimeout: 10 * time.Second,
 			},
 		},
 		maxDepth: maxDepth,
 		maxURLs:  maxURLs,
 		patterns: make(map[string]*regexp.Regexp),
+		progress: progress,
 	}
 
 	parsedURL, err := url.Parse(startURL)
@@ -129,6 +143,7 @@ func (c *Crawler) shouldVisit(urlStr string, depth int) bool {
 		".py": true, ".php": true, ".rb": true,
 		".go": true, ".c": true, ".cpp": true,
 		".html": true, ".jsp": true, ".asp": true,
+		".aspx": true, ".cs": true, ".xml": true,
 		"": true, // Strony bez rozszerzenia
 	}
 
@@ -144,13 +159,19 @@ func (c *Crawler) extractURLs(baseURL string, body io.Reader) []string {
 
 	base, _ := url.Parse(baseURL)
 
-	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
-		href, exists := s.Attr("href")
-		if !exists {
+	doc.Find("a[href], link[href], script[src], img[src], form[action]").Each(func(i int, s *goquery.Selection) {
+		var attr string
+		if href, exists := s.Attr("href"); exists {
+			attr = href
+		} else if src, exists := s.Attr("src"); exists {
+			attr = src
+		} else if action, exists := s.Attr("action"); exists {
+			attr = action
+		} else {
 			return
 		}
 
-		absURL, err := base.Parse(href)
+		absURL, err := base.Parse(attr)
 		if err != nil {
 			return
 		}
@@ -177,19 +198,28 @@ func (c *Crawler) scanContent(urlStr, content string) []Vulnerability {
 			for _, match := range matches {
 				severity := "MEDIUM"
 				if strings.Contains(patternName, "injection") ||
-					strings.Contains(patternName, "deserialization") {
-						severity = "HIGH"
-					}
+					strings.Contains(patternName, "deserialization") ||
+					strings.Contains(patternName, "xss") {
+					severity = "HIGH"
+				} else if strings.Contains(patternName, "validator") ||
+					strings.Contains(patternName, "check") {
+					severity = "LOW"
+				}
 
-					vuln := Vulnerability{
-						URL:         urlStr,
-						Line:        lineNum + 1,
-						Pattern:     patternName,
-						CodeSnippet: strings.TrimSpace(line),
-						Match:       match,
-						Severity:    severity,
-					}
-					vulnerabilities = append(vulnerabilities, vuln)
+				// Skip trivial matches
+				if len(strings.TrimSpace(match)) < 5 && severity != "HIGH" {
+					continue
+				}
+
+				vuln := Vulnerability{
+					URL:         urlStr,
+					Line:        lineNum + 1,
+					Pattern:     patternName,
+					CodeSnippet: truncateString(strings.TrimSpace(line), 200),
+					Match:       truncateString(match, 100),
+					Severity:    severity,
+				}
+				vulnerabilities = append(vulnerabilities, vuln)
 			}
 		}
 	}
@@ -197,30 +227,66 @@ func (c *Crawler) scanContent(urlStr, content string) []Vulnerability {
 	return vulnerabilities
 }
 
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
 func (c *Crawler) fetchURL(urlStr string) (string, error) {
-	resp, err := c.client.Get(urlStr)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
+    req, err := http.NewRequest("GET", urlStr, nil)
+    if err != nil {
+        return "", err
+    }
+    
+    // Set headers to mimic a real browser
+    req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+    req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+    req.Header.Set("Connection", "keep-alive")
+    req.Header.Set("Upgrade-Insecure-Requests", "1")
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return "", err
+    }
+    defer resp.Body.Close()
 
-	contentType := resp.Header.Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") &&
-		!strings.Contains(contentType, "text/plain") &&
-		!strings.Contains(contentType, "application/javascript") {
-			return "", fmt.Errorf("unsupported content type: %s", contentType)
-		}
+    if resp.StatusCode != http.StatusOK {
+        return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+    }
 
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return "", err
-		}
+    // NEW CONTENT TYPE CHECKING CODE GOES HERE:
+    contentType := resp.Header.Get("Content-Type")
+    ext := getFileExtension(urlStr)
 
-		return string(body), nil
+    // Allow common source code file types regardless of content type
+    allowedExtensions := map[string]bool{
+        ".js": true, ".java": true, ".py": true, ".php": true, 
+        ".rb": true, ".go": true, ".c": true, ".cpp": true,
+        ".html": true, ".htm": true, ".jsp": true, ".asp": true,
+        ".aspx": true, ".cs": true, ".xml": true, ".json": true,
+        ".css": true, ".ts": true,
+    }
+
+    // If it's a known source file extension, allow it regardless of content type
+    if allowedExtensions[ext] {
+        // Proceed with processing - do nothing, just allow it
+    } else if !strings.Contains(contentType, "text/html") &&
+        !strings.Contains(contentType, "text/plain") &&
+        !strings.Contains(contentType, "javascript") &&
+        !strings.Contains(contentType, "json") &&
+        !strings.Contains(contentType, "xml") {
+        return "", fmt.Errorf("unsupported content type: %s for URL %s", contentType, urlStr)
+    }
+
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return "", err
+    }
+
+    return string(body), nil
 }
 
 func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
@@ -235,34 +301,58 @@ func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
 		OutputFilename: outputFilename,
 	}
 
-	vulnChan := make(chan []Vulnerability, 100)
-	urlCount := 0
+	vulnChan := make(chan []Vulnerability, 1000)
+
+	// Animation spinner
+	spinnerDone := make(chan bool)
+	go func() {
+		spinnerChars := []string{"|", "/", "-", "\\"}
+		i := 0
+		for {
+			select {
+			case <-spinnerDone:
+				return
+			default:
+				c.progress <- fmt.Sprintf("Scanning... %s URLs: %d, Vulnerabilities: %d", 
+					spinnerChars[i%len(spinnerChars)], c.urlCount, len(report.Vulnerabilities))
+				time.Sleep(100 * time.Millisecond)
+				i++
+			}
+		}
+	}()
 
 	// Worker function
 	worker := func() {
 		defer wg.Done()
 		for urlStr := range c.discoveredURLs {
-			if urlCount >= c.maxURLs {
+			mu.Lock()
+			if c.urlCount >= c.maxURLs {
+				mu.Unlock()
 				break
 			}
+			mu.Unlock()
 
 			if _, visited := c.visitedURLs.LoadOrStore(urlStr, true); visited {
 				continue
 			}
 
 			mu.Lock()
-			urlCount++
+			c.urlCount++
+			currentCount := c.urlCount
 			mu.Unlock()
+
+			c.progress <- fmt.Sprintf("Scanning URL %d: %s", currentCount, urlStr)
 
 			content, err := c.fetchURL(urlStr)
 			if err != nil {
+				c.progress <- fmt.Sprintf("Error fetching %s: %v", urlStr, err)
 				continue
 			}
-
 
 			vulnerabilities := c.scanContent(urlStr, content)
 			if len(vulnerabilities) > 0 {
 				vulnChan <- vulnerabilities
+				c.progress <- fmt.Sprintf("Found %d vulnerabilities in %s", len(vulnerabilities), urlStr)
 			}
 
 			// extract URLs
@@ -270,9 +360,9 @@ func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
 				urls := c.extractURLs(urlStr, strings.NewReader(content))
 				for _, newURL := range urls {
 					select {
-						case c.discoveredURLs <- newURL:
-						default:
-
+					case c.discoveredURLs <- newURL:
+					default:
+						// Channel full, skip
 					}
 				}
 			}
@@ -281,24 +371,24 @@ func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
 			report.ScannedURLs++
 			mu.Unlock()
 
-
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond) // Be polite
 		}
 	}
 
-
+	// Start workers
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go worker()
 	}
 
-
+	// Close vulnChan when all workers are done
 	go func() {
 		wg.Wait()
 		close(vulnChan)
+		spinnerDone <- true
 	}()
 
-
+	// Process vulnerabilities
 	for vulns := range vulnChan {
 		mu.Lock()
 		report.Vulnerabilities = append(report.Vulnerabilities, vulns...)
@@ -314,15 +404,26 @@ func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
 }
 
 func main() {
+	// Setup colored output
+	green := color.New(color.FgGreen).SprintFunc()
+	yellow := color.New(color.FgYellow).SprintFunc()
+	red := color.New(color.FgRed).SprintFunc()
+
+	progress := make(chan string, 100)
+	
+	// Display progress
+	go func() {
+		for msg := range progress {
+			fmt.Printf("\r%s", msg)
+		}
+	}()
 
 	scanner := bufio.NewScanner(os.Stdin)
 
 	var startURL, outputFilename string
 	var maxURLs, maxDepth, workers int
 
-
 	if len(os.Args) > 1 {
-
 		startURL = os.Args[1]
 		if len(os.Args) > 2 {
 			fmt.Sscanf(os.Args[2], "%d", &maxURLs)
@@ -337,7 +438,6 @@ func main() {
 			outputFilename = os.Args[5]
 		}
 	} else if scanner.Scan() {
-
 		input := scanner.Text()
 		params := strings.Split(input, "|")
 
@@ -348,13 +448,13 @@ func main() {
 			fmt.Sscanf(params[1], "%d", &maxURLs)
 		}
 		if len(params) >= 3 {
-			fmt.Sscanf(params[3], "%d", &maxDepth)
+			fmt.Sscanf(params[2], "%d", &maxDepth)
 		}
 		if len(params) >= 4 {
-			fmt.Sscanf(params[4], "%d", &workers)
+			fmt.Sscanf(params[3], "%d", &workers)
 		}
 		if len(params) >= 5 {
-			outputFilename = params[5]
+			outputFilename = params[4]
 		}
 	} else {
 		fmt.Println("Usage: echo 'url|max_urls|max_depth|workers|output_filename' | ./scanner")
@@ -362,53 +462,64 @@ func main() {
 		os.Exit(1)
 	}
 
-	// go default
+	// Set defaults
 	if maxURLs == 0 {
-		maxURLs = 50
+		maxURLs = 100
 	}
 	if maxDepth == 0 {
-		maxDepth = 2
+		maxDepth = 3
 	}
 	if workers == 0 {
-		workers = 5
+		workers = 10
 	}
 	if outputFilename == "" {
 		outputFilename = fmt.Sprintf("scan_report_%s_%s.json",
-					     strings.ReplaceAll(startURL, "://", "_"),
-					     time.Now().Format("20060102_150405"))
+			strings.ReplaceAll(strings.ReplaceAll(startURL, "://", "_"), "/", "_"),
+			time.Now().Format("20060102_150405"))
 	}
 
-	log.Printf("Starting scan of %s (max URLs: %d, depth: %d, workers: %d, output: %s)",
-		   startURL, maxURLs, maxDepth, workers, outputFilename)
+	fmt.Printf("\n%s Starting scan of %s (max URLs: %d, depth: %d, workers: %d, output: %s)\n",
+		green("➤"), startURL, maxURLs, maxDepth, workers, outputFilename)
 
-	crawler := NewCrawler(startURL, maxDepth, maxURLs)
+	crawler := NewCrawler(startURL, maxDepth, maxURLs, progress)
 	report := crawler.CrawlAndScan(workers, outputFilename)
+	close(progress)
 
-	// raport gen
+	// Generate report
 	reportJSON, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		log.Fatal("Error generating JSON report:", err)
 	}
 
-	// output to file
+	// Write to file
 	err = os.WriteFile(outputFilename, reportJSON, 0644)
 	if err != nil {
 		log.Fatal("Error writing report file:", err)
 	}
 
-	// stdout for Python
-	fmt.Println(outputFilename)
+	// Output filename for Python integration
+	fmt.Printf("\n%s\n", outputFilename)
 
-	log.Printf("Scan completed! Scanned %d URLs, found %d vulnerabilities",
-		   report.ScannedURLs, len(report.Vulnerabilities))
-	log.Printf("Report saved to: %s", outputFilename)
+	// Summary
+	fmt.Printf("\n%s Scan completed in %s!\n", green("✓"), report.ExecutionTime)
+	fmt.Printf("%s URLs scanned: %d\n", yellow("➤"), report.ScannedURLs)
+	fmt.Printf("%s Vulnerabilities found: %d\n", yellow("➤"), len(report.Vulnerabilities))
 
 	if len(report.Vulnerabilities) > 0 {
-		log.Println("\n=== VULNERABILITY SUMMARY ===")
+		fmt.Printf("\n%s VULNERABILITY SUMMARY\n", red("⚠"))
 		for pattern, count := range report.VulnByType {
-			log.Printf("%s: %d vulnerabilities", pattern, count)
+			severity := "MEDIUM"
+			if strings.Contains(pattern, "injection") ||
+				strings.Contains(pattern, "deserialization") ||
+				strings.Contains(pattern, "xss") {
+				severity = red("HIGH")
+			} else if strings.Contains(pattern, "validator") ||
+				strings.Contains(pattern, "check") {
+				severity = yellow("LOW")
+			}
+			fmt.Printf("%s %s: %d vulnerabilities\n", severity, pattern, count)
 		}
 	} else {
-		log.Println("No vulnerabilities found!")
+		fmt.Printf("\n%s No vulnerabilities found!\n", green("✓"))
 	}
 }
