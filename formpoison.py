@@ -298,7 +298,9 @@ def detect_libraries(content):
     if 'bootstrap.min.css' in content_lower or 'bootstrap.min.js' in content_lower:
         version = None
         if 'bootstrap.min.css' in content_lower:
-            version = content_lower.split('bootstrap.min.css?v=')[1].split('"')[0] if 'bootstrap.min.css?v=' in content_lower else None
+            # Poprawione extractowanie wersji
+            version_match = re.search(r'bootstrap(?:\.min)?\.css\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Bootstrap', version))
     elif 'container' in content_lower and 'row' in content_lower and 'col-md-' in content_lower:
         libraries_detected.append(('Bootstrap', None))
@@ -307,63 +309,72 @@ def detect_libraries(content):
     if 'tailwind.min.css' in content_lower or 'bg-blue-' in content_lower or 'text-center' in content_lower:
         version = None
         if 'tailwind.min.css' in content_lower:
-            version = content_lower.split('tailwind.min.css?v=')[1].split('"')[0] if 'tailwind.min.css?v=' in content_lower else None
+            version_match = re.search(r'tailwind(?:\.min)?\.css\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Tailwind CSS', version))
 
     # jQuery
     if 'jquery.min.js' in content_lower or 'jquery.js' in content_lower or 'jquery(' in content_lower:
         version = None
         if 'jquery.min.js' in content_lower:
-            version = content_lower.split('jquery.min.js?v=')[1].split('"')[0] if 'jquery.min.js?v=' in content_lower else None
+            version_match = re.search(r'jquery(?:\.min)?\.js\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('jQuery', version))
 
     # Lodash
     if 'lodash.min.js' in content_lower or '_.' in content_lower:
         version = None
         if 'lodash.min.js' in content_lower:
-            version = content_lower.split('lodash.min.js?v=')[1].split('"')[0] if 'lodash.min.js?v=' in content_lower else None
+            version_match = re.search(r'lodash(?:\.min)?\.js\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Lodash', version))
 
     # Materialize
     if 'materialize.min.css' in content_lower or 'materialize.min.js' in content_lower:
         version = None
         if 'materialize.min.css' in content_lower:
-            version = content_lower.split('materialize.min.css?v=')[1].split('"')[0] if 'materialize.min.css?v=' in content_lower else None
+            version_match = re.search(r'materialize(?:\.min)?\.css\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Materialize', version))
 
     # Foundation
     if 'foundation.min.css' in content_lower or 'foundation.min.js' in content_lower:
         version = None
         if 'foundation.min.css' in content_lower:
-            version = content_lower.split('foundation.min.css?v=')[1].split('"')[0] if 'foundation.min.css?v=' in content_lower else None
+            version_match = re.search(r'foundation(?:\.min)?\.css\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Foundation', version))
 
     # Bulma
     if 'bulma.min.css' in content_lower or 'bulma.css' in content_lower:
         version = None
         if 'bulma.min.css' in content_lower:
-            version = content_lower.split('bulma.min.css?v=')[1].split('"')[0] if 'bulma.min.css?v=' in content_lower else None
+            version_match = re.search(r'bulma(?:\.min)?\.css\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Bulma', version))
 
     # Semantic UI
     if 'semantic.min.css' in content_lower or 'semantic.min.js' in content_lower:
         version = None
         if 'semantic.min.css' in content_lower:
-            version = content_lower.split('semantic.min.css?v=')[1].split('"')[0] if 'semantic.min.css?v=' in content_lower else None
+            version_match = re.search(r'semantic(?:\.min)?\.css\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Semantic UI', version))
 
     # Moment.js
     if 'moment.min.js' in content_lower or 'moment.js' in content_lower:
         version = None
         if 'moment.min.js' in content_lower:
-            version = content_lower.split('moment.min.js?v=')[1].split('"')[0] if 'moment.min.js?v=' in content_lower else None
+            version_match = re.search(r'moment(?:\.min)?\.js\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Moment.js', version))
 
     # Chart.js
     if 'chart.min.js' in content_lower or 'chart.js' in content_lower:
         version = None
         if 'chart.min.js' in content_lower:
-            version = content_lower.split('chart.min.js?v=')[1].split('"')[0] if 'chart.min.js?v=' in content_lower else None
+            version_match = re.search(r'chart(?:\.min)?\.js\?v=([\d.]+)', content_lower)
+            version = version_match.group(1) if version_match else None
         libraries_detected.append(('Chart.js', version))
 
     return libraries_detected
