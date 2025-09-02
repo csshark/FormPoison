@@ -5,14 +5,13 @@ It automates testing common missconfigurations in sanitization in input fields a
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
 cd FormPoison
-go build -o scanner
 pip install -r requirements.txt </code></pre>
 
 <sup><sub>ensure you have <b>webdriver-manager</b> installed, to use selenium with Chrome</sub></sup>
 
 ## Quick start 
 
-Type <code>python3 formposion.py -h</code> for possible usage. Flags and examples of usage: 
+Type <code>python3 formposion.py -h</code> for possible usage and scanner integration instruction. Flags and examples of usage: 
 
 ![running inject scans](scan.png)
 
