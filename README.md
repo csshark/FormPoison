@@ -5,6 +5,7 @@ It automates testing common missconfigurations in sanitization in input fields a
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
 cd FormPoison
+go build -o scanner
 pip install -r requirements.txt </code></pre>
 
 <sup><sub>ensure you have <b>webdriver-manager</b> installed, to use selenium with Chrome</sub></sup>
