@@ -61,7 +61,7 @@ class GoScannerIntegration:
             pass
 
         return None
-    # checking for go
+
     def run_go_scanner(self, url, max_urls=50, max_depth=2, workers=5):
         if not self.scanner_path:
             self.console.print("[bold red]Go scanner not found![/bold red]")
@@ -81,22 +81,86 @@ class GoScannerIntegration:
             ]
 
             self.console.print(f"[bold green]Running Go scanner: {' '.join(cmd)}[/bold green]")
+            self.console.print("[yellow]Don't worry about scan time! It works just fine, but be patient during scan...[/yellow]")
+            self.console.print("")
+				#animation imports bc i am insecure
+            from threading import Thread, Event
+            import itertools
+            import time
 
+            stop_animation = Event()
+            animation_thread = None
+
+            def animation():
+                spinner = itertools.cycle(['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'])
+                dots = itertools.cycle(['.', '..', '...', '....'])
+                stages = [
+                    "🔍 Crawling websites",
+                    "📝 Analyzing source code",
+                    "🛡️ Checking security patterns",
+                    "📊 Generating report"
+                ]
+                
+                stage_index = 0
+                start_time = time.time()
+                
+                while not stop_animation.is_set():
+                    elapsed = int(time.time() - start_time)
+                    minutes, seconds = divmod(elapsed, 60)
+                    time_str = f"{minutes:02d}:{seconds:02d}"
+                    
+                    current_stage = stages[stage_index]
+                    spinner_char = next(spinner)
+                    dots_char = next(dots)
+                    
+                    self.console.print(
+                        f"[cyan]{spinner_char}[/cyan] [bold]{current_stage}[/bold]"
+                        f"[yellow]{dots_char}[/yellow] [dim](Time: {time_str})[/dim]",
+                        end="\r"
+                    )
+                    
+                    # Change stage every 8 seconds
+                    if elapsed % 8 == 0 and elapsed > 0:
+                        stage_index = (stage_index + 1) % len(stages)
+                    
+                    time.sleep(0.2)
+
+            # Start the animation
+            animation_thread = Thread(target=animation)
+            animation_thread.daemon = True
+            animation_thread.start()
+
+            # Run the scanner
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+            # Stop animation
+            stop_animation.set()
+            if animation_thread:
+                animation_thread.join(timeout=1.0)
+            
+            # Clear the animation line
+            self.console.print(" " * 100, end="\r")
 
             if result.returncode == 0:
                 output_lines = result.stdout.strip().split('\n')
                 if output_lines:
                     report_file = output_lines[-1].strip()
                     if os.path.exists(report_file):
+                        self.console.print("[green]✓ Scan completed successfully![/green]")
                         return report_file
             else:
                 self.console.print(f"[bold red]Scanner error: {result.stderr}[/bold red]")
 
         except subprocess.TimeoutExpired:
-            self.console.print("[bold red]Scanner timeout![/bold red]")
+            stop_animation.set()
+            self.console.print(" " * 100, end="\r")
+            self.console.print("[bold red]Scanner timeout after 5 minutes![/bold red]")
         except Exception as e:
+            stop_animation.set()
+            self.console.print(" " * 100, end="\r")
             self.console.print(f"[bold red]Scanner execution error: {e}[/bold red]")
+        finally:
+            stop_animation.set()
 
         return None
 
@@ -110,7 +174,6 @@ class GoScannerIntegration:
             return None
 
     def generate_attack_recommendations(self, scan_report):
-        """Generuj rekomendacje ataków na podstawie wyników skanera"""
         recommendations = []
 
         if not scan_report or 'vulnerabilities' not in scan_report:
@@ -193,7 +256,6 @@ class GoScannerIntegration:
         recommendations = self.generate_attack_recommendations(scan_report)
 
         return recommendations
-
 #########################DETECTIONS###################
 def detect_framework(headers, content):
     framework_detected = None
