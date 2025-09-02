@@ -17,6 +17,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import urllib3
 import ssl
 import signal
+import subprocess
+import os
+import tempfile
+from pathlib import Path
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -28,6 +32,167 @@ def handle_sigint(signum, frame):
     sys.exit(0)
 
 signal.signal(signal.SIGINT, handle_sigint)
+
+######################### GO SCANNER INTEGRATION ###################
+class GoScannerIntegration:
+    def __init__(self):
+        self.scanner_path = self.find_go_scanner()
+        self.console = Console()
+
+    def find_go_scanner(self):
+        possible_paths = [
+            './scanner',
+            './vulnerability-scanner',
+            '/usr/local/bin/scanner',
+            '/usr/bin/scanner',
+            'scanner.exe'
+        ]
+
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+
+        # check path
+        try:
+            result = subprocess.run(['which', 'scanner'], capture_output=True, text=True)
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except:
+            pass
+
+        return None
+    # checking for go
+    def run_go_scanner(self, url, max_urls=50, max_depth=2, workers=5):
+        if not self.scanner_path:
+            self.console.print("[bold red]Go scanner not found![/bold red]")
+            self.console.print("Please compile the Go scanner first:")
+            self.console.print("1. go mod init vulnerability-scanner")
+            self.console.print("2. go mod tidy")
+            self.console.print("3. go build -o scanner")
+            return None
+
+        try:
+            cmd = [
+                self.scanner_path,
+                url,
+                str(max_urls),
+                str(max_depth),
+                str(workers)
+            ]
+
+            self.console.print(f"[bold green]Running Go scanner: {' '.join(cmd)}[/bold green]")
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+            if result.returncode == 0:
+                output_lines = result.stdout.strip().split('\n')
+                if output_lines:
+                    report_file = output_lines[-1].strip()
+                    if os.path.exists(report_file):
+                        return report_file
+            else:
+                self.console.print(f"[bold red]Scanner error: {result.stderr}[/bold red]")
+
+        except subprocess.TimeoutExpired:
+            self.console.print("[bold red]Scanner timeout![/bold red]")
+        except Exception as e:
+            self.console.print(f"[bold red]Scanner execution error: {e}[/bold red]")
+
+        return None
+
+    def parse_scan_report(self, report_file):
+        try:
+            with open(report_file, 'r', encoding='utf-8') as f:
+                report = json.load(f)
+            return report
+        except Exception as e:
+            self.console.print(f"[bold red]Error parsing scan report: {e}[/bold red]")
+            return None
+
+    def generate_attack_recommendations(self, scan_report):
+        """Generuj rekomendacje ataków na podstawie wyników skanera"""
+        recommendations = []
+
+        if not scan_report or 'vulnerabilities' not in scan_report:
+            return recommendations
+
+        vuln_types = set()
+        for vuln in scan_report['vulnerabilities']:
+            vuln_types.add(vuln['pattern'])
+
+        # map for possible vulns based on scanner output
+        attack_mapping = {
+            'length_validator': [
+                "Type Confusion Attack - Send malformed objects with custom length property",
+                "Array manipulation - Bypass length validation"
+            ],
+            'size_validator': [
+                "Collection manipulation - Bypass size checks",
+                "Object prototype pollution"
+            ],
+            'array_index_check': [
+                "Array index manipulation - Out of bounds access",
+                "Type confusion in array access"
+            ],
+            'instanceof_check': [
+                "Type confusion - Fake object types",
+                "Prototype pollution to bypass instanceof"
+            ],
+            'type_casting': [
+                "Type casting bypass - Malformed type casting",
+                "Object manipulation during casting"
+            ],
+            'sql_injection': [
+                "SQL Injection - Standard SQLi payloads",
+                "Blind SQL Injection",
+                "Time-based SQL Injection"
+            ],
+            'xss': [
+                "XSS - Standard XSS payloads",
+                "DOM-based XSS",
+                "Stored XSS"
+            ],
+            'command_injection': [
+                "Command Injection - OS command execution",
+                "Remote code execution"
+            ],
+            'insecure_deserialization': [
+                "Insecure Deserialization - Malicious object deserialization",
+                "Remote code execution via deserialization"
+            ]
+        }
+
+        for vuln_type in vuln_types:
+            if vuln_type in attack_mapping:
+                recommendations.extend(attack_mapping[vuln_type])
+
+        return list(set(recommendations))
+
+    def scan_and_analyze(self, url):
+        # full analysis with GO scanner
+        self.console.print(f"[bold blue]Starting Go scanner for: {url}[/bold blue]")
+
+        # run scan
+        report_file = self.run_go_scanner(url, max_urls=100, max_depth=3, workers=8)
+
+        if not report_file:
+            self.console.print("[bold yellow]No scan report generated[/bold yellow]")
+            return []
+
+        # parsing raport
+        scan_report = self.parse_scan_report(report_file)
+
+        if not scan_report:
+            self.console.print("[bold yellow]Failed to parse scan report[/bold yellow]")
+            return []
+
+        self.console.print(f"[bold green]Scan completed![/bold green]")
+        self.console.print(f"URLs scanned: {scan_report.get('scanned_urls', 0)}")
+        self.console.print(f"Vulnerabilities found: {len(scan_report.get('vulnerabilities', []))}")
+
+        recommendations = self.generate_attack_recommendations(scan_report)
+
+        return recommendations
 
 #########################DETECTIONS###################
 def detect_framework(headers, content):
@@ -202,7 +367,7 @@ def detect_libraries(content):
         libraries_detected.append(('Chart.js', version))
 
     return libraries_detected
-    
+
 def detect_server_technology(headers):
     server_tech = None
     version = None
@@ -262,6 +427,7 @@ def detect_ssl(url):
 
 
 console = Console()
+go_scanner = GoScannerIntegration()  # Inicjalizacja integracji z Go scannerem
 
 
 ##################SCANNING MODE##############################
@@ -680,13 +846,27 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agent, inpu
             })
             table.add_row(payload['inputField'], "Error", f"Request Failed: {str(e)}")
             if verbose or verbose_all:
+                console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
+                console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
+                console.print(f"[bold blue]Possible Vulnerabilities/Issues: {', '.join(vulnerabilities)}[/bold blue]")
+            if verbose_all:
+                console.print(f"[bold yellow]Response content:[/bold yellow]")
+                console.print(f"[yellow]{content}[/yellow]")
+        except Exception as e:
+            results.append({
+                "payload": payload['inputField'],
+                "response_code": "Error",
+                "vulnerabilities": [f"Request Failed: {str(e)}"]
+            })
+            table.add_row(payload['inputField'], "Error", f"Request Failed: {str(e)}")
+            if verbose or verbose_all:
                 console.print(f"[bold red]Error testing payload: {payload['inputField']}[/bold red]")
                 console.print(f"[bold red]Error: {str(e)}[/bold red]")
 
     # bar
     with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
         task = progress.add_task("[cyan]Testing...", total=len(payloads))
-        
+
         for payload in payloads:
             await test_payload(payload)
             progress.update(task, advance=1)
@@ -831,10 +1011,10 @@ def get_forms_and_inputs(content):
 def find_field_by_name(input_fields, field_name):
     if not field_name:
         return None
-    
+
     # to_lower for better interpretation
     field_name = field_name.lower()
-    
+
     for field in input_fields:
         # Pobierz wszystkie możliwe atrybuty pola
         field_attrs = [
@@ -846,10 +1026,10 @@ def find_field_by_name(input_fields, field_name):
             field.get('value', '').lower(),        # field value
             field.get('aria-label', '').lower()    # ARIA
         ]
-        
+
         if any(field_name in attr for attr in field_attrs):
             return field
-    
+
     return None
 
 async def test_all_forms(url, payloads, threat_type, cookies, user_agent, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0):
@@ -910,9 +1090,21 @@ async def main():
     if args.threat:
         payloads = [payload for payload in payloads if payload['category'] == args.threat]
         console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
-        
+
     if args.scan:
-        await scan(args.url)  # Używamy await zamiast asyncio.run()
+        # Uruchom skaner Go jeśli flaga --scan jest ustawiona
+        console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
+        attack_recommendations = go_scanner.scan_and_analyze(args.url)
+
+        if attack_recommendations:
+            console.print("[bold green]Recommended attacks based on scan results:[/bold green]")
+            for i, recommendation in enumerate(attack_recommendations, 1):
+                console.print(f"{i}. {recommendation}")
+        else:
+            console.print("[bold yellow]No specific attack recommendations from Go scanner.[/bold yellow]")
+
+        # Nadal uruchom standardowy scan
+        await scan(args.url)
 
     cookies = parse_cookies(args.cookies) if args.cookies else {}
     proxies = parse_proxy(args.proxy) if args.proxy else None
