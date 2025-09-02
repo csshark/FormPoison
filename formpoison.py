@@ -427,7 +427,7 @@ def detect_ssl(url):
 
 
 console = Console()
-go_scanner = GoScannerIntegration()  # Inicjalizacja integracji z Go scannerem
+go_scanner = GoScannerIntegration()  #go scanner init
 
 
 ##################SCANNING MODE##############################
@@ -718,14 +718,24 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
     vulnerabilities.extend(header_vulns)
 
     # framework detection
-    framework_detected = detect_framework(headers, content)
+    framework_detected, framework_version = detect_framework(headers, content)
     if framework_detected:
-        vulnerabilities.append(f"Framework Detected: {framework_detected}")
+        if framework_version:
+            vulnerabilities.append(f"Framework Detected: {framework_detected} (v{framework_version})")
+        else:
+            vulnerabilities.append(f"Framework Detected: {framework_detected}")
 
-    # libs detection
+    # libs detection - POPRAWIONE TUTAJ
     libraries_detected = detect_libraries(content)
     if libraries_detected:
-        vulnerabilities.append(f"Libraries Detected: {', '.join(libraries_detected)}")
+        # Konwertuj krotki (name, version) na stringi
+        libs_info = []
+        for lib_name, lib_version in libraries_detected:
+            if lib_version:
+                libs_info.append(f"{lib_name} (v{lib_version})")
+            else:
+                libs_info.append(lib_name)
+        vulnerabilities.append(f"Libraries Detected: {', '.join(libs_info)}")
 
     if payload_category == "SQL" and is_sql_injection_successful(content, payload):
         console.print("[bold red]💀 SQL INJECTED 💀[/bold red]")
@@ -829,7 +839,6 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agent, inpu
                     "response_code": status_code,
                     "vulnerabilities": vulnerabilities
                 })
-
                 table.add_row(payload['inputField'], str(status_code), ", ".join(vulnerabilities))
                 if verbose or verbose_all:
                     console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
@@ -839,25 +848,6 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agent, inpu
                         console.print(f"[bold yellow]Response content:[/bold yellow]")
                         console.print(f"[yellow]{content}[/yellow]")
         except Exception as e:
-            results.append({
-                "payload": payload['inputField'],
-                "response_code": "Error",
-                "vulnerabilities": [f"Request Failed: {str(e)}"]
-            })
-            table.add_row(payload['inputField'], "Error", f"Request Failed: {str(e)}")
-            if verbose or verbose_all:
-                console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
-                console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
-                console.print(f"[bold blue]Possible Vulnerabilities/Issues: {', '.join(vulnerabilities)}[/bold blue]")
-            if verbose_all:
-                console.print(f"[bold yellow]Response content:[/bold yellow]")
-                console.print(f"[yellow]{content}[/yellow]")
-        except Exception as e:
-            results.append({
-                "payload": payload['inputField'],
-                "response_code": "Error",
-                "vulnerabilities": [f"Request Failed: {str(e)}"]
-            })
             table.add_row(payload['inputField'], "Error", f"Request Failed: {str(e)}")
             if verbose or verbose_all:
                 console.print(f"[bold red]Error testing payload: {payload['inputField']}[/bold red]")
