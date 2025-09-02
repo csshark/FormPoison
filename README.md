@@ -1,5 +1,5 @@
 # FormPoison (FP)📄💉
-Form-focused Web Application Security Testing Framework made with Python based on experience with data validation issues and XSS attacks executed so far.
+Form-focused Web Application Security Testing Framework based on experience with data validation issues and XSS attacks executed so far (even web applications built on secure frameworks could be vulnerable).
 It automates testing common missconfigurations in sanitization in input fields and helps penetration testers find out where to start digging without code review.<p> There is also payload list (custom + AI generated and these frequently used by bounty hunters). 
 
 ## Installation:
@@ -37,7 +37,7 @@ Type <code>python3 formposion.py -h</code> for possible usage. Flags and example
 | --proxy | specify proxy for authentication | String, example: http://login:password@proxy.com:8080/ | 
 | --method | select request method | String: GET, POST, PUT, DELETE |  
 | -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
-| --scan | additional quick scan to leak more information from response and crawling | None |
+| --scan | deep scan for .js code and audit | None |
 
 </div>
 basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code> <br>
