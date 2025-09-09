@@ -44,7 +44,7 @@ basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code>
 example advanced usage: <pre><code>python3 formpoison.py --cookie "JSESSIONID=9875643544376543211D32" https://www.hackthissite.org/user/login --login -t HTML -s 2</code></pre>
 
 ### Scan mode
-Scan mode has been extended into JavaScript code scanning and looking for common vectors of code / inproper value injection to bypass some filters. The scanner is separate project integrated into FormPoison by default. It is recommended to run scan firs to identify attack vectors by yourself first.
+Scan mode has been extended into JavaScript code scanning and looking for common vectors of code / inproper value injection to bypass some filters. The scanner is separate project integrated into FormPoison by default. It is recommended to run scan firs to identify attack vectors by yourself first. Scanner works for <br>15 minutes max.</br>, to keep lightweight form - this is not SAST replacement. By default scanner runs with 100 3 10 (100 MaxURLs, 3 MaxDepth, Workers) to suit all the enviroments. However user is allowed to change those values via FormPoison flags.
 
 ### payload sources:
 - **payloadbox**: https://github.com/payloadbox/sql-injection-payload-list
