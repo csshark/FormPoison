@@ -62,7 +62,7 @@ class GoScannerIntegration:
 
         return None
 
-    def run_go_scanner(self, url, max_urls=50, max_depth=2, workers=5):
+    def run_go_scanner(self, url, max_urls=100, max_depth=3, workers=10):
         if not self.scanner_path:
             self.console.print("[bold red]Go scanner not found![/bold red]")
             self.console.print("Please compile the Go scanner first:")
@@ -83,7 +83,8 @@ class GoScannerIntegration:
             self.console.print(f"[bold green]Running Go scanner: {' '.join(cmd)}[/bold green]")
             self.console.print("[yellow]Don't worry about scan time! It works just fine, but be patient during scan...[/yellow]")
             self.console.print("")
-				#animation imports bc i am insecure
+
+            # animation imports bc i am insecure
             from threading import Thread, Event
             import itertools
             import time
@@ -131,7 +132,7 @@ class GoScannerIntegration:
             animation_thread.start()
 
             # Run the scanner
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600) #this is no true, real scanner stops at 10mins by default. 
 
             # Stop animation
             stop_animation.set()
@@ -154,7 +155,7 @@ class GoScannerIntegration:
         except subprocess.TimeoutExpired:
             stop_animation.set()
             self.console.print(" " * 100, end="\r")
-            self.console.print("[bold red]Scanner timeout after 5 minutes![/bold red]")
+            self.console.print("[bold red]Scanner timeout after 1h![/bold red]")
         except Exception as e:
             stop_animation.set()
             self.console.print(" " * 100, end="\r")
@@ -231,12 +232,12 @@ class GoScannerIntegration:
 
         return list(set(recommendations))
 
-    def scan_and_analyze(self, url):
+    def scan_and_analyze(self, url, max_urls=100, max_depth=3, workers=10):
         # full analysis with GO scanner
         self.console.print(f"[bold blue]Starting Go scanner for: {url}[/bold blue]")
 
         # run scan
-        report_file = self.run_go_scanner(url, max_urls=100, max_depth=3, workers=8)
+        report_file = self.run_go_scanner(url, max_urls, max_depth, workers)
 
         if not report_file:
             self.console.print("[bold yellow]No scan report generated[/bold yellow]")
@@ -1109,6 +1110,9 @@ async def main():
     parser = argparse.ArgumentParser(description="Over 500 payloads included!")
     parser.add_argument("url", help="Form URL")
     parser.add_argument("--scan", action="store_true", help="Perform a quick scan of the website")
+    parser.add_argument("--max-urls", type=int, default=100, help="Maximum number of URLs to scan (default: 100)")
+    parser.add_argument("--max-depth", type=int, default=3, help="Maximum depth of scanning (default: 3)")
+    parser.add_argument("--workers", type=int, default=10, help="Number of workers for scanning (default: 10)")
     parser.add_argument("-t", "--threat", choices=["HTML", "Java", "SQL"], help="Threat type to test (HTML, Java, SQL)")
     parser.add_argument("-p", "--payloads", default="payloads.json", help="JSON file with payloads")
     parser.add_argument("--cookies", help="Cookies: 'key1=value1; key2=value2'")
@@ -1155,9 +1159,9 @@ async def main():
         console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
 
     if args.scan:
-        # Uruchom skaner Go jeśli flaga --scan jest ustawiona
+        # Uruchom skaner Go z przekazanymi parametrami lub domyślnymi wartościami
         console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
-        attack_recommendations = go_scanner.scan_and_analyze(args.url)
+        attack_recommendations = go_scanner.scan_and_analyze(args.url, args.max_urls, args.max_depth, args.workers)
 
         if attack_recommendations:
             console.print("[bold green]Recommended attacks based on scan results:[/bold green]")
