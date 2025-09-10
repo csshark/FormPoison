@@ -1080,7 +1080,7 @@ def find_field_by_name(input_fields, field_name):
     field_name = field_name.lower()
 
     for field in input_fields:
-        # Pobierz wszystkie możliwe atrybuty pola
+        # get all atributes from the input field
         field_attrs = [
             field.get('name', '').lower(),          # fieldname
             field.get('id', '').lower(),           # field id
@@ -1159,7 +1159,7 @@ async def main():
         console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
 
     if args.scan:
-        # Uruchom skaner Go z przekazanymi parametrami lub domyślnymi wartościami
+        # go scanner running
         console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
         attack_recommendations = go_scanner.scan_and_analyze(args.url, args.max_urls, args.max_depth, args.workers)
 
@@ -1170,7 +1170,7 @@ async def main():
         else:
             console.print("[bold yellow]No specific attack recommendations from Go scanner.[/bold yellow]")
 
-        # Nadal uruchom standardowy scan
+        # formpoison built-in scan
         await scan(args.url)
 
     cookies = parse_cookies(args.cookies) if args.cookies else {}
