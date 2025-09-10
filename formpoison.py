@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import json
+import itertools
 from rich.console import Console
 from rich.table import Table
 import argparse
@@ -9,6 +10,7 @@ import random
 from bs4 import BeautifulSoup
 import re
 import time
+from threading import Thread, Event
 from rich.progress import Progress, BarColumn, TimeRemainingColumn
 import threading
 from selenium import webdriver
@@ -84,11 +86,7 @@ class GoScannerIntegration:
             self.console.print("[yellow]Don't worry about scan time! It works just fine, but be patient during scan...[/yellow]")
             self.console.print("")
 
-            # Animation imports
-            from threading import Thread, Event
-            import itertools
-            import time
-
+            # Animation setup
             stop_animation = Event()
             animation_thread = None
 
@@ -150,9 +148,11 @@ class GoScannerIntegration:
                         self.console.print(f"[bold cyan]{line}[/bold cyan]")
                     
                     report_file = output_lines[-1].strip()
-                    if os.path.exists(report_file):
+                    if report_file and os.path.exists(report_file):
                         self.console.print("[green]✓ Scan completed successfully![/green]")
                         return report_file
+                    else:
+                        self.console.print(f"[bold red]Report file not found: {report_file}[/bold red]")
             else:
                 self.console.print(f"[bold red]Scanner error: {result.stderr}[/bold red]")
 
@@ -170,10 +170,20 @@ class GoScannerIntegration:
         return None
 
     def parse_scan_report(self, report_file):
+        if not report_file:
+            self.console.print("[bold red]No report file provided![/bold red]")
+            return None
+
         try:
             with open(report_file, 'r', encoding='utf-8') as f:
                 report = json.load(f)
             return report
+        except FileNotFoundError:
+            self.console.print(f"[bold red]Report file not found: {report_file}[/bold red]")
+            return None
+        except json.JSONDecodeError:
+            self.console.print(f"[bold red]Invalid JSON format in report file: {report_file}[/bold red]")
+            return None
         except Exception as e:
             self.console.print(f"[bold red]Error parsing scan report: {e}[/bold red]")
             return None
@@ -243,6 +253,10 @@ class GoScannerIntegration:
         # run scan
         report_file = self.run_go_scanner(url, max_urls, max_depth, workers)
 
+        if not report_file:
+            self.console.print("[bold red]Scan failed! No report file generated.[/bold red]")
+            return []
+
         # parsing raport
         scan_report = self.parse_scan_report(report_file)
 
@@ -255,6 +269,13 @@ class GoScannerIntegration:
         self.console.print(f"Vulnerabilities found: {len(scan_report.get('vulnerabilities', []))}")
 
         recommendations = self.generate_attack_recommendations(scan_report)
+
+        if recommendations:
+            self.console.print("[bold green]Attack recommendations:[/bold green]")
+            for recommendation in recommendations:
+                self.console.print(f"[yellow]- {recommendation}[/yellow]")
+        else:
+            self.console.print("[bold yellow]No specific attack recommendations from Go scanner.[/bold yellow]")
 
         return recommendations
 #########################DETECTIONS###################
