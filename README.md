@@ -1,4 +1,9 @@
 # FormPoison (FP)📄💉
+
+<p align="center">
+  <img src="formpoison.png" width=500px />
+</p>
+
 Form-focused Web Application Security Testing Framework based on experience with data validation issues and XSS attacks executed so far (even web applications built on secure frameworks could be vulnerable).
 It automates testing common missconfigurations in sanitization in input fields and helps penetration testers find out where to start digging without code review.<p> There is also payload list (custom + AI generated and these frequently used by bounty hunters). 
 
