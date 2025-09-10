@@ -38,6 +38,9 @@ Type <code>python3 formposion.py -h</code> for possible usage and scanner integr
 | --method | select request method | String: GET, POST, PUT, DELETE |  
 | -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
 | --scan | deep scan for .js code and overall web audit | None |
+| --max-urls | specify max urls to scan | int range | 
+| --max-depth | specify max scan depth | int range | 
+| --max-workers | specify number of workers for scanning | int range | 
 
 </div>
 basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code> <br>
