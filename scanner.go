@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"context" 
 	"net/http"
 	"net/url"
 	"os"
@@ -20,11 +21,11 @@ import (
 )
 
 func getFileExtension(urlStr string) string {
-    parsed, err := url.Parse(urlStr)
-    if err != nil {
-        return ""
-    }
-    return path.Ext(parsed.Path)
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return ""
+	}
+	return path.Ext(parsed.Path)
 }
 
 type Vulnerability struct {
@@ -79,6 +80,12 @@ var owaspPatterns = map[string]string{
 	"insecure_deserialization": `(?i)(ObjectInputStream|readObject\(|readResolve\(|Serializable|JSON\.parse\(|XMLDecoder)`,
 }
 
+var additionalPatterns = map[string]string{
+	"type_confusion":       `(?i)(instanceof\s+\w+\s*\(\s*\w+\s*\)|\(\s*\w+\s*\)\s*\w+\s*instanceof)`,
+	"race_condition":       `(?i)(synchronized\s*\(\s*\w+\s*\)|Lock\s*\(\s*\w+\s*\)|Semaphore\s*\(\s*\w+\s*\))`,
+	"insecure_randomness":  `(?i)(Math\.random\(\)|Random\s*\(\s*\w+\s*\)|SecureRandom\s*\(\s*\w+\s*\))`,
+}
+
 func NewCrawler(startURL string, maxDepth, maxURLs int, progress chan string) *Crawler {
 	c := &Crawler{
 		discoveredURLs: make(chan string, 10000),
@@ -103,11 +110,14 @@ func NewCrawler(startURL string, maxDepth, maxURLs int, progress chan string) *C
 	}
 	c.baseDomain = parsedURL.Hostname()
 
-	// Kompiluj wszystkie patterny
+	// compile all patterns known
 	for name, pattern := range javaPatterns {
 		c.patterns[name] = regexp.MustCompile(pattern)
 	}
 	for name, pattern := range owaspPatterns {
+		c.patterns[name] = regexp.MustCompile(pattern)
+	}
+	for name, pattern := range additionalPatterns {
 		c.patterns[name] = regexp.MustCompile(pattern)
 	}
 
@@ -206,7 +216,6 @@ func (c *Crawler) scanContent(urlStr, content string) []Vulnerability {
 					severity = "LOW"
 				}
 
-				// Skip trivial matches
 				if len(strings.TrimSpace(match)) < 5 && severity != "HIGH" {
 					continue
 				}
@@ -215,7 +224,7 @@ func (c *Crawler) scanContent(urlStr, content string) []Vulnerability {
 					URL:         urlStr,
 					Line:        lineNum + 1,
 					Pattern:     patternName,
-					CodeSnippet: truncateString(strings.TrimSpace(line), 200),
+					CodeSnippet: truncateString(strings.TrimSpace(line), 200), // Poprawione
 					Match:       truncateString(match, 100),
 					Severity:    severity,
 				}
@@ -235,64 +244,65 @@ func truncateString(s string, maxLen int) string {
 }
 
 func (c *Crawler) fetchURL(urlStr string) (string, error) {
-    req, err := http.NewRequest("GET", urlStr, nil)
-    if err != nil {
-        return "", err
-    }
-    
-    // Set headers to mimic a real browser
-    req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-    req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-    req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-    req.Header.Set("Connection", "keep-alive")
-    req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil {
+		return "", err
+	}
 
-    resp, err := c.client.Do(req)
-    if err != nil {
-        return "", err
-    }
-    defer resp.Body.Close()
+	// headers to mimic a real browser
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
-    if resp.StatusCode != http.StatusOK {
-        return "", fmt.Errorf("HTTP %d", resp.StatusCode)
-    }
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
 
-    // NEW CONTENT TYPE CHECKING CODE GOES HERE:
-    contentType := resp.Header.Get("Content-Type")
-    ext := getFileExtension(urlStr)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
 
-    // Allow common source code file types regardless of content type
-    allowedExtensions := map[string]bool{
-        ".js": true, ".java": true, ".py": true, ".php": true, 
-        ".rb": true, ".go": true, ".c": true, ".cpp": true,
-        ".html": true, ".htm": true, ".jsp": true, ".asp": true,
-        ".aspx": true, ".cs": true, ".xml": true, ".json": true,
-        ".css": true, ".ts": true,
-    }
+	contentType := resp.Header.Get("Content-Type")
+	ext := getFileExtension(urlStr)
 
-    // If it's a known source file extension, allow it regardless of content type
-    if allowedExtensions[ext] {
-        // Proceed with processing - do nothing, just allow it
-    } else if !strings.Contains(contentType, "text/html") &&
-        !strings.Contains(contentType, "text/plain") &&
-        !strings.Contains(contentType, "javascript") &&
-        !strings.Contains(contentType, "json") &&
-        !strings.Contains(contentType, "xml") {
-        return "", fmt.Errorf("unsupported content type: %s for URL %s", contentType, urlStr)
-    }
+	//common source code file types
+	allowedExtensions := map[string]bool{
+		".js": true, ".java": true, ".py": true, ".php": true,
+		".rb": true, ".go": true, ".c": true, ".cpp": true,
+		".html": true, ".htm": true, ".jsp": true, ".asp": true,
+		".aspx": true, ".cs": true, ".xml": true, ".json": true,
+		".css": true, ".ts": true,
+	}
 
-    body, err := io.ReadAll(resp.Body)
-    if err != nil {
-        return "", err
-    }
+	if allowedExtensions[ext] {
+		//processing - do nothing, just allow it
+	} else if !strings.Contains(contentType, "text/html") &&
+		!strings.Contains(contentType, "text/plain") &&
+		!strings.Contains(contentType, "javascript") &&
+		!strings.Contains(contentType, "json") &&
+		!strings.Contains(contentType, "xml") {
+		return "", fmt.Errorf("unsupported content type: %s for URL %s", contentType, urlStr)
+	}
 
-    return string(body), nil
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
 }
-
 func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
 	startTime := time.Now()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+
+	// 1h total timeout 
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Hour)
+	defer cancel()
 
 	report := &ScanReport{
 		StartURL:       c.baseDomain,
@@ -303,7 +313,7 @@ func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
 
 	vulnChan := make(chan []Vulnerability, 1000)
 
-	// Animation spinner
+	// spinner
 	spinnerDone := make(chan bool)
 	go func() {
 		spinnerChars := []string{"|", "/", "-", "\\"}
@@ -321,74 +331,95 @@ func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
 		}
 	}()
 
+	// End b4 10 mins 
+	earlyExitTimer := time.NewTimer(10 * time.Minute)
+	go func() {
+		<-earlyExitTimer.C
+		cancel() // Anuluj kontekst po 10 minutach
+	}()
+
 	// Worker function
 	worker := func() {
 		defer wg.Done()
-		for urlStr := range c.discoveredURLs {
-			mu.Lock()
-			if c.urlCount >= c.maxURLs {
+		for {
+			select {
+			case <-ctx.Done():
+				return // Przerwij, jeśli czas minął
+			case urlStr := <-c.discoveredURLs:
+				mu.Lock()
+				if c.urlCount >= c.maxURLs {
+					mu.Unlock()
+					return
+				}
 				mu.Unlock()
-				break
-			}
-			mu.Unlock()
 
-			if _, visited := c.visitedURLs.LoadOrStore(urlStr, true); visited {
-				continue
-			}
+				if _, visited := c.visitedURLs.LoadOrStore(urlStr, true); visited {
+					continue
+				}
 
-			mu.Lock()
-			c.urlCount++
-			currentCount := c.urlCount
-			mu.Unlock()
+				mu.Lock()
+				c.urlCount++
+				currentCount := c.urlCount
+				mu.Unlock()
 
-			c.progress <- fmt.Sprintf("Scanning URL %d: %s", currentCount, urlStr)
+				c.progress <- fmt.Sprintf("Scanning URL %d: %s", currentCount, urlStr)
 
-			content, err := c.fetchURL(urlStr)
-			if err != nil {
-				c.progress <- fmt.Sprintf("Error fetching %s: %v", urlStr, err)
-				continue
-			}
+				content, err := c.fetchURL(urlStr)
+				if err != nil {
+					c.progress <- fmt.Sprintf("Error fetching %s: %v", urlStr, err)
+					continue
+				}
 
-			vulnerabilities := c.scanContent(urlStr, content)
-			if len(vulnerabilities) > 0 {
-				vulnChan <- vulnerabilities
-				c.progress <- fmt.Sprintf("Found %d vulnerabilities in %s", len(vulnerabilities), urlStr)
-			}
+				vulnerabilities := c.scanContent(urlStr, content)
+				if len(vulnerabilities) > 0 {
+					vulnChan <- vulnerabilities
+					c.progress <- fmt.Sprintf("Found %d vulnerabilities in %s", len(vulnerabilities), urlStr)
+				}
 
-			// extract URLs
-			if strings.Contains(http.DetectContentType([]byte(content)), "text/html") {
-				urls := c.extractURLs(urlStr, strings.NewReader(content))
-				for _, newURL := range urls {
-					select {
-					case c.discoveredURLs <- newURL:
-					default:
-						// Channel full, skip
+				// extract URLs
+				if strings.Contains(http.DetectContentType([]byte(content)), "text/html") {
+					urls := c.extractURLs(urlStr, strings.NewReader(content))
+					for _, newURL := range urls {
+						select {
+						case c.discoveredURLs <- newURL:
+						default:
+							// Channel full, skip
+						}
 					}
 				}
+
+				mu.Lock()
+				report.ScannedURLs++
+				mu.Unlock()
+
+				// dynamic depth 
+				if report.ScannedURLs < 10 {
+					c.maxDepth = 1 // deep reduction if there is less URLS
+				} else if report.ScannedURLs < 50 {
+					c.maxDepth = 2 // optimized
+				} else {
+					c.maxDepth = 3 // full depth
+				}
+
+				time.Sleep(50 * time.Millisecond)
 			}
-
-			mu.Lock()
-			report.ScannedURLs++
-			mu.Unlock()
-
-			time.Sleep(50 * time.Millisecond) // Be polite
 		}
 	}
 
-	// Start workers
+	// workers
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go worker()
 	}
 
-	// Close vulnChan when all workers are done
+	// Close vulnChan
 	go func() {
 		wg.Wait()
 		close(vulnChan)
 		spinnerDone <- true
 	}()
 
-	// Process vulnerabilities
+	// Process vulns
 	for vulns := range vulnChan {
 		mu.Lock()
 		report.Vulnerabilities = append(report.Vulnerabilities, vulns...)
@@ -404,14 +435,14 @@ func (c *Crawler) CrawlAndScan(workers int, outputFilename string) *ScanReport {
 }
 
 func main() {
-	// Setup colored output
+	// output.
 	green := color.New(color.FgGreen).SprintFunc()
 	yellow := color.New(color.FgYellow).SprintFunc()
 	red := color.New(color.FgRed).SprintFunc()
 
 	progress := make(chan string, 100)
 	
-	// Display progress
+	// progress
 	go func() {
 		for msg := range progress {
 			fmt.Printf("\r%s", msg)
@@ -451,10 +482,10 @@ func main() {
 			fmt.Sscanf(params[2], "%d", &maxDepth)
 		}
 		if len(params) >= 4 {
-			fmt.Sscanf(params[3], "%d", &workers)
+			fmt.Sscanf(params[4], "%d", &workers)
 		}
 		if len(params) >= 5 {
-			outputFilename = params[4]
+			outputFilename = params[5]
 		}
 	} else {
 		fmt.Println("Usage: echo 'url|max_urls|max_depth|workers|output_filename' | ./scanner")
@@ -462,7 +493,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set defaults
+	// defaults
 	if maxURLs == 0 {
 		maxURLs = 100
 	}
@@ -485,22 +516,22 @@ func main() {
 	report := crawler.CrawlAndScan(workers, outputFilename)
 	close(progress)
 
-	// Generate report
+	// report gen
 	reportJSON, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		log.Fatal("Error generating JSON report:", err)
 	}
 
-	// Write to file
+	// -> to file
 	err = os.WriteFile(outputFilename, reportJSON, 0644)
 	if err != nil {
 		log.Fatal("Error writing report file:", err)
 	}
 
-	// Output filename for Python integration
+	// python integration
 	fmt.Printf("\n%s\n", outputFilename)
 
-	// Summary
+	// summarizing
 	fmt.Printf("\n%s Scan completed in %s!\n", green("✓"), report.ExecutionTime)
 	fmt.Printf("%s URLs scanned: %d\n", yellow("➤"), report.ScannedURLs)
 	fmt.Printf("%s Vulnerabilities found: %d\n", yellow("➤"), len(report.Vulnerabilities))
