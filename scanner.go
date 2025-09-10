@@ -563,6 +563,7 @@ func main() {
 				severity = yellow("LOW")
 			}
 			fmt.Printf("%s %s: %d vulnerabilities\n", severity, pattern, count)
+			fmt.Printf(outputFilename)
 		}
 	} else {
 		fmt.Printf("\n%s No vulnerabilities found!\n", green("✓"))
