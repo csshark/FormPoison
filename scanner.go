@@ -70,6 +70,20 @@ var javaPatterns = map[string]string{
 	"null_check":          `==\s*null|!=\s*null`,
 	"boundary_check":      `>\s*\d+|<\s*\d+|>=\s*\d+|<=\s*\d+`,
 	"regex_validation":    `\.matches\(|Pattern\.compile|\.find\(\)|\.group\(\)`,
+	"unchecked_exception": `throws\s+\w+Exception`,
+	"reflection":          `Class\.forName\(|Method\.invoke\(|Field\.set\(`,
+	"serialization":       `implements\s+Serializable|ObjectOutputStream|ObjectInputStream`,
+	"file_handling":       `new\s+File\(|FileInputStream|FileOutputStream`,
+	"network_io":          `Socket\(|ServerSocket\(|URLConnection`,
+	"string_concatenation": `\w+\s*\+\s*\w+`,
+	"date_handling":       `SimpleDateFormat\(|Date\(|Calendar\.getInstance\(\)`,
+	"enum_usage":          `enum\s+\w+`,
+	"annotation_usage":    `@\w+\(`,
+	"lambda_expression":   `->\s*\w+`,
+	"stream_usage":        `\.stream\(\)|\.map\(|\.filter\(|\.collect\(\)`,
+	"optional_usage":      `Optional\.of\(|Optional\.empty\(\)`,
+	"concurrency":         `synchronized\s*\(|volatile\s+\w+|Atomic\w+`,
+	"resource_management": `try\s*\(|\.close\(\)|AutoCloseable`,
 }
 
 var owaspPatterns = map[string]string{
