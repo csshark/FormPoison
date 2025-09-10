@@ -1128,7 +1128,7 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agent, method
 async def main():
     console.clear()
     show_banner()
-    parser = argparse.ArgumentParser(description="Over 500 payloads included!")
+    parser = argparse.ArgumentParser(description="Over 3500 payloads included!")
     parser.add_argument("url", help="Form URL")
     parser.add_argument("--scan", action="store_true", help="Perform a quick scan of the website")
     parser.add_argument("--max-urls", type=int, default=100, help="Maximum number of URLs to scan (default: 100)")
