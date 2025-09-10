@@ -84,7 +84,7 @@ class GoScannerIntegration:
             self.console.print("[yellow]Don't worry about scan time! It works just fine, but be patient during scan...[/yellow]")
             self.console.print("")
 
-            # animation imports bc i am insecure
+            # Animation imports
             from threading import Thread, Event
             import itertools
             import time
@@ -132,7 +132,7 @@ class GoScannerIntegration:
             animation_thread.start()
 
             # Run the scanner
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600) #this is no true, real scanner stops at 10mins by default. 
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
 
             # Stop animation
             stop_animation.set()
@@ -145,6 +145,10 @@ class GoScannerIntegration:
             if result.returncode == 0:
                 output_lines = result.stdout.strip().split('\n')
                 if output_lines:
+                    # Display the Go scanner output
+                    for line in output_lines:
+                        self.console.print(f"[bold cyan]{line}[/bold cyan]")
+                    
                     report_file = output_lines[-1].strip()
                     if os.path.exists(report_file):
                         self.console.print("[green]✓ Scan completed successfully![/green]")
@@ -238,10 +242,6 @@ class GoScannerIntegration:
 
         # run scan
         report_file = self.run_go_scanner(url, max_urls, max_depth, workers)
-
-        if not report_file:
-            self.console.print("[bold yellow]No scan report generated[/bold yellow]")
-            return []
 
         # parsing raport
         scan_report = self.parse_scan_report(report_file)
@@ -1080,7 +1080,7 @@ def find_field_by_name(input_fields, field_name):
     field_name = field_name.lower()
 
     for field in input_fields:
-        # get all atributes from the input field
+        # Pobierz wszystkie możliwe atrybuty pola
         field_attrs = [
             field.get('name', '').lower(),          # fieldname
             field.get('id', '').lower(),           # field id
@@ -1159,7 +1159,7 @@ async def main():
         console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
 
     if args.scan:
-        # go scanner running
+        # Uruchom skaner Go z przekazanymi parametrami lub domyślnymi wartościami
         console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
         attack_recommendations = go_scanner.scan_and_analyze(args.url, args.max_urls, args.max_depth, args.workers)
 
@@ -1170,7 +1170,7 @@ async def main():
         else:
             console.print("[bold yellow]No specific attack recommendations from Go scanner.[/bold yellow]")
 
-        # formpoison built-in scan
+        # Nadal uruchom standardowy scan
         await scan(args.url)
 
     cookies = parse_cookies(args.cookies) if args.cookies else {}
