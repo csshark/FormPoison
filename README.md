@@ -40,7 +40,7 @@ Type <code>python3 formposion.py -h</code> for possible usage and scanner integr
 | --ssl-key | use ssl private key | String: /home/user/certs/key.pem |
 | --ssl-verify | verify ssl certificate | bool: None |
 | --proxy | specify proxy for authentication | String, example: http://login:password@proxy.com:8080/ | 
-| --method | select request method | String: GET, POST, PUT, DELETE |  
+| --method | select request method to force web app confusion | String: GET, POST, PUT, DELETE |  
 | -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
 | --scan | deep scan for .js code and overall web audit | None |
 | --max-urls | specify max urls to scan | int range | 
