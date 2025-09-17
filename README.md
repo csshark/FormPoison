@@ -1,11 +1,13 @@
-# FormPoison (FP)📄💉
+#  <div align ="center"> FormPoison</div>
+
+
 
 <p align="center">
   <img src="formpoison.png" width=500px />
 </p>
 
 Form-focused Web Application Security Testing Framework based on experience with data validation issues and XSS attacks executed so far (even web applications built on secure frameworks could be vulnerable).
-It automates testing common missconfigurations in sanitization in input fields and helps penetration testers find out where to start digging without code review.<p> There is also payload list (custom + AI generated and these frequently used by bounty hunters). 
+It automates testing common missconfigurations in sanitization in input fields and helps penetration testers find out where to start digging without code review.<p> There is also payload list (custom + AI generated and these frequently used by bounty hunters). </p> <b>Before you start</b>, be aware of many false-positives when running attack. Sometimes web application returns '200 OK' <b>by default</b> and doesn't get injected at all. Run scan, check for CVEs, investigate and then attack. 
 
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
