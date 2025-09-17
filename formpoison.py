@@ -805,6 +805,52 @@ def analyze_response_headers(headers):
 
     return vulnerabilities
 
+# second checks: 
+
+def is_payload_executed(content, payload):
+    # check for execution if word from payload is present
+    return payload.lower() in content.lower()
+
+def is_xss_executed(content, payload):
+    # checking for xss
+    xss_keywords = ['alert', 'xss', 'javascript', 'onerror', 'onload']
+    return any(keyword in content.lower() for keyword in xss_keywords)
+
+def is_sql_injection_successful(content, payload):
+    # sql injection response possibilites
+    sql_errors = [
+        r"sql syntax.*error",                      
+        r"warning: mysql",                         
+        r"unclosed quotation mark",                
+        r"you have an error in your sql syntax",   
+        r"ora-\d{5}",                              
+        r"postgresql.*error",                      
+        r"sql server.*error",                      
+        r"syntax error",                           
+        r"mysql_fetch_array",                      
+        r"mysql_num_rows",                         
+        r"mysql_query",                            
+        r"mysqli_query",                           
+        r"pdoexception",                          
+        r"sqlite3.*error",                         
+        r"column not found",                       
+        r"table not found",                        
+        r"unknown column",                         
+        r"unknown table",                          
+        r"sql command not properly ended",         
+    ]
+
+    # check for errs
+    for error in sql_errors:
+        if re.search(error, content, re.IGNORECASE):
+            return True
+
+    # check for payload content in response
+    if payload.lower() in content.lower():
+        return True
+
+    return False
+
 def analyze_response(content, headers, payload_category, payload, verbose_all=False):
     vulnerabilities = []
     content_vulns = analyze_response_content(content)
@@ -820,10 +866,9 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
         else:
             vulnerabilities.append(f"Framework Detected: {framework_detected}")
 
-    # libs detection - POPRAWIONE TUTAJ
+    # libs detection
     libraries_detected = detect_libraries(content)
     if libraries_detected:
-        # Konwertuj krotki (name, version) na stringi
         libs_info = []
         for lib_name, lib_version in libraries_detected:
             if lib_version:
@@ -832,34 +877,22 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
                 libs_info.append(lib_name)
         vulnerabilities.append(f"Libraries Detected: {', '.join(libs_info)}")
 
+    # additional verification
     if payload_category == "SQL" and is_sql_injection_successful(content, payload):
-        console.print("[bold red]💀 SQL INJECTED 💀[/bold red]")
-    elif payload_category == "HTML" and is_xss_successful(content, payload):
-        console.print("[bold red]💀 XSS INJECTED 💀[/bold red]")
+        if is_payload_executed(content, payload):
+            console.print("[bold red]💀 SQL INJECTED 💀[/bold red]")
+            console.print("[bold green]✅ Payload executed successfully![/bold green]")
+
+    if payload_category == "HTML" and is_xss_executed(content, payload):
+        if is_xss_executed(content):
+            console.print("[bold red]💀 XSS INJECTED 💀[/bold red]")
+            console.print("[bold green]✅ XSS payload executed successfully![/bold green]")
 
     if verbose_all:
         console.print(f"[bold yellow]Full response analysis:[/bold yellow]")
         console.print(f"[yellow]{vulnerabilities}[/yellow]")
 
     return vulnerabilities
-
-def is_xss_successful(content, payload):
-    return payload.lower() in content.lower()
-
-def is_sql_injection_successful(content, payload):
-    sql_errors = [
-        r"sql syntax.*error",
-        r"warning: mysql",
-        r"unclosed quotation mark",
-        r"you have an error in your sql syntax",
-        r"ora-\d{5}",
-        r"postgresql.*error",
-        r"sql server.*error"
-    ]
-    for error in sql_errors:
-        if re.search(error, content, re.IGNORECASE) and payload.lower() in content.lower():
-            return True
-    return False
 
 async def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0):
     results = []
