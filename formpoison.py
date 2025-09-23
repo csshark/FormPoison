@@ -200,52 +200,205 @@ class GoScannerIntegration:
 
         # map for possible vulns based on scanner output
         attack_mapping = {
+            # Java patterns
             'length_validator': [
                 "Type Confusion Attack - Send malformed objects with custom length property",
-                "Array manipulation - Bypass length validation"
+                "Array manipulation - Bypass length validation",
+                "Buffer overflow - Exceed length limits with large inputs"
             ],
             'size_validator': [
-                "Collection manipulation - Bypass size checks",
-                "Object prototype pollution"
+                "Collection manipulation - Bypass size checks", 
+                "Object prototype pollution - Manipulate size properties",
+                "Heap exhaustion - Large size values causing OOM"
             ],
             'array_index_check': [
                 "Array index manipulation - Out of bounds access",
-                "Type confusion in array access"
+                "Type confusion in array access",
+                "Integer overflow in index calculation"
             ],
             'instanceof_check': [
                 "Type confusion - Fake object types",
-                "Prototype pollution to bypass instanceof"
+                "Prototype pollution to bypass instanceof",
+                "Serialization attack with manipulated types"
             ],
             'type_casting': [
                 "Type casting bypass - Malformed type casting",
-                "Object manipulation during casting"
+                "Object manipulation during casting", 
+                "Class cast exception exploitation"
             ],
+            'equals_type_check': [
+                "Type spoofing - Manipulate getClass() results",
+                "Classloader attacks - Fake class equality"
+            ],
+            'null_check': [
+                "Null pointer dereference - Bypass null checks",
+                "Race condition in null validation"
+            ],
+            'boundary_check': [
+                "Boundary bypass - Off-by-one errors",
+                "Integer overflow/underflow attacks"
+            ],
+            'regex_validation': [
+                "Regex bypass - Complex input breaking patterns",
+                "ReDoS attacks - Exponential regex matching"
+            ],
+            'unchecked_exception': [
+                "Exception handling bypass - Uncaught exceptions",
+                "Error-based information disclosure"
+            ],
+            'reflection': [
+                "Reflection attacks - Unauthorized method invocation",
+                "Access control bypass via reflection",
+                "Private method/field access"
+            ],
+            'serialization': [
+                "Insecure deserialization - Malicious objects",
+                "Serialization DoS - Large object graphs"
+            ],
+            'file_handling': [
+                "Path traversal - Directory attacks",
+                "File race conditions - TOCTOU",
+                "Symlink attacks"
+            ],
+            'network_io': [
+                "SSRF attacks - Server-side request forgery",
+                "DNS rebinding", 
+                "Port scanning via application"
+            ],
+            'string_concatenation': [
+                "String injection - Code/sql injection via concatenation",
+                "Memory exhaustion - Large string operations"
+            ],
+            'date_handling': [
+                "Time manipulation - Bypass time-based checks",
+                "Date parsing vulnerabilities"
+            ],
+            'enum_usage': [
+                "Enum bypass - Direct value manipulation",
+                "Enum injection via reflection"
+            ],
+            'annotation_usage': [
+                "Annotation spoofing - Fake security annotations",
+                "Runtime annotation manipulation"
+            ],
+            'lambda_expression': [
+                "Lambda injection - Malicious lambda execution",
+                "Method handle manipulation"
+            ],
+            'stream_usage': [
+                "Stream manipulation - Malicious stream operations",
+                "Parallel stream race conditions"
+            ],
+            'optional_usage': [
+                "Optional bypass - Direct value extraction",
+                "Null pointer via empty optional"
+            ],
+            'concurrency': [
+                "Race conditions - TOCTOU attacks",
+                "Deadlock attacks",
+                "Atomic variable manipulation"
+            ],
+            'resource_management': [
+                "Resource exhaustion - File descriptor leaks",
+                "Resource race conditions"
+            ],
+            
+            # OWASP patterns
             'sql_injection': [
                 "SQL Injection - Standard SQLi payloads",
                 "Blind SQL Injection",
-                "Time-based SQL Injection"
+                "Time-based SQL Injection",
+                "Union-based SQL Injection",
+                "Boolean-based SQL Injection"
             ],
             'xss': [
-                "XSS - Standard XSS payloads",
+                "XSS - Standard XSS payloads", 
                 "DOM-based XSS",
-                "Stored XSS"
+                "Stored XSS",
+                "Reflected XSS",
+                "mXSS - Mutation XSS"
+            ],
+            'path_traversal': [
+                "Path Traversal - Directory traversal",
+                "Local file inclusion",
+                "Sensitive file reading",
+                "Zip slip attacks"
             ],
             'command_injection': [
                 "Command Injection - OS command execution",
-                "Remote code execution"
+                "Remote code execution",
+                "Argument injection",
+                "Shellshock-like attacks"
             ],
             'insecure_deserialization': [
                 "Insecure Deserialization - Malicious object deserialization",
-                "Remote code execution via deserialization"
+                "Remote code execution via deserialization",
+                "JSON/XML deserialization attacks",
+                "Deserialization DoS"
+            ],
+            
+            'type_confusion': [
+                "Type confusion attacks - Fake type information",
+                "Memory corruption via type confusion"
+            ],
+            'race_condition': [
+                "Race Condition - TOCTOU attacks",
+                "Concurrency issues exploitation",
+                "Time-based attacks"
+            ],
+            'insecure_randomness': [
+                "Cryptographic attack - Predict random values",
+                "Session hijacking via predictable tokens",
+                "CSRF token prediction",
+                "Password reset token prediction"
             ]
         }
+
+        # context matching:
+        if 'context_matches' in scan_report:
+            context_matches = scan_report['context_matches']
+            
+            if any(ctx in context_matches for ctx in ['financial_vars', 'financial_context']):
+                recommendations.extend([
+                    "Manipulate transaction amounts",
+                    "Account Balance manipulation attacks (overflow)", 
+                    "Payment bypass attempts",
+                    "try negative amount",
+                ])
+            
+            if any(ctx in context_matches for ctx in ['authentication_context', 'session_vars']):
+                recommendations.extend([
+                    "🔐 Session hijacking attempts",
+                    "🔐 Authentication bypass testing",
+                    "🔐 Privilege escalation via auth flaws",
+                    "🔐 JWT token manipulation",
+                    "🔐 OAuth flow bypass"
+                ])
+            
+            if 'personal_data_vars' in context_matches:
+                recommendations.extend([
+                    "PII data extraction attacks",
+                    "Privacy violation testing", 
+                    "Data exposure attempts",
+                    "GDPR compliance testing"
+                ])
+            
+            if 'admin_context' in context_matches:
+                recommendations.extend([
+                    "⚡ Admin functionality bypass",
+                    "⚡ Privilege escalation to admin",
+                    "⚡ Backdoor access attempts"
+                ])
 
         for vuln_type in vuln_types:
             if vuln_type in attack_mapping:
                 recommendations.extend(attack_mapping[vuln_type])
+            else:
+                # default recommendations
+                recommendations.append(f"Generic exploitation for {vuln_type} vulnerability")
+                recommendations.append(f"Fuzz testing for {vuln_type} implementation")
 
         return list(set(recommendations))
-
     def scan_and_analyze(self, url, max_urls=100, max_depth=3, workers=10):
         # full analysis with GO scanner
         self.console.print(f"[bold blue]Starting Go scanner for: {url}[/bold blue]")
@@ -282,56 +435,123 @@ class GoScannerIntegration:
 def detect_framework(headers, content):
     framework_detected = None
     version = None
+    content_lower = content.lower() if content else ""
 
-    # by headers
-    if 'X-Powered-By' in headers:
-        x_powered_by = headers['X-Powered-By'].lower()
-        if 'express' in x_powered_by:
-            framework_detected = 'Express.js'
-            version = x_powered_by.split('express/')[-1].split()[0] if 'express/' in x_powered_by else None
-        elif 'laravel' in x_powered_by:
-            framework_detected = 'Laravel'
-            version = x_powered_by.split('laravel/')[-1].split()[0] if 'laravel/' in x_powered_by else None
-        elif 'django' in x_powered_by:
-            framework_detected = 'Django'
-            version = x_powered_by.split('django/')[-1].split()[0] if 'django/' in x_powered_by else None
-        elif 'flask' in x_powered_by:
-            framework_detected = 'Flask'
-            version = x_powered_by.split('flask/')[-1].split()[0] if 'flask/' in x_powered_by else None
-        elif 'asp.net' in x_powered_by:
-            framework_detected = 'ASP.NET'
-            version = x_powered_by.split('asp.net/')[-1].split()[0] if 'asp.net/' in x_powered_by else None
+    framework_indicators = {
+        # Express.js
+        'Express.js': {
+            'headers': [
+                ('x-powered-by', r'express(?:\.js)?/?(\d+\.\d+\.\d+)?'),
+                ('server', r'express(?:\.js)?/?(\d+\.\d+\.\d+)?')
+            ],
+            'cookies': ['connect.sid'],
+            'content_patterns': [r'app\.use\(.*express\)']
+        },
+        
+        # Laravel 
+        'Laravel': {
+            'headers': [
+                ('x-powered-by', r'laravel/?(\d+\.\d+\.\d+)?'),
+            ],
+            'cookies': ['laravel_session', 'XSRF-TOKEN'],
+            'content_patterns': [r'<meta name="csrf-token" content="[^"]+"']
+        },
+        
+        # Django
+        'Django': {
+            'headers': [
+                ('x-powered-by', r'django/?(\d+\.\d+\.\d+)?'),
+                ('server', r'django/?(\d+\.\d+\.\d+)?')
+            ],
+            'cookies': ['csrftoken', 'sessionid'],
+            'content_patterns': [r'csrfmiddlewaretoken']
+        },
+        
+        # Flask
+        'Flask': {
+            'headers': [
+                ('server', r'werkzeug/?(\d+\.\d+\.\d+)?'),
+            ],
+            'cookies': ['session']
+        },
+        
+        # ASP.NET
+        'ASP.NET': {
+            'headers': [
+                ('x-powered-by', r'asp\.net/?(\d+\.\d+\.\d+)?'),
+                ('x-aspnet-version', r'(\d+\.\d+\.\d+)'),
+            ],
+            'content_patterns': [r'__VIEWSTATE', r'__EVENTVALIDATION']
+        },
+        
+        # React
+        'React': {
+            'content_patterns': [
+                r'<div id="root"></div>',
+                r'__NEXT_DATA__',
+                r'react\.js'
+            ]
+        },
+        
+        # Angular
+        'Angular': {
+            'content_patterns': [
+                r'<app-root></app-root>',
+                r'angular\.js',
+                r'zone\.js'
+            ]
+        },
+        
+        # Vue.js
+        'Vue.js': {
+            'content_patterns': [
+                r'<div id="app"></div>',
+                r'vue\.js',
+                r'__vue__'
+            ]
+        }
+    }
 
-    # by html code
-    if not framework_detected:
-        content_lower = content.lower()
-        if '<!-- django version' in content_lower:
-            framework_detected = 'Django'
-            version = content_lower.split('<!-- django version ')[1].split('-->')[0].strip()
-        elif '<div id="root"></div>' in content_lower:
-            framework_detected = 'React'
-        elif '<app-root></app-root>' in content_lower:
-            framework_detected = 'Angular'
-        elif '<div id="app"></div>' in content_lower:
-            framework_detected = 'Vue.js'
-        elif '<!-- laravel' in content_lower:
-            framework_detected = 'Laravel'
-            version = content_lower.split('<!-- laravel ')[1].split('-->')[0].strip()
-        elif '<!-- symfony' in content_lower:
-            framework_detected = 'Symfony'
-            version = content_lower.split('<!-- symfony ')[1].split('-->')[0].strip()
-        elif '<!-- ruby on rails' in content_lower:
-            framework_detected = 'Ruby on Rails'
-            version = content_lower.split('<!-- ruby on rails ')[1].split('-->')[0].strip()
+    # hd
+    for framework, indicators in framework_indicators.items():
+        for header_name, pattern in indicators.get('headers', []):
+            if header_name in headers:
+                header_value = headers[header_name].lower()
+                match = re.search(pattern, header_value, re.IGNORECASE)
+                if match:
+                    framework_detected = framework
+                    version = match.group(1) if match.groups() else None
+                    return framework_detected, version  # Zwracamy od razu - wysokie zaufanie
 
-    # by different endpoints
-    if not framework_detected:
-        if '/static/' in content_lower:
-            framework_detected = 'Django'
-        elif '/public/' in content_lower:
-            framework_detected = 'Express.js'
-        elif '/api/' in content_lower:
-            framework_detected = 'Laravel'
+    # ck
+    for framework, indicators in framework_indicators.items():
+        if 'cookies' in indicators:
+            cookie_header = headers.get('set-cookie', '').lower()
+            for cookie_name in indicators['cookies']:
+                if cookie_name.lower() in cookie_header:
+                    framework_detected = framework
+                    return framework_detected, version
+
+    framework_candidates = {}
+    for framework, indicators in framework_indicators.items():
+        for pattern in indicators.get('content_patterns', []):
+            if re.search(pattern, content_lower):
+                # try to get version
+                version_match = re.search(pattern.replace(r'(\d+\.\d+\.\d+)', r'(\d+\.\d+\.\d+)'), content)
+                version_found = version_match.group(1) if version_match and version_match.groups() else None
+                
+                if framework not in framework_candidates:
+                    framework_candidates[framework] = {
+                        'count': 0,
+                        'version': version_found
+                    }
+                framework_candidates[framework]['count'] += 1
+
+    # summarize and return framework
+    if framework_candidates:
+        best_framework = max(framework_candidates.items(), key=lambda x: x[1]['count'])
+        framework_detected = best_framework[0]
+        version = best_framework[1]['version']
 
     return framework_detected, version
 
@@ -1201,19 +1421,21 @@ async def main():
     else:
         console.print(f"[bold green]URL starts with HTTP: {args.url}[/bold green]")
 
-    payloads = load_payloads(args.payloads)
+    # load only if not scanning
+    if not args.scan:
+        payloads = load_payloads(args.payloads)
 
-    if args.filter:
-        filter_patterns = [pattern.strip() for pattern in args.filter.split(",")]
-        payloads = filter_payloads(payloads, filter_patterns)
-        console.print(f"[bold green]Filtered payloads based on patterns: {', '.join(filter_patterns)}[/bold green]")
+        if args.filter:
+            filter_patterns = [pattern.strip() for pattern in args.filter.split(",")]
+            payloads = filter_payloads(payloads, filter_patterns)
+            console.print(f"[bold green]Filtered payloads based on patterns: {', '.join(filter_patterns)}[/bold green]")
 
-    if args.threat:
-        payloads = [payload for payload in payloads if payload['category'] == args.threat]
-        console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
+        if args.threat:
+            payloads = [payload for payload in payloads if payload['category'] == args.threat]
+            console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
 
     if args.scan:
-        # Uruchom skaner Go z przekazanymi parametrami lub domyślnymi wartościami
+        # run go scan
         console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
         attack_recommendations = go_scanner.scan_and_analyze(args.url, args.max_urls, args.max_depth, args.workers)
 
@@ -1224,8 +1446,10 @@ async def main():
         else:
             console.print("[bold yellow]No specific attack recommendations from Go scanner.[/bold yellow]")
 
-        # Nadal uruchom standardowy scan
+        # technology stack scan
         await scan(args.url)
+        
+        sys.exit(0)
 
     cookies = parse_cookies(args.cookies) if args.cookies else {}
     proxies = parse_proxy(args.proxy) if args.proxy else None
