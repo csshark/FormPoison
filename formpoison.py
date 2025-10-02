@@ -26,7 +26,6 @@ from pathlib import Path
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-skip_flag = False
 
 # Ctrl+C
 def handle_sigint(signum, frame):
@@ -1028,48 +1027,102 @@ def analyze_response_headers(headers):
 # second checks: 
 
 def is_payload_executed(content, payload):
-    # check for execution if word from payload is present
-    return payload.lower() in content.lower()
+    # restricted IDs to confirm XSS execution
+    content_lower = content.lower()
+    payload_lower = payload.lower()
+    
+    # get SPECIFIC payload content
+    unique_parts = re.findall(r'\b[a-z0-9_]{10,}\b', payload_lower)  # 10 chars min
+    
+    for part in unique_parts:
+        # avoid common inject keywords
+        common_words = ['script', 'alert', 'select', 'union', 'where', 'from', 
+                       'database', 'version', 'information', 'schema', 'table',
+                       'column', 'insert', 'update', 'delete', 'create']
+        if part not in common_words:
+            if part in content_lower:
+                return True
+    return False
 
 def is_xss_executed(content, payload):
-    # checking for xss
-    xss_keywords = ['alert', 'xss', 'javascript', 'onerror', 'onload']
-    return any(keyword in content.lower() for keyword in xss_keywords)
+    # more restricted XSS checker 
+    content_lower = content.lower()
+    
+    # 1. reflected ? 
+    payload_words = payload.lower().split()
+    if len(payload_words) > 3:
+        unique_words = [w for w in payload_words if len(w) > 6 and w not in ['script', 'alert', 'onload', 'onerror']]
+        if unique_words:
+            matches = sum(1 for word in unique_words if word in content_lower)
+            if matches / len(unique_words) >= 0.7:
+                # echo reduction:
+                if re.search(r'<[^>]*' + re.escape(unique_words[0]) + r'[^>]*>', content_lower):
+                    return True
+    
+    # 2. check if java executed
+    execution_evidence = [
+        r'<script[^>]*>.*?alert\(.*?</script>',  # Tylko z alert wewnątrz
+        r'onload\s*=\s*[\'\"][^\'\"]*alert\([^\'\"]*[\'\"]',  # onload z alert
+        r'onerror\s*=\s*[\'\"][^\'\"]*alert\([^\'\"]*[\'\"]',  # onerror z alert
+    ]
+    
+    for evidence in execution_evidence:
+        if re.search(evidence, content_lower):
+            return True
+    
+    # 3. check if executed
+    specific_effects = [
+        r'xss_test_executed', r'payload_successful', r'injection_confirmed'
+    ]
+    
+    for effect in specific_effects:
+        if effect in content_lower:
+            return True
+    
+    return False
 
 def is_sql_injection_successful(content, payload):
-    # sql injection response possibilites
-    sql_errors = [
-        r"sql syntax.*error",                      
-        r"warning: mysql",                         
-        r"unclosed quotation mark",                
-        r"you have an error in your sql syntax",   
-        r"ora-\d{5}",                              
-        r"postgresql.*error",                      
-        r"sql server.*error",                      
-        r"syntax error",                           
-        r"mysql_fetch_array",                      
-        r"mysql_num_rows",                         
-        r"mysql_query",                            
-        r"mysqli_query",                           
-        r"pdoexception",                          
-        r"sqlite3.*error",                         
-        r"column not found",                       
-        r"table not found",                        
-        r"unknown column",                         
-        r"unknown table",                          
-        r"sql command not properly ended",         
+    # sql checker 
+    content_lower = content.lower()
+    
+    # 1. check specified erors 
+    specific_sql_errors = [
+        r"you have an error in your sql syntax",
+        r"unclosed quotation mark",
+        r"ora-\d{5}",
+        r"postgresql.*error",
+        r"division by zero",
+        r"unknown column '[^']*'",
+        r"table '[^']*' doesn't exist"
     ]
-
-    # check for errs
-    for error in sql_errors:
-        if re.search(error, content, re.IGNORECASE):
+    
+    for error in specific_sql_errors:
+        if re.search(error, content_lower):
             return True
-
-    # check for payload content in response
-    if payload.lower() in content.lower():
-        return True
-
-    return False
+    
+    # 2. did we get in ? 
+    specific_database_data = [
+        r'@@version', r'version\(\)', r'user\(\)', r'database\(\)',
+        r'information_schema', r'mysql\.', r'pg_catalog'
+    ]
+    
+    for pattern in specific_database_data:
+        if re.search(pattern, content_lower):
+            return True
+    
+    if not is_payload_executed(content, payload):
+        return False
+    
+    # 3. fp reduction attemp
+    normal_responses = [
+        "welcome", "login", "home", "page", "success", "error"
+    ]
+    
+    normal_count = sum(1 for word in normal_responses if word in content_lower)
+    if normal_count > 3:
+        return False
+    
+    return True
 
 def analyze_response(content, headers, payload_category, payload, verbose_all=False):
     vulnerabilities = []
@@ -1097,41 +1150,63 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
                 libs_info.append(lib_name)
         vulnerabilities.append(f"Libraries Detected: {', '.join(libs_info)}")
 
-    # additional verification
-    if payload_category == "SQL" and is_sql_injection_successful(content, payload):
-        if is_payload_executed(content, payload):
-            console.print("[bold red]💀 SQL INJECTED 💀[/bold red]")
-            console.print("[bold green]✅ Payload executed successfully![/bold green]")
+    # ZOPTYMALIZOWANA WERYFIKACJA Z WYSOKĄ PEWNOŚCIĄ
+    payload_executed = False
+    execution_confidence = "LOW"
+    
+    if payload_category == "SQL":
+        if is_sql_injection_successful(content, payload):
+            payload_executed = True
+            execution_confidence = "HIGH"
+            # Sprawdź dodatkowe potwierdzenia
+            if any(error in content.lower() for error in ["syntax error", "mysql", "postgresql", "ora-"]):
+                execution_confidence = "VERY_HIGH"
+                
+            console.print(f"[bold red]💀 SQL INJECTION CONFIRMED ({execution_confidence} confidence) 💀[/bold red]")
+            console.print(f"[bold green]✅ Payload executed successfully![/bold green]")
+            vulnerabilities.append(f"CONFIRMED_SQL_INJECTION ({execution_confidence})")
 
-    if payload_category == "HTML" and is_xss_executed(content, payload):
-        if is_xss_executed(content):
-            console.print("[bold red]💀 XSS INJECTED 💀[/bold red]")
-            console.print("[bold green]✅ XSS payload executed successfully![/bold green]")
+    elif payload_category == "HTML" or payload_category == "XSS":
+        if is_xss_executed(content, payload):
+            payload_executed = True
+            execution_confidence = "HIGH"
+            # Sprawdź dodatkowe potwierdzenia
+            if any(evidence in content.lower() for evidence in ["<script>", "onerror=", "onload=", "javascript:"]):
+                execution_confidence = "VERY_HIGH"
+                
+            console.print(f"[bold red]💀 XSS CONFIRMED ({execution_confidence} confidence) 💀[/bold red]")
+            console.print(f"[bold green]✅ XSS payload executed successfully![/bold green]")
+            vulnerabilities.append(f"CONFIRMED_XSS ({execution_confidence})")
 
     if verbose_all:
         console.print(f"[bold yellow]Full response analysis:[/bold yellow]")
+        console.print(f"[yellow]Payload executed: {payload_executed} ({execution_confidence} confidence)[/yellow]")
         console.print(f"[yellow]{vulnerabilities}[/yellow]")
 
     return vulnerabilities
 
-async def test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0):
+async def test_input_field(url, payloads, threat_type, cookies, user_agents, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0):
     results = []
     positive_responses = 0
     threshold = len(payloads) * 0.5
 
-    table = Table(title=f"Input Field Test Results (User-Agent: {user_agent}, Method: {method})")
+    table = Table(title=f"Input Field Test Results (Random User Agents, Method: {method})")
     table.add_column("Payload", style="cyan", no_wrap=False)
+    table.add_column("User Agent", style="cyan", no_wrap=False)
     table.add_column("Response Code", justify="right", style="magenta")
     table.add_column("Vulnerability Detected", style="bold green")
 
     # Pobierz wszystkie pola formularza
-    content = await get_page_content(url, user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
+    initial_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
     soup = BeautifulSoup(content, 'html.parser')
     all_input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
 
     async def test_payload(payload):
         try:
-            headers = {'User-Agent': sanitize_user_agent(user_agent)}
+            # LOSOWY USER AGENT DLA KAŻDEGO PAYLOADU
+            current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
             data = {}
 
             # typical input fill
@@ -1184,21 +1259,25 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agent, inpu
 
                 results.append({
                     "payload": payload['inputField'],
+                    "user_agent": current_user_agent,
                     "response_code": status_code,
                     "vulnerabilities": vulnerabilities
                 })
-                table.add_row(payload['inputField'], str(status_code), ", ".join(vulnerabilities))
+                table.add_row(payload['inputField'], current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, str(status_code), ", ".join(vulnerabilities))
                 if verbose or verbose_all:
                     console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
+                    console.print(f"[bold blue]User Agent: {current_user_agent}[/bold blue]")
                     console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
                     console.print(f"[bold blue]Possible Vulnerabilities/Issues: {', '.join(vulnerabilities)}[/bold blue]")
                     if verbose_all:
                         console.print(f"[bold yellow]Response content:[/bold yellow]")
                         console.print(f"[yellow]{content}[/yellow]")
         except Exception as e:
-            table.add_row(payload['inputField'], "Error", f"Request Failed: {str(e)}")
+            current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            table.add_row(payload['inputField'], current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, "Error", f"Request Failed: {str(e)}")
             if verbose or verbose_all:
                 console.print(f"[bold red]Error testing payload: {payload['inputField']}[/bold red]")
+                console.print(f"[bold red]User Agent: {current_user_agent}[/bold red]")
                 console.print(f"[bold red]Error: {str(e)}[/bold red]")
 
     # bar
@@ -1220,68 +1299,102 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agent, inpu
         json.dump(results, f, indent=4)
     console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
 
-
-async def test_login_input_fields(url, payloads, cookies, user_agent, input_fields, proxies=None, verbose=False, verbose_all=False, secs=0):
+async def test_login_input_fields(url, payloads, cookies, user_agents, input_fields, proxies=None, verbose=False, verbose_all=False, secs=0, filter_patterns=None):
     results = []
 
-    table = Table(title=f"Login Input Field Test Results (User-Agent: {user_agent})")
+    # filtering 
+    if filter_patterns:
+        original_count = len(payloads)
+        payloads = filter_payloads(payloads, filter_patterns)
+        console.print(f"[bold yellow]Filtered payloads: {len(payloads)}/{original_count} after applying filter[/bold yellow]")
+    
+    if not payloads:
+        console.print("[bold red]No payloads left after filtering![/bold red]")
+        return results
+
+    table = Table(title=f"Login Input Field Test Results (Random User Agents)")
     table.add_column("Login Payload", style="cyan", no_wrap=False)
     table.add_column("Password Payload", style="cyan", no_wrap=False)
+    table.add_column("Payload Category", style="cyan", no_wrap=False)
+    table.add_column("User Agent", style="cyan", no_wrap=False)
     table.add_column("Response Code", justify="right", style="magenta")
     table.add_column("Vulnerability Detected", style="bold green")
 
     login_field = None
     password_field = None
 
-    content = get_page_content_with_selenium(url)
+    # force to use agents
+    initial_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    content = await get_page_content(url, initial_user_agent, proxies)
     soup = BeautifulSoup(content, 'html.parser')
-    input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
+    
+    # skip checkbox, radio, hidden etc.
+    input_fields = soup.find_all('input', {
+        'type': ['text', 'password', 'email', 'search', 'tel', 'url']  # only text fields
+    })
+    
+    filtered_input_fields = []
+    for field in input_fields:
+        field_type = field.get('type', '').lower()
+        # BLACKLISTED TYPOS
+        if field_type in ['checkbox', 'radio', 'hidden', 'submit', 'button', 'reset', 'file', 'image']:
+            if verbose:
+                console.print(f"[bold yellow]Skipping non-text field: {field.get('name', '')} (type: {field_type})[/bold yellow]")
+            continue
+        filtered_input_fields.append(field)
+    
+    input_fields = filtered_input_fields
 
-    console.print(f"[bold yellow]Found input fields:[/bold yellow]")
+    console.print(f"[bold yellow]Found TEXT input fields:[/bold yellow]")
     for field in input_fields:
         name = field.get('name', '')
         id_ = field.get('id', '')
+        field_type = field.get('type', '')
         placeholder = field.get('placeholder', '')
-        console.print(f"[bold blue]Field: name={name}, id={id_}, placeholder={placeholder}[/bold blue]")
+        console.print(f"[bold blue]Field: name={name}, id={id_}, type={field_type}, placeholder={placeholder}[/bold blue]")
 
     for field in input_fields:
         name = field.get('name', '').lower()
         id_ = field.get('id', '').lower()
         placeholder = field.get('placeholder', '').lower()
+        field_type = field.get('type', '').lower()
 
+        # check if is it a login
         login_keywords = ['login', 'username', 'user', 'email', 'e-mail', 'mail', 'userid', 'user_id', 'loginname', 'account', 'mat-input-1']
         if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in login_keywords):
             login_field = field
-            console.print(f"[bold green]Found login field: id={id_}[/bold green]")
+            console.print(f"[bold green]Found login field: name={name}, id={id_}, type={field_type}[/bold green]")
 
+        # check if is it a password
         password_keywords = ['password', 'pass', 'passwd', 'pwd', 'userpassword', 'user_pass']
         if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in password_keywords):
-            password_field = field
-            console.print(f"[bold green]Found password field: {name}[/bold green]")
+            # verify if considered as pass
+            if field_type == 'password':
+                password_field = field
+                console.print(f"[bold green]Found password field: name={name}, type={field_type}[/bold green]")
 
     if not login_field or not password_field:
-        console.print("[bold yellow]No login or password fields found for login testing.[/bold yellow]")
-        return
+        console.print("[bold yellow]No suitable login or password fields found for testing.[/bold yellow]")
+        return results
 
     login_payloads = ["admin", "test", "user", "' OR 1='1"]
-    sql_payloads = [payload['inputField'] for payload in payloads if payload['category'] == "SQL"]
-
-    skip_thread = threading.Thread(target=lambda: asyncio.run(monitor_skip()))
-    skip_thread.daemon = True
-    skip_thread.start()
+    
+    # filter flag integration
+    all_payloads = [(payload['inputField'], payload['category']) for payload in payloads]
+    
+    if not all_payloads:
+        console.print("[bold yellow]No payloads found after filtering![/bold yellow]")
+        return results
 
     with Progress() as progress:
-        task = progress.add_task("[cyan]Testing login...", total=len(login_payloads) * len(sql_payloads))
+        task = progress.add_task("[cyan]Testing login...", total=len(login_payloads) * len(all_payloads))
 
         for login_payload in login_payloads:
-            for password_payload in sql_payloads:
+            for password_payload, payload_category in all_payloads:
                 try:
-                    if skip_flag:
-                        console.print(f"[bold yellow]Skipped to field {login_field.get('name', 'login')}[/bold yellow]")
-                        skip_flag = False
-                        break
-
-                    headers = {'User-Aagent': sanitize_user_agent(user_agent)}
+                    # LOSOWY USER AGENT DLA KAŻDEGO LOGIN REQUEST
+                    current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
                     data = {
                         login_field.get('name', 'login'): login_payload,
                         password_field.get('name', 'password'): password_payload
@@ -1291,33 +1404,40 @@ async def test_login_input_fields(url, payloads, cookies, user_agent, input_fiel
                             content = await response.text()
                             status_code = response.status
 
-                            vulnerabilities = analyze_response(content, response.headers, "SQL", password_payload, verbose_all)
+                            vulnerabilities = analyze_response(content, response.headers, payload_category, password_payload, verbose_all)
 
                             results.append({
                                 "login_payload": login_payload,
                                 "password_payload": password_payload,
+                                "payload_category": payload_category,
+                                "user_agent": current_user_agent,
                                 "response_code": status_code,
                                 "vulnerabilities": vulnerabilities
                             })
 
-                            table.add_row(login_payload, password_payload, str(status_code), ", ".join(vulnerabilities))
+                            table.add_row(login_payload, password_payload, payload_category, current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, str(status_code), ", ".join(vulnerabilities))
                             if verbose or verbose_all:
-                                console.print(f"[bold blue]Testing login: {login_payload}, password: {password_payload}[/bold blue]")
+                                console.print(f"[bold blue]Testing login: {login_payload}, password: {password_payload} ({payload_category})[/bold blue]")
+                                console.print(f"[bold blue]User Agent: {current_user_agent}[/bold blue]")
                                 console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
                                 console.print(f"[bold blue]Vulnerabilities detected: {', '.join(vulnerabilities)}[/bold blue]")
                                 if verbose_all:
                                     console.print(f"[bold yellow]Response content:[/bold yellow]")
                                     console.print(f"[yellow]{content}[/yellow]")
                 except Exception as e:
+                    current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     results.append({
                         "login_payload": login_payload,
                         "password_payload": password_payload,
+                        "payload_category": payload_category,
+                        "user_agent": current_user_agent,
                         "response_code": "Error",
                         "vulnerabilities": [f"Request Failed: {str(e)}"]
                     })
-                    table.add_row(login_payload, password_payload, "Error", f"Request Failed: {str(e)}")
+                    table.add_row(login_payload, password_payload, payload_category, current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, "Error", f"Request Failed: {str(e)}")
                     if verbose or verbose_all:
-                        console.print(f"[bold red]Error testing login: {login_payload}, password: {password_payload}[/bold red]")
+                        console.print(f"[bold red]Error testing login: {login_payload}, password: {password_payload} ({payload_category})[/bold red]")
+                        console.print(f"[bold red]User Agent: {current_user_agent}[/bold red]")
                         console.print(f"[bold red]Error: {str(e)}[/bold red]")
                 progress.update(task, advance=1)
                 if secs > 0:
@@ -1329,55 +1449,82 @@ async def test_login_input_fields(url, payloads, cookies, user_agent, input_fiel
         json.dump(results, f, indent=4)
 
     console.print(f"[bold green]Login test results saved to 'login_test_results.json'[/bold green]")
-
+    return results
 def get_string_input_fields(content):
     soup = BeautifulSoup(content, 'html.parser')
-    input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
+    # only text pls
+    input_fields = soup.find_all('input', {
+        'type': ['text', 'password', 'email', 'search', 'tel', 'url']
+    })
+    
+    # additional rules
+    filtered_inputs = []
+    for field in input_fields:
+        field_type = field.get('type', '').lower()
+        if field_type not in ['checkbox', 'radio', 'hidden', 'submit', 'button', 'reset', 'file', 'image']:
+            filtered_inputs.append(field)
+    
     textareas = soup.find_all('textarea')
-    return input_fields + textareas
+    return filtered_inputs + textareas
 
-def get_forms_and_inputs(content):
+def get_forms_and_inputs(content,verbose):
     soup = BeautifulSoup(content, 'html.parser')
     forms = soup.find_all('form')
     forms_with_inputs = []
     for form in forms:
-        inputs = form.find_all('input')
+        # get all & filter
+        all_inputs = form.find_all('input')
         textareas = form.find_all('textarea')
-        forms_with_inputs.append((form, inputs + textareas))
+        
+        # get txt 
+        filtered_inputs = []
+        for input_field in all_inputs:
+            field_type = input_field.get('type', '').lower()
+            if field_type in ['text', 'password', 'email', 'search', 'tel', 'url']:
+                filtered_inputs.append(input_field)
+            elif field_type in ['checkbox', 'radio', 'hidden', 'submit', 'button', 'reset']:
+                if verbose:
+                    console.print(f"[bold yellow]Skipping non-text field in form: {input_field.get('name', '')} (type: {field_type})[/bold yellow]")
+        
+        forms_with_inputs.append((form, filtered_inputs + textareas))
     return forms_with_inputs
 
 def find_field_by_name(input_fields, field_name):
     if not field_name:
         return None
 
-    # to_lower for better interpretation
     field_name = field_name.lower()
 
     for field in input_fields:
-        # Pobierz wszystkie możliwe atrybuty pola
+        # skip non-text typo
+        field_type = field.get('type', '').lower()
+        if field_type in ['checkbox', 'radio', 'hidden', 'submit', 'button', 'reset', 'file', 'image']:
+            continue
+            
         field_attrs = [
-            field.get('name', '').lower(),          # fieldname
-            field.get('id', '').lower(),           # field id
-            ' '.join(field.get('class', [])).lower(),  # class -> string
-            field.get('placeholder', '').lower(),  # placeholder
-            field.get('type', '').lower(),         # field type ( text, password)
-            field.get('value', '').lower(),        # field value
-            field.get('aria-label', '').lower()    # ARIA
+            field.get('name', '').lower(),
+            field.get('id', '').lower(),
+            ' '.join(field.get('class', [])).lower(),
+            field.get('placeholder', '').lower(),
+            field.get('type', '').lower(),
+            field.get('value', '').lower(),
+            field.get('aria-label', '').lower()
         ]
 
         if any(field_name in attr for attr in field_attrs):
             return field
 
     return None
-
-async def test_all_forms(url, payloads, threat_type, cookies, user_agent, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0):
-    forms_with_inputs = get_forms_and_inputs(await get_page_content(url, user_agent, proxies, ssl_cert, ssl_key, ssl_verify))
+    
+async def test_all_forms(url, payloads, threat_type, cookies, user_agents, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0):
+    initial_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    forms_with_inputs = get_forms_and_inputs(await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify), verbose)
+    
     for form, inputs in forms_with_inputs:
         console.print(f"[bold cyan]Testing form with {len(inputs)} inputs[/bold cyan]")
         for input_field in inputs:
             console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
-            await test_input_field(url, payloads, threat_type, cookies, user_agent, input_field, method, proxies, ssl_cert, ssl_key, ssl_verify, verbose, verbose_all, filter, secs)
-
+            await test_input_field(url, payloads, threat_type, cookies, user_agents, input_field, method, proxies, ssl_cert, ssl_key, ssl_verify, verbose, verbose_all, filter, secs)
 async def main():
     console.clear()
     show_banner()
@@ -1454,20 +1601,82 @@ async def main():
     cookies = parse_cookies(args.cookies) if args.cookies else {}
     proxies = parse_proxy(args.proxy) if args.proxy else None
     user_agents = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
-        "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36",
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
-        "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-    ]
+    # Chrome - Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+    
+    # Chrome - macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+    
+    # Chrome - Linux
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    
+    # Firefox - Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+    
+    # Firefox - macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0",
+    
+    # Firefox - Linux
+    "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
+    
+    # Safari - macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6.1 Safari/605.1.15",
+    
+    # Safari - iOS
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
+    
+    # Edge - Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.0.0",
+    
+    # Edge - macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+    
+    # Android - Chrome Mobile
+    "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 13; SM-A536B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 11; Redmi Note 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    
+    # Android - Samsung Browser
+    "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/21.0 Chrome/110.0.5481.154 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/20.0 Chrome/106.0.5249.126 Mobile Safari/537.36",
+    
+    # Opera
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
+    "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 OPR/73.2.3816.54321",
+    
+    # Legacy browsers for compatibility
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
+]
+
 
     page_content = None
-    for user_agent in user_agents:
-        page_content = await get_page_content(args.url, user_agent, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify)
+    for current_ua in user_agents: 
+        page_content = await get_page_content(args.url, current_ua, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify)
         if page_content:
             break
 
@@ -1480,22 +1689,20 @@ async def main():
 
     random.shuffle(user_agents)
 
-    for user_agent in user_agents:
-        console.print(f"[bold green]Testing with User-Agent: {user_agent}[/bold green]")
-
     if args.fieldname:
         field = find_field_by_name(input_fields, args.fieldname)
         if field:
             console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
-            await test_input_field(args.url, payloads, args.threat, cookies, user_agent, field, args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify, args.verbose, args.verbose_all, args.seconds)
+            await test_input_field(args.url, payloads, args.threat, cookies, user_agents, field, args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify, args.verbose, args.verbose_all, args.filter, args.seconds)
         else:
             console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
             sys.exit(1)
     elif args.login:
-        console.print(f"[bold green]Testing login fields with User-Agent: {user_agent}[/bold green]")
-        await test_login_input_fields(args.url, payloads, cookies, user_agent, input_fields, proxies, args.verbose, args.verbose_all, args.seconds)
+        console.print(f"[bold green]Testing login fields with {len(user_agents)} random User Agents[/bold green]")
+        await test_login_input_fields(args.url, payloads, cookies, user_agents, input_fields, proxies, args.verbose, args.verbose_all, args.seconds, args.filter)
     else:
-        await test_all_forms(args.url, payloads, args.threat, cookies, user_agent, args.method, proxies, args.ssl_cert, args.ssl_key, args.filter, args.ssl_verify, args.verbose, args.verbose_all, args.seconds)
+        console.print(f"[bold green]Testing all forms with {len(user_agents)} random User Agents[/bold green]")
+        await test_all_forms(args.url, payloads, args.threat, cookies, user_agents, args.method, proxies, args.ssl_cert, args.ssl_key, args.filter, args.ssl_verify, args.verbose, args.verbose_all, args.seconds)
 
 if __name__ == "__main__":
     asyncio.run(main())
