@@ -6,8 +6,8 @@
   <img src="formpoison.png" width=500px />
 </p>
 
-Form-focused Web Application Security Testing Framework based on experience with data validation issues and XSS,SQL attacks executed so far (even web applications built on secure frameworks could be vulnerable).
-It automates testing common missconfigurations in sanitization in input fields and helps penetration testers find out where to start digging without code review.<p> There is also payload list (custom + AI generated and these frequently used by bounty hunters). </p> <b>Before you start</b>, be aware of many false-positives when running attack. Sometimes web application returns '200 OK' <b>by default</b> and doesn't get injected at all. Run scan, check for CVEs, investigate and then attack. 
+Smart form-focused injection Framework based on experience with data validation issues, XSS and SQL attacks executed so far.
+The main purpose of the framework is to perform tests that cover the maximum XSS risk for a given application. Please do not treat this tool as a replacement for existing offensive security tools, but rather as a support/companion to them (especially since it integrates with them). Cross-Site Scripting is unusual vulnerability and could be found almost randomly with different tools. <b>Before you start</b>, be aware of many false-positives when running attack. Sometimes web application returns '200 OK' <b>by default</b> and doesn't get injected at all. Run scan, check for CVEs, investigate and then attack. 
 
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
