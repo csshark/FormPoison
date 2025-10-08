@@ -33,11 +33,13 @@ Type <code>python3 formposion.py -h</code> for possible usage and scanner integr
 | -t --threat | select threat type | String: Java, SQL, HTML | 
 | --filter | filter payloads by user-defined pattern | String, example: 'xss, script, DROP' |
 | --fieldname | specify a fieldname to target directly | String, example: Second Name | 
+| --filemode | filename injection mode | None | 
 | -p --payloads | select path to your custom payloads file if necessary | String: /home/user/payloads-folder/payloads.json |
 | --cookies | specify user cookie ex. for testing endpoints that require authorization | String, example: 'key1=value1; key2=value2' |
 | -v --verbose | enable verbose mode, highly recommended for debugging | None | 
 | --verbose-all | advanced output with response body | None |
 | --login | enter login+password mode only testing | None |
+| --mXSS | Mutation XSS injections only | None | 
 | --ssl-cert | use ssl certificate file | String: /home/user/certs/cert.pem | 
 | --ssl-key | use ssl private key | String: /home/user/certs/key.pem |
 | --ssl-verify | verify ssl certificate | bool: None |
@@ -74,11 +76,11 @@ Example *input.txt* file format:
 ## New functions: 
 <ul>
   <li>JavaScript source-code scanner</li>
-  <li>Verifying response headers precisely</li>
-  <li>Filtering payloads easy way</li>
-  <li>Proxy and SSL certificate support</li>
+  <li>Filename XSS testing mode</li>
+  <li>Mutation XSS (mXSS) testing mode</li>
   <li>Multithreading to speed up injecting attemps</li>
-  <li>Requests method choice</li>
+  <li>Filtering now supported in Login mode</li>
+  <li>More Burp-like responses in verbose mode</li>
 </ul>
 
 InjOy! 💉
