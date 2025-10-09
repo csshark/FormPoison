@@ -1214,14 +1214,14 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
     positive_responses = 0
     threshold = len(payloads) * 0.5
 
-    table = Table(title=f"Input Field Test Results (Random User Agents, Method: {method})")
+    table = Table(title=f"Input Field Test Results (Method: {method})")
     table.add_column("Payload", style="cyan", no_wrap=False)
     table.add_column("User Agent", style="cyan", no_wrap=False)
     table.add_column("Response Code", justify="right", style="magenta")
     table.add_column("Vulnerability Detected", style="bold green")
 
     # get all fields
-    initial_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
     content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
     soup = BeautifulSoup(content, 'html.parser')
     all_input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
@@ -1283,6 +1283,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
 
                 results.append({
                     "payload": payload['inputField'],
+                    "method": method,
                     "user_agent": current_user_agent,
                     "response_code": status_code,
                     "vulnerabilities": vulnerabilities
@@ -1291,6 +1292,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
                 if verbose or verbose_all:
                     console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
                     console.print(f"[bold blue]User Agent: {current_user_agent}[/bold blue]")
+                    console.print(f"[bold yellow]Method: {method}[/bold yellow]")
                     console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
                     console.print(f"[bold blue]Possible Vulnerabilities/Issues: {', '.join(vulnerabilities)}[/bold blue]")
                     if verbose_all:
@@ -1298,7 +1300,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
                         if payload['inputField'] in content:
                             console.print(f"[bold red]🚨 PAYLOAD FOUND IN RESPONSE![/bold red]")
         except Exception as e:
-            current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
             table.add_row(payload['inputField'], current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, "Error", f"Request Failed: {str(e)}")
             if verbose or verbose_all:
                 console.print(f"[bold red]Error testing payload: {payload['inputField']}[/bold red]")
@@ -1337,7 +1339,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
         console.print("[bold red]No payloads left after filtering![/bold red]")
         return results
 
-    table = Table(title=f"Login Input Field Test Results (Random User Agents)")
+    table = Table(title=f"Login Input Field Test Results")
     table.add_column("Login Payload", style="cyan", no_wrap=False)
     table.add_column("Password Payload", style="cyan", no_wrap=False)
     table.add_column("Payload Category", style="cyan", no_wrap=False)
@@ -1349,7 +1351,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
     password_field = None
 
     # force to use agents
-    initial_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
     content = await get_page_content(url, initial_user_agent, proxies)
     soup = BeautifulSoup(content, 'html.parser')
     
@@ -1417,8 +1419,8 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
         for login_payload in login_payloads:
             for password_payload, payload_category in all_payloads:
                 try:
-                    # LOSOWY USER AGENT DLA KAŻDEGO LOGIN REQUEST
-                    current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    # not sure...
+                    current_user_agent = random.choice(user_agents) if user_agents else "FormPoison/v.1.0.1."
                     headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
                     data = {
                         login_field.get('name', 'login'): login_payload,
@@ -1451,7 +1453,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                                     if payload['inputField'] in content:
                                         console.print(f"[bold red]🚨 PAYLOAD FOUND IN RESPONSE![/bold red]")
                 except Exception as e:
-                    current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
                     results.append({
                         "login_payload": login_payload,
                         "password_payload": password_payload,
@@ -1883,6 +1885,7 @@ async def main():
     parser.add_argument("-t", "--threat", choices=["HTML", "Java", "SQL"], help="Threat type to test (HTML, Java, SQL)")
     parser.add_argument("-p", "--payloads", default="payloads.json", help="JSON file with payloads")
     parser.add_argument("--cookies", help="Cookies: 'key1=value1; key2=value2'")
+    parser.add_argument("-ua","--user-agent", help="Specify User-Agent: 'random' for shuffling, or specific agent from list")
     parser.add_argument("--proxy", help="Proxy URL (e.g., http://login:password@proxy.com)")
     parser.add_argument("--ssl-cert", help="Path to SSL certificate file (e.g., cert.pem)")
     parser.add_argument("--ssl-key", help="Path to SSL private key file (e.g., key.pem)")
@@ -1891,11 +1894,12 @@ async def main():
     parser.add_argument("--method", default="POST", choices=["GET", "POST", "PUT", "DELETE"], help="HTTP method to use (default: POST)")
     parser.add_argument("--filter", help="Filter payloads by user-defined patterns (e.g., '<meta>, <script>, onclick')")
     parser.add_argument("--login", action="store_true", help="Enable login testing for login and password fields")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose mode")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose mode")
     parser.add_argument("--verbose-all", action="store_true", help="Enable verbose mode with response content")
     parser.add_argument("--fieldname", help="Specific input field name to test (e.g., 'username')")
-    parser.add_argument("-s", "--seconds", type=float, default=0, help="Delay between requests in seconds")
     parser.add_argument("--filemode", action="store_true", help="Test filename XSS in file upload forms")
+    parser.add_argument("-s", "--seconds", type=float, default=0, help="Delay between requests in seconds")
+
 
     if len(sys.argv) == 1:
         console.print("[bold red]Enter valid command[/bold red]")
@@ -1945,10 +1949,10 @@ async def main():
         await scan(args.url)
         
         sys.exit(0)
-
+    default_user_agent = "FormPoison/v.1.0.1"
     cookies = parse_cookies(args.cookies) if args.cookies else {}
     proxies = parse_proxy(args.proxy) if args.proxy else None
-    user_agents = [
+    shuffle_user_agents = [
     # Chrome - Windows
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -2020,11 +2024,26 @@ async def main():
     "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
 ]
-
+    if args.user_agent:
+        if args.user_agent.lower()=='random':
+            user_agents=shuffle_user_agents
+            random.shuffle(user_agents)
+            console.print(f"[bold green]Using random User Agent[/bold green]")
+        else:
+            matching_agents=[user_agent for user_agent in shuffle_user_agents if args.user_agent.lower() in user_agent.lower()]
+            if matching_agents:
+                user_agents=[matching_agents[0]]
+                console.print(f"[bold green]Using specified user agent: {user_agents[0]}[/bold green]")
+            else: 
+                user_agents = [args.user_agent]
+                console.print(f"[bold green]Using custom user agent: {args.user_agent}[/bold green]")
+    else:
+        user_agents = [default_user_agent]
+        console.print(f"[bold blue]Using default User Agent: {default_user_agent}[/bold blue]")
 
     page_content = None
-    for current_ua in user_agents: 
-        page_content = await get_page_content(args.url, current_ua, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify)
+    for current_user_agent in user_agents: 
+        page_content = await get_page_content(args.url, current_user_agent, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify)
         if page_content:
             break
 
@@ -2048,7 +2067,6 @@ async def main():
             console.print(f"[red]FILENAME XSS: {result['field']} → {result['filename']} → {result['vulnerability']}[/red]")
     
 
-    random.shuffle(user_agents)
     if args.mXSS:
         console.print("[bold blue]🧬 Testing Mutation XSS vulnerabilities...[/bold blue]")
         
@@ -2103,21 +2121,27 @@ async def main():
         
         console.print("[bold green]mXSS testing completed.[/bold green]")
     
-    
-    if args.fieldname:
-        field = find_field_by_name(input_fields, args.fieldname)
-        if field:
-            console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
-            await test_input_field(args.url, payloads, args.threat, cookies, user_agents, field, args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify, args.verbose, args.verbose_all, args.filter, args.seconds)
+    # STANDARD TESTS
+        if args.fieldname:
+            field = find_field_by_name(input_fields, args.fieldname)
+            if field:
+                console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
+                await test_input_field(args.url, payloads, args.threat, cookies, user_agents, field, args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify, args.verbose, args.verbose_all, args.filter, args.seconds)
         else:
             console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
             sys.exit(1)
     elif args.login:
-        console.print(f"[bold green]Testing login fields with {len(user_agents)} random User Agents[/bold green]")
+        if len(user_agents) > 1:
+            console.print(f"[bold green]Testing login fields with {len(user_agents)} shuffled User Agents[/bold green]")
+        else:
+            console.print(f"[bold green]Testing login fields with User Agent: {user_agents[0]}[/bold green]")
         await test_login_input_fields(args.url, payloads, cookies, user_agents, input_fields, proxies, args.verbose, args.verbose_all, args.seconds, args.filter)
     else:
-        console.print(f"[bold green]Testing all forms with {len(user_agents)} random User Agents[/bold green]")
+        if len(user_agents) > 1:
+            console.print(f"[bold green]Testing all forms with {len(user_agents)} shuffled User Agents[/bold green]")
+        else:
+            console.print(f"[bold green]Testing all forms with User Agent: {user_agents[0]}[/bold green]")
         await test_all_forms(args.url, payloads, args.threat, cookies, user_agents, args.method, proxies, args.ssl_cert, args.ssl_key, args.filter, args.ssl_verify, args.verbose, args.verbose_all, args.seconds)
-
+        
 if __name__ == "__main__":
     asyncio.run(main())
