@@ -7,7 +7,7 @@
 </p>
 
 Smart form-focused injection Framework based on experience with data validation issues, XSS and SQL attacks executed so far.
-The main purpose of the framework is to perform tests that cover the maximum XSS risk for a given application. Please do not treat this tool as a replacement for existing offensive security tools, but rather as a support/companion to them (especially since it integrates with them). Cross-Site Scripting is unusual vulnerability and could be found almost randomly with different tools. <b>Before you start</b>, be aware of many false-positives when running attack. Sometimes web application returns '200 OK' <b>by default</b> and doesn't get injected at all. Run scan, check for CVEs, investigate and then attack. <p><b>Warning:</b>High-intensity tool (~7 req/s). May trigger security alerts. Use responsibly.</p>
+The main purpose of the framework is to perform tests that cover the maximum XSS risk for a given application. Please do not treat this tool as a replacement for existing offensive security tools, but rather as a support/companion to them (especially since it integrates with them). Cross-Site Scripting is unusual vulnerability and could be found almost randomly with different tools. <b>Before you start</b>, be aware of many false-positives when running attack. Sometimes web application returns '200 OK' <b>by default</b> and doesn't get injected at all. Run scan, check for CVEs, investigate and then attack. <p><b>Warning:</b> High-intensity tool (~7 req/s). May trigger security alerts. Use responsibly.</p>
 
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
