@@ -3,7 +3,7 @@
 
 
 <p align="center">
-  <img src="formpoison-logo.gif" width=500px />
+  <img src="formpoison-logo.gif"/>
 </p>
 
 Smart form-focused injection Framework based on experience with data validation issues, XSS and SQL attacks executed so far.
