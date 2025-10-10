@@ -17,12 +17,12 @@ pip install -r requirements.txt </code></pre>
 <sup><sub>ensure you have <b>webdriver-manager</b> installed, to use selenium with Chrome</sub></sup>
 
 ## Quick start 
-
-Type <code>python3 formposion.py -h</code> for possible usage and scanner integration instruction. Flags and examples of usage: 
-
 ![running inject scans](scan.png)
-
-*Tip: use some payloads manually even if they are not being executed directly on the page, they could work if they are being sent to database and displayed on different endpoints (stored XSS).* 
+Please make yourself familiar with the possible flags and how do they work. Payloads file includes over 35000 payloads, so the user must make good use of the filter. 
+To begin:<pre><code>python3 formpoison.py -h #show all the flags in order
+python3 formpoison.py target.com --scan #perform Java-Based code injection points scan
+python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title" -s 4 --filter 'iframe, onload, document.cookie' --verbose</pre></code>
+*The command above is gonna be looking for field named "Order Title" (ensure to get field names from DevTools), delay between requests is set to 4 seconds and script is going to filter the payloads from list to these containing only 'iframe', 'onload', 'document.cookie'. Verbose mode is here to visualize results in real time and help with debugging.* 
 
 ### Possible optional flags: 
 <div align ="center">
@@ -76,6 +76,12 @@ Example *input.txt* file format:
     ...and so goes on
 </code></pre>
 The user can create their own payloads.json file and does not even need to pay attention to the category if the filtering function is available, and without the *type* flag, FormPoison will go through the entire file anyways.
+
+## Bugs & Issues 
+Please note that FormPoison is in the early stages of development, and this is its first release. There may be bugs, which you are encouraged to report so that they can be fixed. 
+
+If you have any ideas on how to improve the tool or have your own implementation, feel free to dig in the source code. Please contact me about contributing.
+
 ## New functions: 
 <ul>
   <li>JavaScript source-code scanner</li>
