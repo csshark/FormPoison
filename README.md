@@ -26,7 +26,8 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 
 ### Possible optional flags: 
 <div align ="center">
-  
+  <details><summary><b>Click to expand full flags table.</b></summary>
+    
 |    flag    | function | type & value(s) | 
 | -------- | ------- | ------- | 
 | -h --help  | display help message | None |
@@ -52,6 +53,7 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --max-depth | specify max scan depth | int range | 
 | --max-workers | specify number of workers for scanning | int range | 
 
+  </details>
 </div>
 basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code> <br>
 example advanced usage: <pre><code>python3 formpoison.py --cookie "JSESSIONID=9875643544376543211D32" https://www.hackthissite.org/user/login --user-agent "cssharkwashere" --login -t HTML -s 2 --verbose</code></pre>
