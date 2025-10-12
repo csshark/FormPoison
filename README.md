@@ -20,7 +20,9 @@ pip install -r requirements.txt </code></pre>
 ![running inject scans](scan.png)
 Please make yourself familiar with the possible flags and how do they work. Payloads file includes over 35000 payloads, so the user must make good use of the filter. 
 To begin:<pre><code>python3 formpoison.py -h #show all the flags in order
-python3 formpoison.py target.com --scan #perform Java-Based code injection points scan
+python3 formation.py targetsite.com
+#optionally perform deeper front-end code scan:
+python3 formpoison targetsite.com --scan
 python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title" -s 4 --filter 'iframe, onload, document.cookie' --verbose</pre></code>
 *The command above is gonna be looking for field named "Order Title" (ensure to get field names from DevTools), delay between requests is set to 4 seconds and script is going to filter the payloads from list to these containing only 'iframe', 'onload', 'document.cookie'. Verbose mode is here to visualize results in real time and help with debugging.* 
 
@@ -42,6 +44,12 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --verbose-all | advanced output with response body | None |
 | --login | enter login+password mode only testing | None |
 | --mXSS | Mutation XSS injections only | None | 
+| --brute | <b>Maximum<b> requests speed, might overload target | None OR additional flags | 
+| --concurrent | Max concurrent requests for --brute | int: 10-500 (default: 50) | 
+| --timeout | Request timeout in seconds for --brute | int: 3-60 (default: 15) | 
+| --batch-size | Requests per batch for --brute | int: 10-1000 (default: 100) | 
+| --batch-delay | Delay between batches in seconds for --brute | Delay between batches in seconds | int: 0-10 (default: 1) | 
+| --retries | Max retries on failure for --brute | int: 1-5 (default: 2) |
 | --ssl-cert | use ssl certificate file | String: /home/user/certs/cert.pem | 
 | --ssl-key | use ssl private key | String: /home/user/certs/key.pem |
 | --ssl-verify | verify ssl certificate | bool: None |
@@ -59,6 +67,9 @@ basic argument: <pre><code>python3 formposion.py yourtargetsite.org</pre></code>
 example advanced usage: <pre><code>python3 formpoison.py --cookie "JSESSIONID=9875643544376543211D32" https://www.hackthissite.org/user/login --user-agent "cssharkwashere" --login -t HTML -s 2 --verbose</code></pre>
 
 Please note that not all flags are compatible with each other (e.g., --login does not accept other method values) and you should familiarize yourself with the tool before using it in actual security tests. 
+
+## FormAtion module 
+FormAtion is quick form audior, it differs from scan mode in that it performs a quick analysis based on the server's response to a given query. It does not scan the code, nor does it delve into anything other than the input fields themselves. It only analyzes their connections and proposes a ready-made command for FormPoison to execute. Copy + Paste in CLI and viola ! 
 
 ### Scan mode
 Scan mode has been extended into JavaScript code scanning and looking for common vectors of code / inproper value injection to bypass some filters. The scanner is separate project integrated into FormPoison by default. It is recommended to run scan to identify attack vectors by yourself first. Scanner works for <b>10 minutes max.</b> for smaller apps, to keep lightweight form - this is not autonomus DAST replacement. By default scanner runs with 100 3 10 (100 MaxURLs, 3 MaxDepth, 10 Workers) to suit all the enviroments. However user is allowed to change those values via FormPoison flags. Output file is named *scan_report_[targetURL]_[dateTime].json*. Scanner recognizes ~20 patterns in Java web files and also checks for OWASP Top 10 vulnerabilities. Scanner output gives recommendations and points to forms that might be vulnerable (false-positive reduction applied): <div align ="center">![Scanning](scan-output-example.png)</div>
