@@ -1209,12 +1209,15 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
 
     return vulnerabilities
 
-async def test_input_field(url, payloads, threat_type, cookies, user_agents, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0):
+async def test_input_field(url, payloads, threat_type, cookies, user_agents, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0,
+                          # BRUTE FORCE PARAMETERS
+                          brute_mode=False, max_concurrent=50, timeout=15.0, batch_size=100, batch_delay=1.0, max_retries=2):
+    
     results = []
     positive_responses = 0
     threshold = len(payloads) * 0.5
 
-    table = Table(title=f"Input Field Test Results (Method: {method})")
+    table = Table(title=f"Input Field Test Results (Method: {method})" + (" | BRUTE MODE" if brute_mode else ""))
     table.add_column("Payload", style="cyan", no_wrap=False)
     table.add_column("User Agent", style="cyan", no_wrap=False)
     table.add_column("Response Code", justify="right", style="magenta")
@@ -1226,107 +1229,199 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
     soup = BeautifulSoup(content, 'html.parser')
     all_input_fields = soup.find_all('input', {'type': ['text', 'password', 'email']})
 
+    # Brute mode optimization
+    if brute_mode:
+        console.print(f"[bold red]⚠️ BRUTE FORCE MODE ACTIVATED[/bold red]")
+        console.print(f"[yellow]Concurrent: {max_concurrent} | Timeout: {timeout}s | Batch size: {batch_size}[/yellow]")
+        
+        ssl_context = ssl.create_default_context()
+        if ssl_cert and ssl_key:
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+        connector = aiohttp.TCPConnector(
+            limit=max_concurrent * 2,
+            limit_per_host=max_concurrent,
+            ssl=ssl_context
+        )
+        timeout_config = aiohttp.ClientTimeout(total=timeout)
+    else:
+        connector = None
+        timeout_config = None
+
+    cookie_jar = aiohttp.CookieJar()
+    for key, value in cookies.items():
+        cookie_jar.update_cookies({key: value})
+
+    semaphore = asyncio.Semaphore(max_concurrent if brute_mode else 1)
+
     async def test_payload(payload):
-        try:
-            # shuffle agent 
-            current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
-            data = {}
+        async with semaphore:
+            try:
+                current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
+                data = {}
 
-            # typical input fill
-            for field in all_input_fields:
-                field_name = field.get('name', 'input_field')
-                if field_name == input_field.get('name', 'input_field'):
-                    # payload fill
-                    data[field_name] = payload['inputField']
-                else:
-                    # rest of fields common values
-                    if field.get('type') == 'email':
-                        data[field_name] = 'test@example.com'
-                    elif field.get('type') == 'password':
-                        # password case
-                        data[field_name] = 'password123'
-                    elif field.get('name', '').lower() in ['username', 'user', 'login']:
-                        # login case
-                        data[field_name] = 'test_user'
+                # typical input fill
+                for field in all_input_fields:
+                    field_name = field.get('name', 'input_field')
+                    if field_name == input_field.get('name', 'input_field'):
+                        # payload fill
+                        data[field_name] = payload['inputField']
                     else:
-                        # rest of cases
-                        data[field_name] = 'test_value'
+                        # rest of fields common values
+                        if field.get('type') == 'email':
+                            data[field_name] = 'test@example.com'
+                        elif field.get('type') == 'password':
+                            # password case
+                            data[field_name] = 'password123'
+                        elif field.get('name', '').lower() in ['username', 'user', 'login']:
+                            # login case
+                            data[field_name] = 'test_user'
+                        else:
+                            # rest of cases
+                            data[field_name] = 'test_value'
 
-            ssl_context = ssl.create_default_context()
-            if ssl_cert and ssl_key:
-                ssl_context.load_cert_chain(ssl_cert, ssl_key)
+                if brute_mode:
+                    async with aiohttp.ClientSession(
+                        cookie_jar=cookie_jar, 
+                        connector=connector,
+                        timeout=timeout_config
+                    ) as session:
+                        async with session.request(
+                            method, url, data=data, headers=headers, 
+                            proxy=proxies.get('http') if proxies else None, ssl=ssl_verify
+                        ) as response:
+                            content = await response.text()
+                            status_code = response.status
+                else:
+                    ssl_context = ssl.create_default_context()
+                    if ssl_cert and ssl_key:
+                        ssl_context.load_cert_chain(ssl_cert, ssl_key)
 
-            cookie_jar = aiohttp.CookieJar()
-            for key, value in cookies.items():
-                cookie_jar.update_cookies({key: value})
-
-            async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
-                if method == "GET":
-                    async with session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                        content = await response.text()
-                        status_code = response.status
-                elif method == "POST":
-                    async with session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                        content = await response.text()
-                        status_code = response.status
-                elif method == "PUT":
-                    async with session.put(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                        content = await response.text()
-                        status_code = response.status
-                elif method == "DELETE":
-                    async with session.delete(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                        content = await response.text()
-                        status_code = response.status
+                    async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+                        if method == "GET":
+                            async with session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                                content = await response.text()
+                                status_code = response.status
+                        elif method == "POST":
+                            async with session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                                content = await response.text()
+                                status_code = response.status
+                        elif method == "PUT":
+                            async with session.put(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                                content = await response.text()
+                                status_code = response.status
+                        elif method == "DELETE":
+                            async with session.delete(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                                content = await response.text()
+                                status_code = response.status
 
                 vulnerabilities = analyze_response(content, response.headers, payload['category'], payload['inputField'], verbose_all)
 
-                results.append({
+                result = {
                     "payload": payload['inputField'],
                     "method": method,
                     "user_agent": current_user_agent,
                     "response_code": status_code,
                     "vulnerabilities": vulnerabilities
-                })
-                table.add_row(payload['inputField'], current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, str(status_code), ", ".join(vulnerabilities))
-                if verbose or verbose_all:
-                    console.print(f"[bold blue]Testing payload: {payload['inputField']}[/bold blue]")
-                    console.print(f"[bold blue]User Agent: {current_user_agent}[/bold blue]")
-                    console.print(f"[bold yellow]Method: {method}[/bold yellow]")
-                    console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
-                    console.print(f"[bold blue]Possible Vulnerabilities/Issues: {', '.join(vulnerabilities)}[/bold blue]")
-                    if verbose_all:
-                        console.print(f"[bold yellow]Response length:{len(content)} characters[/bold yellow]")
-                        if payload['inputField'] in content:
-                            console.print(f"[bold red]🚨 PAYLOAD FOUND IN RESPONSE![/bold red]")
-        except Exception as e:
-            current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
-            table.add_row(payload['inputField'], current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, "Error", f"Request Failed: {str(e)}")
-            if verbose or verbose_all:
-                console.print(f"[bold red]Error testing payload: {payload['inputField']}[/bold red]")
-                console.print(f"[bold red]User Agent: {current_user_agent}[/bold red]")
-                console.print(f"[bold red]Error: {str(e)}[/bold red]")
+                }
+                
+                return result
+                    
+            except Exception as e:
+                current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+                return {
+                    "payload": payload['inputField'],
+                    "method": method,
+                    "user_agent": current_user_agent,
+                    "response_code": "Error",
+                    "vulnerabilities": [f"Request Failed: {str(e)}"]
+                }
 
-    # bar
-    with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
-        task = progress.add_task("[cyan]Testing...", total=len(payloads))
+    if brute_mode:
+        all_payloads = list(payloads)
+        total_batches = (len(all_payloads) + batch_size - 1) // batch_size
 
-        for payload in payloads:
-            await test_payload(payload)
-            progress.update(task, advance=1)
-            if secs > 0:
-                await asyncio.sleep(secs)
+        with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
+            main_task = progress.add_task("[cyan]Overall progress...", total=len(all_payloads))
+            
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min(start_idx + batch_size, len(all_payloads))
+                batch_payloads = all_payloads[start_idx:end_idx]
+
+                tasks = [test_payload(payload) for payload in batch_payloads]
+                for future in asyncio.as_completed(tasks):
+                    result = await future
+                    results.append(result)
+                    
+                    # Update UI
+                    table.add_row(
+                        result["payload"],
+                        result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
+                        str(result["response_code"]),
+                        ", ".join(result["vulnerabilities"])
+                    )
+                    
+                    progress.update(main_task, advance=1)
+                    
+                    if verbose or verbose_all:
+                        console.print(f"[bold blue]Tested payload: {result['payload']}[/bold blue]")
+                        console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
+                        console.print(f"[bold blue]Vulnerabilities: {', '.join(result['vulnerabilities'])}[/bold blue]")
+
+                # add batch delay work somehow 
+                if batch_num < total_batches - 1 and batch_delay > 0:
+                    await asyncio.sleep(batch_delay)
+                    
+        # clse connector in brute mode
+        if connector:
+            await connector.close()
+            
+    else:
+        with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
+            task = progress.add_task("[cyan]Testing...", total=len(payloads))
+
+            for payload in payloads:
+                result = await test_payload(payload)
+                results.append(result)
+                
+                table.add_row(
+                    result["payload"],
+                    result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
+                    str(result["response_code"]),
+                    ", ".join(result["vulnerabilities"])
+                )
+                
+                progress.update(task, advance=1)
+                if secs > 0:
+                    await asyncio.sleep(secs)
 
     positive_responses = sum(1 for r in results if r['response_code'] == 200)
     if positive_responses > threshold:
         console.print(f"[bold red]Too many positive responses were given ({positive_responses}/{len(payloads)}). You might consider this result as false-positive.[/bold red]")
 
     console.print(table)
+    
+    # metadata based results
+    results_metadata = {
+        "parameters": {
+            "brute_mode": brute_mode,
+            "max_concurrent": max_concurrent,
+            "timeout": timeout,
+            "batch_size": batch_size,
+            "batch_delay": batch_delay,
+            "max_retries": max_retries
+        },
+        "results": results
+    }
+    
     with open("test_results.json", "w") as f:
-        json.dump(results, f, indent=4)
+        json.dump(results_metadata, f, indent=4)
+        
     console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
-
-async def test_login_input_fields(url, payloads, cookies, user_agents, input_fields, proxies=None, verbose=False, verbose_all=False, secs=0, filter_patterns=None):
+    
+async def test_login_input_fields(url, payloads, cookies, user_agents, input_fields, proxies=None, verbose=False, verbose_all=False, secs=0, filter_patterns=None, brute_mode=False, max_concurrent=50, timeout=15.0, batch_size=100, batch_delay=1.0, max_retries=2):
     results = []
 
     # filtering 
@@ -1339,13 +1434,30 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
         console.print("[bold red]No payloads left after filtering![/bold red]")
         return results
 
-    table = Table(title=f"Login Input Field Test Results")
+    table = Table(title=f"Login Input Field Test Results" + (" | BRUTE MODE" if brute_mode else ""))
     table.add_column("Login Payload", style="cyan", no_wrap=False)
     table.add_column("Password Payload", style="cyan", no_wrap=False)
     table.add_column("Payload Category", style="cyan", no_wrap=False)
     table.add_column("User Agent", style="cyan", no_wrap=False)
     table.add_column("Response Code", justify="right", style="magenta")
     table.add_column("Vulnerability Detected", style="bold green")
+
+    if brute_mode:
+        console.print(f"[bold red]🚀 BRUTE FORCE MODE ACTIVATED[/bold red]")
+        console.print(f"[yellow]Concurrent: {max_concurrent} | Timeout: {timeout}s | Batch size: {batch_size}[/yellow]")
+        
+        connector = aiohttp.TCPConnector(
+            limit=max_concurrent * 2,
+            limit_per_host=max_concurrent
+        )
+        timeout_config = aiohttp.ClientTimeout(total=timeout)
+    else:
+        connector = None
+        timeout_config = None
+
+    cookie_jar = aiohttp.CookieJar()
+    for key, value in cookies.items():
+        cookie_jar.update_cookies({key: value})
 
     login_field = None
     password_field = None
@@ -1413,68 +1525,154 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
         console.print("[bold yellow]No payloads found after filtering![/bold yellow]")
         return results
 
-    with Progress() as progress:
-        task = progress.add_task("[cyan]Testing login...", total=len(login_payloads) * len(all_payloads))
+    semaphore = asyncio.Semaphore(max_concurrent if brute_mode else 1)
 
-        for login_payload in login_payloads:
-            for password_payload, payload_category in all_payloads:
-                try:
-                    # not sure...
-                    current_user_agent = random.choice(user_agents) if user_agents else "FormPoison/v.1.0.1."
-                    headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
-                    data = {
-                        login_field.get('name', 'login'): login_payload,
-                        password_field.get('name', 'password'): password_payload
-                    }
-                    async with aiohttp.ClientSession() as session:
-                        async with session.post(url, data=data, cookies=cookies, headers=headers, proxy=proxies.get('http') if proxies else None) as response:
+    async def test_login_combination(login_payload, password_payload, payload_category):
+        async with semaphore:
+            try:
+                current_user_agent = random.choice(user_agents) if user_agents else "FormPoison/v.1.0.1."
+                headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
+                data = {
+                    login_field.get('name', 'login'): login_payload,
+                    password_field.get('name', 'password'): password_payload
+                }
+
+                if brute_mode:
+                    async with aiohttp.ClientSession(
+                        cookie_jar=cookie_jar,
+                        connector=connector,
+                        timeout=timeout_config
+                    ) as session:
+                        async with session.post(
+                            url, data=data, headers=headers, 
+                            proxy=proxies.get('http') if proxies else None
+                        ) as response:
+                            content = await response.text()
+                            status_code = response.status
+                else:
+                    async with aiohttp.ClientSession(cookie_jar=cookie_jar) as session:
+                        async with session.post(
+                            url, data=data, headers=headers, 
+                            proxy=proxies.get('http') if proxies else None
+                        ) as response:
                             content = await response.text()
                             status_code = response.status
 
-                            vulnerabilities = analyze_response(content, response.headers, payload_category, password_payload, verbose_all)
+                vulnerabilities = analyze_response(content, response.headers, payload_category, password_payload, verbose_all)
 
-                            results.append({
-                                "login_payload": login_payload,
-                                "password_payload": password_payload,
-                                "payload_category": payload_category,
-                                "user_agent": current_user_agent,
-                                "response_code": status_code,
-                                "vulnerabilities": vulnerabilities
-                            })
+                result = {
+                    "login_payload": login_payload,
+                    "password_payload": password_payload,
+                    "payload_category": payload_category,
+                    "user_agent": current_user_agent,
+                    "response_code": status_code,
+                    "vulnerabilities": vulnerabilities
+                }
+                
+                return result
 
-                            table.add_row(login_payload, password_payload, payload_category, current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, str(status_code), ", ".join(vulnerabilities))
-                            if verbose or verbose_all:
-                                console.print(f"[bold blue]Testing login: {login_payload}, password: {password_payload} ({payload_category})[/bold blue]")
-                                console.print(f"[bold blue]User Agent: {current_user_agent}[/bold blue]")
-                                console.print(f"[bold blue]Response code: {status_code}[/bold blue]")
-                                console.print(f"[bold blue]Vulnerabilities detected: {', '.join(vulnerabilities)}[/bold blue]")
-                                if verbose_all:
-                                    console.print(f"[bold yellow]Response length: {len(content)} characters[/bold yellow]")
-                                    if payload['inputField'] in content:
-                                        console.print(f"[bold red]🚨 PAYLOAD FOUND IN RESPONSE![/bold red]")
-                except Exception as e:
-                    current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
-                    results.append({
-                        "login_payload": login_payload,
-                        "password_payload": password_payload,
-                        "payload_category": payload_category,
-                        "user_agent": current_user_agent,
-                        "response_code": "Error",
-                        "vulnerabilities": [f"Request Failed: {str(e)}"]
-                    })
-                    table.add_row(login_payload, password_payload, payload_category, current_user_agent[:50] + "..." if len(current_user_agent) > 50 else current_user_agent, "Error", f"Request Failed: {str(e)}")
+            except Exception as e:
+                current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+                return {
+                    "login_payload": login_payload,
+                    "password_payload": password_payload,
+                    "payload_category": payload_category,
+                    "user_agent": current_user_agent,
+                    "response_code": "Error",
+                    "vulnerabilities": [f"Request Failed: {str(e)}"]
+                }
+
+    test_combinations = []
+    for login_payload in login_payloads:
+        for password_payload, payload_category in all_payloads:
+            test_combinations.append((login_payload, password_payload, payload_category))
+
+    total_tests = len(test_combinations)
+
+    if brute_mode:
+        all_combinations = list(test_combinations)
+        total_batches = (len(all_combinations) + batch_size - 1) // batch_size
+
+        with Progress() as progress:
+            main_task = progress.add_task("[cyan]Testing login...", total=total_tests)
+            
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min(start_idx + batch_size, len(all_combinations))
+                batch_combinations = all_combinations[start_idx:end_idx]
+
+                tasks = [test_login_combination(login, pwd, category) for login, pwd, category in batch_combinations]
+                for future in asyncio.as_completed(tasks):
+                    result = await future
+                    results.append(result)
+                    
+                    # Update UI
+                    table.add_row(
+                        result["login_payload"],
+                        result["password_payload"],
+                        result["payload_category"],
+                        result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
+                        str(result["response_code"]),
+                        ", ".join(result["vulnerabilities"])
+                    )
+                    
+                    progress.update(main_task, advance=1)
+
                     if verbose or verbose_all:
-                        console.print(f"[bold red]Error testing login: {login_payload}, password: {password_payload} ({payload_category})[/bold red]")
-                        console.print(f"[bold red]User Agent: {current_user_agent}[/bold red]")
-                        console.print(f"[bold red]Error: {str(e)}[/bold red]")
+                        console.print(f"[bold blue]Testing login: {result['login_payload']}, password: {result['password_payload']} ({result['payload_category']})[/bold blue]")
+                        console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
+                        console.print(f"[bold blue]Vulnerabilities: {', '.join(result['vulnerabilities'])}[/bold blue]")
+
+                if batch_num < total_batches - 1 and batch_delay > 0:
+                    await asyncio.sleep(batch_delay)
+                    
+        if connector:
+            await connector.close()
+            
+    else:
+        with Progress() as progress:
+            task = progress.add_task("[cyan]Testing login...", total=total_tests)
+
+            for login_payload, password_payload, payload_category in test_combinations:
+                result = await test_login_combination(login_payload, password_payload, payload_category)
+                results.append(result)
+                
+                table.add_row(
+                    result["login_payload"],
+                    result["password_payload"],
+                    result["payload_category"],
+                    result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
+                    str(result["response_code"]),
+                    ", ".join(result["vulnerabilities"])
+                )
+                
                 progress.update(task, advance=1)
+                
+                if verbose or verbose_all:
+                    console.print(f"[bold blue]Testing login: {result['login_payload']}, password: {result['password_payload']} ({result['payload_category']})[/bold blue]")
+                    console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
+                    console.print(f"[bold blue]Vulnerabilities: {', '.join(result['vulnerabilities'])}[/bold blue]")
+
                 if secs > 0:
                     await asyncio.sleep(secs)
 
     console.print(table)
 
+    # Save results with metadata
+    results_metadata = {
+        "parameters": {
+            "brute_mode": brute_mode,
+            "max_concurrent": max_concurrent,
+            "timeout": timeout,
+            "batch_size": batch_size,
+            "batch_delay": batch_delay,
+            "max_retries": max_retries
+        },
+        "results": results
+    }
+
     with open("login_test_results.json", "w") as f:
-        json.dump(results, f, indent=4)
+        json.dump(results_metadata, f, indent=4)
 
     console.print(f"[bold green]Login test results saved to 'login_test_results.json'[/bold green]")
     return results
@@ -1544,174 +1742,250 @@ def find_field_by_name(input_fields, field_name):
 
     return None
     
-async def test_all_forms(url, payloads, threat_type, cookies, user_agents, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0):
-    initial_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    forms_with_inputs = get_forms_and_inputs(await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify), verbose)
-    
-    for form, inputs in forms_with_inputs:
-        console.print(f"[bold cyan]Testing form with {len(inputs)} inputs[/bold cyan]")
-        for input_field in inputs:
-            console.print(f"[bold cyan]Testing input field: {input_field.get('name', 'input_field')}[/bold cyan]")
-            await test_input_field(url, payloads, threat_type, cookies, user_agents, input_field, method, proxies, ssl_cert, ssl_key, ssl_verify, verbose, verbose_all, filter, secs)
-async def test_mutation_xss(url, input_fields, cookies, user_agents, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0, payload_filters=None):
+async def test_all_forms(url, payloads, threat_type, cookies, user_agents, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0, brute_mode=False, max_concurrent=50, timeout=15.0, batch_size=100, batch_delay=1.0, max_retries=2):
     results = []
     
-    if verbose:
-        console.print(f"[bold yellow]Done. Starting mXSS test...[/bold yellow]")
-        console.print(f"[yellow]URL: {url}[/yellow]")
-        console.print(f"[yellow]Fields: {len(input_fields)}[/yellow]")
-        for i, field in enumerate(input_fields):
-            field_name = field.get('name') or field.get('id') or f'field_{i}'
-            field_type = field.get('type', 'textarea' if field.name == 'textarea' else 'input')
-            console.print(f"[dim]  {i+1}. {field_name} ({field_type})[/dim]")
-
-    # .json fetch with filtering
-    mXSS_payloads = []
-    try:
-        with open("payloads.json", "r") as f:
-            all_payloads = json.load(f)
-        
-        # get only mutation
-        mXSS_keywords = ['<img', '<svg', '<math', '<table', '<form', '<select', '<details', 
-                        '<video', '<audio', '<body', 'onerror', 'onload', 'javascript:', 
-                        '<style', '<script', 'background=', 'poster=']
-        
-        for payload in all_payloads:
-            payload_text = payload.get('inputField', '')
-            if any(keyword in payload_text.lower() for keyword in mXSS_keywords):
-                mXSS_payloads.append({
-                    "inputField": payload_text,
-                    "category": f"mXSS_{payload.get('category', 'GENERIC')}"
-                })
-        
-        if payload_filters:
-            filter_patterns = [pattern.strip().lower() for pattern in payload_filters.split(",")]
-            filtered_payloads = []
-            for payload in mXSS_payloads:
-                payload_text = payload.get('inputField', '').lower()
-                if any(pattern in payload_text for pattern in filter_patterns):
-                    filtered_payloads.append(payload)
-            mXSS_payloads = filtered_payloads
-            if verbose:
-                console.print(f"[yellow]Applied payload filters: {payload_filters}[/yellow]")
-                console.print(f"[yellow]Filtered mXSS payloads: {len(mXSS_payloads)}[/yellow]")
-        else:
-            if verbose:
-                console.print(f"[yellow]Loaded mXSS payloads: {len(mXSS_payloads)}[/yellow]")
-            
-    except Exception as e:
-        if verbose:
-            console.print(f"[red]Error loading payloads: {str(e)}[/red]")
+    initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+    content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
+    
+    if not content:
+        console.print("[bold red]Failed to fetch page content[/bold red]")
         return results
 
-    table = Table(title=f"mXSS Results")
-    table.add_column("Field", style="cyan")
-    table.add_column("Payload", style="magenta") 
-    table.add_column("Status", style="green")
-    table.add_column("Vulnerability", style="red")
-
-    tested_count = 0
+    soup = BeautifulSoup(content, 'html.parser')
+    forms = soup.find_all('form')
     
-    async def test_payload(input_field, payload):
-        nonlocal tested_count
-        tested_count += 1
+    console.print(f"[bold green]Found {len(forms)} forms to test[/bold green]")
+    
+    # Brute mode optimization
+    if brute_mode:
+        console.print(f"[bold red]🚀 BRUTE FORCE MODE ACTIVATED[/bold red]")
+        console.print(f"[yellow]Concurrent: {max_concurrent} | Timeout: {timeout}s | Batch size: {batch_size}[/yellow]")
         
-        field_name = input_field.get('name') or input_field.get('id') or 'unknown_field'
-        
-        if verbose:
-            console.print(f"[cyan][{tested_count}] Testing: {field_name} → {payload['category']}[/cyan]")
-        
-        try:
-            current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0"
-            headers = {'User-Agent': current_user_agent}
-            data = {}
+        ssl_context = ssl.create_default_context()
+        if ssl_cert and ssl_key:
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
 
-            field_name_key = input_field.get('name') or 'input_field'
-            data[field_name_key] = payload['inputField']
+        connector = aiohttp.TCPConnector(
+            limit=max_concurrent * 2,
+            limit_per_host=max_concurrent,
+            ssl=ssl_context
+        )
+        timeout_config = aiohttp.ClientTimeout(total=timeout)
+    else:
+        connector = None
+        timeout_config = None
 
-            for field in input_fields:
-                other_field_name = field.get('name') or 'input_field'
-                if other_field_name != field_name_key:
-                    field_type = field.get('type', 'text')
-                    if field_type == 'email':
-                        data[other_field_name] = 'test@example.com'
-                    elif field_type == 'password':
-                        data[other_field_name] = 'password123'
-                    elif other_field_name.lower() in ['username', 'user', 'login']:
-                        data[other_field_name] = 'testuser'
-                    elif field.name == 'textarea':
-                        data[other_field_name] = 'test content'
-                    else:
-                        data[other_field_name] = 'test'
+    cookie_jar = aiohttp.CookieJar()
+    for key, value in cookies.items():
+        cookie_jar.update_cookies({key: value})
 
-            if verbose_all:
-                console.print(f"[dim]Sending data: {data}[/dim]")
+    semaphore = asyncio.Semaphore(max_concurrent if brute_mode else 1)
 
-            ssl_context = ssl.create_default_context()
-            if ssl_cert and ssl_key:
-                ssl_context.load_cert_chain(ssl_cert, ssl_key)
+    async def test_form_with_payload(form, payload):
+        async with semaphore:
+            try:
+                current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
 
-            cookie_jar = aiohttp.CookieJar()
-            for key, value in cookies.items():
-                cookie_jar.update_cookies({key: value})
-
-            async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
-                if method.upper() == "GET":
-                    response = await session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify)
-                else:
-                    response = await session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify)
+                data = {}
+                inputs = form.find_all('input')
+                textareas = form.find_all('textarea')
+                selects = form.find_all('select')
                 
-                content = await response.text()
-                status_code = response.status
+                all_fields = inputs + textareas + selects
+                
+                for field in all_fields:
+                    field_name = field.get('name', 'input_field')
+                    field_type = field.get('type', 'text').lower()
+                    
+                    # Inject payload into all text fields
+                    if field_type in ['text', 'email', 'search', 'url', 'tel'] or field.name in ['textarea', 'select']:
+                        data[field_name] = payload['inputField']
+                    elif field_type == 'password':
+                        data[field_name] = 'password123'
+                    elif field_type == 'hidden' and field.get('value'):
+                        data[field_name] = field.get('value')
+                    else:
+                        data[field_name] = 'test_value'
 
-                if verbose:
-                    console.print(f"[dim]Status: {status_code}, Length: {len(content)}[/dim]")
+                # request with optimized session for brute mode
+                if brute_mode:
+                    async with aiohttp.ClientSession(
+                        cookie_jar=cookie_jar, 
+                        connector=connector,
+                        timeout=timeout_config
+                    ) as session:
+                        async with session.request(
+                            method, url, data=data, headers=headers, 
+                            proxy=proxies.get('http') if proxies else None, 
+                            ssl=ssl_verify
+                        ) as response:
+                            content = await response.text()
+                            status_code = response.status
+                else:
+                    ssl_context = ssl.create_default_context()
+                    if ssl_cert and ssl_key:
+                        ssl_context.load_cert_chain(ssl_cert, ssl_key)
 
-                vulnerabilities = analyze_mutation_xss_response(content, payload['inputField'])
+                    async with aiohttp.ClientSession(
+                        cookie_jar=cookie_jar, 
+                        connector=aiohttp.TCPConnector(ssl=ssl_context)
+                    ) as session:
+                        async with session.request(
+                            method, url, data=data, headers=headers, 
+                            proxy=proxies.get('http') if proxies else None, 
+                            ssl=ssl_verify
+                        ) as response:
+                            content = await response.text()
+                            status_code = response.status
+
+                vulnerabilities = analyze_response(content, response.headers, payload['category'], payload['inputField'], verbose_all)
 
                 result = {
-                    "input_field": field_name,
+                    "form_action": form.get('action', ''),
+                    "form_method": form.get('method', 'GET'),
                     "payload": payload['inputField'],
-                    "category": payload['category'],
-                    "status_code": status_code,
+                    "user_agent": current_user_agent,
+                    "response_code": status_code,
                     "vulnerabilities": vulnerabilities
                 }
-                results.append(result)
+                
+                return result
+                    
+            except Exception as e:
+                current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+                return {
+                    "form_action": form.get('action', ''),
+                    "form_method": form.get('method', 'GET'),
+                    "payload": payload['inputField'],
+                    "user_agent": current_user_agent,
+                    "response_code": "Error",
+                    "vulnerabilities": [f"Request Failed: {str(e)}"]
+                }
 
-                if vulnerabilities:
-                    table.add_row(
-                        field_name,
-                        payload['category'],
-                        str(status_code),
-                        " → ".join(vulnerabilities)
-                    )
-                    if verbose:
-                        console.print(f"[bold red]VULNERABLE: {field_name} → {payload['category']} → {', '.join(vulnerabilities)}[/bold red]")
+    # Prepare all test combinations
+    test_combinations = []
+    for form in forms:
+        for payload in payloads:
+            test_combinations.append((form, payload))
 
-        except Exception as e:
-            if verbose:
-                console.print(f"[red]ERROR: {str(e)}[/red]")
+    total_tests = len(test_combinations)
 
-    total_tests = len(input_fields) * len(mXSS_payloads)
-    
-    if verbose:
-        console.print(f"[green]Executing {total_tests} mXSS tests...[/green]")
-    
-    for i, input_field in enumerate(input_fields):
-        for j, payload in enumerate(mXSS_payloads):
-            await test_payload(input_field, payload)
+    table = Table(title=f"All Forms Test Results" + (" | BRUTE MODE" if brute_mode else ""))
+    table.add_column("Form Action", style="cyan", no_wrap=False)
+    table.add_column("Payload", style="cyan", no_wrap=False)
+    table.add_column("User Agent", style="cyan", no_wrap=False)
+    table.add_column("Response Code", justify="right", style="magenta")
+    table.add_column("Vulnerability Detected", style="bold green")
+
+    if brute_mode:
+        # BRUTE MODE: Parallel processing with batching
+        all_combinations = list(test_combinations)
+        total_batches = (len(all_combinations) + batch_size - 1) // batch_size
+
+        with Progress(
+            BarColumn(bar_width=None), 
+            "[progress.percentage]{task.percentage:>3.0f}%", 
+            TimeRemainingColumn(), 
+            console=console
+        ) as progress:
             
-            if secs > 0:
-                await asyncio.sleep(secs)
+            main_task = progress.add_task("[cyan]Testing all forms...", total=total_tests)
+            
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min(start_idx + batch_size, len(all_combinations))
+                batch_combinations = all_combinations[start_idx:end_idx]
+
+                # Process current batch in parallel
+                tasks = [test_form_with_payload(form, payload) for form, payload in batch_combinations]
+                for future in asyncio.as_completed(tasks):
+                    result = await future
+                    results.append(result)
+                    
+                    # Update UI
+                    table.add_row(
+                        result["form_action"],
+                        result["payload"],
+                        result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
+                        str(result["response_code"]),
+                        ", ".join(result["vulnerabilities"])
+                    )
+                    
+                    progress.update(main_task, advance=1)
+                    
+                    if verbose or verbose_all:
+                        console.print(f"[bold blue]Tested form: {result['form_action']} → {result['payload']}[/bold blue]")
+                        console.print(f"[bold blue]Response: {result['response_code']}[/bold blue]")
+
+                # Batch delay
+                if batch_num < total_batches - 1 and batch_delay > 0:
+                    await asyncio.sleep(batch_delay)
+                    
+        # Close connector in brute mode
+        if connector:
+            await connector.close()
+            
+    else:
+        with Progress(
+            BarColumn(bar_width=None), 
+            "[progress.percentage]{task.percentage:>3.0f}%", 
+            TimeRemainingColumn(), 
+            console=console
+        ) as progress:
+            
+            task = progress.add_task("[cyan]Testing all forms...", total=total_tests)
+
+            for form, payload in test_combinations:
+                result = await test_form_with_payload(form, payload)
+                results.append(result)
+                
+                table.add_row(
+                    result["form_action"],
+                    result["payload"],
+                    result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
+                    str(result["response_code"]),
+                    ", ".join(result["vulnerabilities"])
+                )
+                
+                progress.update(task, advance=1)
+                
+                if verbose or verbose_all:
+                    console.print(f"[bold blue]Tested form: {result['form_action']} → {result['payload']}[/bold blue]")
+                    console.print(f"[bold blue]Response: {result['response_code']}[/bold blue]")
+
+                # default delay
+                if secs > 0:
+                    await asyncio.sleep(secs)
+
+    # results analysis
+    positive_responses = sum(1 for r in results if r['response_code'] == 200)
+    threshold = len(results) * 0.5
+    
+    if positive_responses > threshold:
+        console.print(f"[bold red]Too many positive responses were given ({positive_responses}/{len(results)}). You might consider this result as false-positive.[/bold red]")
 
     console.print(table)
     
-    vulnerabilities_found = sum(1 for r in results if r.get('vulnerabilities') and len(r['vulnerabilities']) > 0)
-    if verbose:
-        console.print(f"[bold]Found {vulnerabilities_found} vulnerabilities[/bold]")
-
-    with open("mXSS_results.json", "w") as f:
-        json.dump(results, f, indent=2)
+    # save results with metadata
+    results_metadata = {
+        "parameters": {
+            "brute_mode": brute_mode,
+            "max_concurrent": max_concurrent,
+            "timeout": timeout,
+            "batch_size": batch_size,
+            "batch_delay": batch_delay,
+            "max_retries": max_retries,
+            "test_type": "all_forms"
+        },
+        "results": results
+    }
+    
+    with open("all_forms_test_results.json", "w") as f:
+        json.dump(results_metadata, f, indent=4)
+        
+    console.print(f"[bold green]Test results saved to 'all_forms_test_results.json'[/bold green]")
     
     return results
 
@@ -1891,6 +2165,12 @@ async def main():
     parser.add_argument("--ssl-key", help="Path to SSL private key file (e.g., key.pem)")
     parser.add_argument("--ssl-verify", action="store_true", help="Verify SSL certificate (default: False)")
     parser.add_argument("--mXSS", action="store_true", help="Test Mutation XSS vulnerabilities")
+    parser.add_argument('--brute', action='store_true', help='Brute force mode - maximum speed (UWAŻAJ: może przeciążyć cel!)')
+    parser.add_argument('--concurrent', type=int, default=50, help='Max concurrent requests (brute: 10-500, default: 50)')
+    parser.add_argument('--timeout', type=float, default=15.0, help='Request timeout in seconds (brute: 3-60, default: 15)')
+    parser.add_argument('--batch-size', type=int, default=100, help='Requests per batch (brute: 10-1000, default: 100)')
+    parser.add_argument('--batch-delay', type=float, default=1.0, help='Delay between batches in seconds (brute: 0-10, default: 1)')
+    parser.add_argument('--retries', type=int, default=2, help='Max retries on failure (brute: 1-5, default: 2)')
     parser.add_argument("--method", default="POST", choices=["GET", "POST", "PUT", "DELETE"], help="HTTP method to use (default: POST)")
     parser.add_argument("--filter", help="Filter payloads by user-defined patterns (e.g., '<meta>, <script>, onclick')")
     parser.add_argument("--login", action="store_true", help="Enable login testing for login and password fields")
@@ -1907,6 +2187,36 @@ async def main():
         sys.exit()
 
     args = parser.parse_args()
+    if args.brute:
+        console.print("[bold yellow]⚠️  BRUTE FORCE MODE ACTIVATED - USE WITH CAUTION! ⚠️[/bold yellow]")
+        
+        if args.concurrent < 10 or args.concurrent > 500:
+            console.print(f"[yellow]Warning: --concurrent {args.concurrent} is outside recommended range 10-500[/yellow]")
+        
+        if args.timeout < 3 or args.timeout > 60:
+            console.print(f"[yellow]Warning: --timeout {args.timeout} is outside recommended range 3-60 seconds[/yellow]")
+        
+        if args.batch_size < 10 or args.batch_size > 1000:
+            console.print(f"[yellow]Warning: --batch-size {args.batch_size} is outside recommended range 10-1000[/yellow]")
+        
+        if args.batch_delay < 0 or args.batch_delay > 10:
+            console.print(f"[yellow]Warning: --batch-delay {args.batch_delay} is outside recommended range 0-10 seconds[/yellow]")
+        
+        if args.retries < 1 or args.retries > 5:
+            console.print(f"[yellow]Warning: --retries {args.retries} is outside recommended range 1-5[/yellow]")
+
+        if args.concurrent > 200:
+            console.print("[red]🚨 HIGH CONCURRENCY WARNING: May overwhelm the target server![/red]")
+        
+        if args.batch_delay < 0.5:
+            console.print("[red]🚨 LOW DELAY WARNING: May trigger rate limiting or be detected as attack![/red]")
+        
+        if args.concurrent > 100 and args.batch_delay < 1.0:
+            response = console.input("[bold red]🚨 EXTREME BRUTE FORCE: Are you sure? (y/N): [/bold red]")
+            if response.lower() not in ('y', 'yes'):
+                console.print("[bold yellow]Brute force cancelled.[/bold yellow]")
+                sys.exit(0)
+
 
     if not args.url.startswith(('http://', 'https://')):
         response = console.input(f"You entered site '{args.url}' without https protocol provided[bold yellow] Switch to https? (Y/n): [/bold yellow]")
@@ -2122,11 +2432,21 @@ async def main():
         console.print("[bold green]mXSS testing completed.[/bold green]")
     
     # STANDARD TESTS
-        if args.fieldname:
-            field = find_field_by_name(input_fields, args.fieldname)
-            if field:
-                console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
-                await test_input_field(args.url, payloads, args.threat, cookies, user_agents, field, args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify, args.verbose, args.verbose_all, args.filter, args.seconds)
+    if args.fieldname:
+        field = find_field_by_name(input_fields, args.fieldname)
+        if field:
+            console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
+            await test_input_field(
+                args.url, payloads, args.threat, cookies, user_agents, field, 
+                args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify, 
+                args.verbose, args.verbose_all, args.filter, args.seconds,
+                brute_mode=args.brute,
+                max_concurrent=args.concurrent,
+                timeout=args.timeout,
+                batch_size=args.batch_size,
+                batch_delay=args.batch_delay,
+                max_retries=args.retries
+            )
         else:
             console.print(f"[bold red]No input field found with name '{args.fieldname}'[/bold red]")
             sys.exit(1)
@@ -2135,13 +2455,33 @@ async def main():
             console.print(f"[bold green]Testing login fields with {len(user_agents)} shuffled User Agents[/bold green]")
         else:
             console.print(f"[bold green]Testing login fields with User Agent: {user_agents[0]}[/bold green]")
-        await test_login_input_fields(args.url, payloads, cookies, user_agents, input_fields, proxies, args.verbose, args.verbose_all, args.seconds, args.filter)
+        await test_login_input_fields(
+            args.url, payloads, cookies, user_agents, input_fields, 
+            proxies, args.verbose, args.verbose_all, args.seconds, args.filter,
+            brute_mode=args.brute,
+            max_concurrent=args.concurrent,
+            timeout=args.timeout,
+            batch_size=args.batch_size,
+            batch_delay=args.batch_delay,
+            max_retries=args.retries
+        )
     else:
         if len(user_agents) > 1:
             console.print(f"[bold green]Testing all forms with {len(user_agents)} shuffled User Agents[/bold green]")
         else:
             console.print(f"[bold green]Testing all forms with User Agent: {user_agents[0]}[/bold green]")
-        await test_all_forms(args.url, payloads, args.threat, cookies, user_agents, args.method, proxies, args.ssl_cert, args.ssl_key, args.filter, args.ssl_verify, args.verbose, args.verbose_all, args.seconds)
+        await test_all_forms(
+            args.url, payloads, args.threat, cookies, user_agents, 
+            args.method, proxies, args.ssl_cert, args.ssl_key, args.filter, 
+            args.ssl_verify, args.verbose, args.verbose_all, args.seconds,
+            brute_mode=args.brute,
+            max_concurrent=args.concurrent,
+            timeout=args.timeout,
+            batch_size=args.batch_size,
+            batch_delay=args.batch_delay,
+            max_retries=args.retries
+        )
+
         
 if __name__ == "__main__":
     asyncio.run(main())
