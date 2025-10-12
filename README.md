@@ -7,7 +7,7 @@
 </p>
 
 Smart form-focused injection Framework based on experience with data validation issues, XSS and SQL attacks executed so far.
-The main purpose of the framework is to perform tests that cover the maximum XSS risk for a given application. Please do not treat this tool as a replacement for existing offensive security tools, but rather as a support/companion to them (especially since it integrates with them). Cross-Site Scripting is unusual vulnerability and could be found almost randomly with different tools. <b>Before you start</b>, be aware of many false-positives when running attack. Sometimes web application returns '200 OK' <b>by default</b> and doesn't get injected at all. Run scan, check for CVEs, investigate and then attack. <p><b>Warning:</b> High-intensity tool (~7 req/s). May trigger security alerts. Use responsibly.</p>
+The main purpose of the framework is to perform tests that cover the maximum XSS risk for a given application. Please do not treat this tool as a replacement for existing offensive security tools, but rather as a support/companion to them. Cross-Site Scripting is unusual vulnerability and could be found almost randomly with different tools. <b>Before you start</b>, be aware of many false-positives when running attack. Sometimes web application returns '200 OK' <b>by default</b> and doesn't get injected at all. Run scan, check for CVEs, investigate and then attack. <p><b>Warning:</b> High-intensity tool (~7 req/s). May trigger security alerts. Use responsibly.</p>
 
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
@@ -20,9 +20,9 @@ pip install -r requirements.txt </code></pre>
 ![running inject scans](scan.png)
 Please make yourself familiar with the possible flags and how do they work. Payloads file includes over 35000 payloads, so the user must make good use of the filter. 
 To begin:<pre><code>python3 formpoison.py -h #show all the flags in order
-python3 formation.py targetsite.com
-#optionally perform deeper front-end code scan:
-python3 formpoison targetsite.com --scan
+python3 formation.py targetsite.com</pre></code>
+optionally perform deeper front-end code scan:
+<pre><code>python3 formpoison targetsite.com --scan
 python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title" -s 4 --filter 'iframe, onload, document.cookie' --verbose</pre></code>
 *The command above is gonna be looking for field named "Order Title" (ensure to get field names from DevTools), delay between requests is set to 4 seconds and script is going to filter the payloads from list to these containing only 'iframe', 'onload', 'document.cookie'. Verbose mode is here to visualize results in real time and help with debugging.* 
 
@@ -69,7 +69,7 @@ example advanced usage: <pre><code>python3 formpoison.py --cookie "JSESSIONID=98
 Please note that not all flags are compatible with each other (e.g., --login does not accept other method values) and you should familiarize yourself with the tool before using it in actual security tests. 
 
 ## FormAtion module 
-FormAtion is quick form audior, it differs from scan mode in that it performs a quick analysis based on the server's response to a given query. It does not scan the code, nor does it delve into anything other than the input fields themselves. It only analyzes their connections and proposes a ready-made command for FormPoison to execute. Copy + Paste in CLI and viola ! 
+FormAtion is quick form audior, it differs from scan mode in that it performs a quick analysis based on the server's response to a given query. It does not scan the code, nor does it delve into anything other than the input fields themselves. It only analyzes their connections and proposes a ready-made command for FormPoison to execute. Copy + Paste in CLI and now your injection 20% more likely to be successful.
 
 ### Scan mode
 Scan mode has been extended into JavaScript code scanning and looking for common vectors of code / inproper value injection to bypass some filters. The scanner is separate project integrated into FormPoison by default. It is recommended to run scan to identify attack vectors by yourself first. Scanner works for <b>10 minutes max.</b> for smaller apps, to keep lightweight form - this is not autonomus DAST replacement. By default scanner runs with 100 3 10 (100 MaxURLs, 3 MaxDepth, 10 Workers) to suit all the enviroments. However user is allowed to change those values via FormPoison flags. Output file is named *scan_report_[targetURL]_[dateTime].json*. Scanner recognizes ~20 patterns in Java web files and also checks for OWASP Top 10 vulnerabilities. Scanner output gives recommendations and points to forms that might be vulnerable (false-positive reduction applied): <div align ="center">![Scanning](scan-output-example.png)</div>
