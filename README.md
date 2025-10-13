@@ -18,7 +18,7 @@ pip install -r requirements.txt </code></pre>
 
 ## Quick start 
 ![running inject scans](scan.png)
-Please make yourself familiar with the possible flags and how do they work. Payloads file includes over 35000 payloads, so the user must make good use of the filter. 
+Please make yourself familiar with the possible flags and how do they work. Payloads file includes over 3500 payloads, so the user must make good use of the filter. 
 To begin:<pre><code>python3 formpoison.py -h #show all the flags in order
 python3 formation.py targetsite.com</pre></code>
 optionally perform deeper front-end code scan:
