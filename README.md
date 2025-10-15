@@ -39,7 +39,7 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --filemode | filename injection mode | None | 
 | -p --payloads | select path to your custom payloads file if necessary | String: /home/user/payloads-folder/payloads.json |
 | --cookies | specify user cookie ex. for testing endpoints that require authorization | String, example: 'key1=value1; key2=value2' |
-| -ua --user-agent | Specify User-Agent or type *random* for shuffling | String, example: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/120.0.0.0 Safari/537.36 |
+| -ua --user-agent | Specify User-Agent or type *random* for shuffling | String, example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/120.0.0.0 Safari/537.36" |
 | -v --verbose | enable verbose mode, highly recommended for debugging | None | 
 | --verbose-all | advanced output with response body | None |
 | --login | enter login+password mode only testing | None |
