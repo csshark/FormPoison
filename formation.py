@@ -739,7 +739,13 @@ class FormAtionAnalyzer:
             recommendations.append("GET forms detected - test parameter pollution (PortSwigger: HPP)")
             attack_vectors.append("HTTP Parameter Pollution")
         
-        formpoison_flags.extend(["--verbose", "--verbose-all"])
+        high_risk_forms=sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 5)
+        if high_risk_forms > 0 or total_text_fields > 10:
+            formpoison_flags.append("--verbose-all")
+            recommendations.append("High risk forms detected - use --verbose-all for detailed response analysis")
+        else:
+            formpoison_flags.append("--verbose")
+            recommendations.append("Use --verbose for basic progress information")
         
         self.results['recommendations'] = recommendations
         self.results['formpoison_flags'] = list(set(formpoison_flags))
