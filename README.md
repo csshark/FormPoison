@@ -97,7 +97,7 @@ If you have any ideas on how to improve the tool or have your own implementation
 
 ## New functions: 
 <ul>
-  <li>JavaScript source-code scanner</li>
+  <li>Brute mode to speed up requests even more</li>
   <li>Filename XSS testing mode</li>
   <li>Mutation XSS (mXSS) testing mode</li>
   <li>Multithreading to speed up injecting attemps</li>
