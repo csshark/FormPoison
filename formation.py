@@ -725,20 +725,66 @@ class FormAtionAnalyzer:
                 attack_vectors.append("Parameter Tampering")
         
         tech = self.results['technology_stack']
-        if any(framework in tech.get('frontend_frameworks', []) for framework in ['React', 'Vue.js', 'Angular']):
-            recommendations.append("Modern JS framework - test for mutation XSS (PortSwigger: mXSS)")
-            formpoison_flags.append("--mXSS")
-            attack_vectors.append("Mutation XSS")
         
-        if 'WordPress' in tech.get('cms', []):
-            recommendations.append("WordPress detected - test for WordPress-specific XSS payloads")
-            attack_vectors.append("WordPress XSS")
-
+        # WAF Detection and Bypass Recommendations
+        if any(server in tech.get('web_servers', []) for server in ['Cloudflare', 'AWS CloudFront', 'Azure CDN']):
+            recommendations.append("CDN/WAF detected - use WAF bypass payloads")
+            formpoison_flags.append("--waf-bypass")
+            attack_vectors.append("WAF Bypass")
+        
+        # CSP Bypass Recommendations
         headers = self.results['security_headers']
-        if not headers.get('Content-Security-Policy'):
+        if headers.get('Content-Security-Policy'):
+            recommendations.append("CSP detected - test CSP bypass techniques")
+            formpoison_flags.append("--csp-bypass")
+            attack_vectors.append("CSP Bypass")
+        else:
             recommendations.append("No CSP - higher XSS success rate (PortSwigger: CSP Bypass)")
             attack_vectors.append("CSP Bypass")
         
+        # Sanitizer Bypass Recommendations
+        if any(framework in tech.get('frontend_frameworks', []) for framework in ['React', 'Vue.js', 'Angular']):
+            recommendations.append("Modern JS framework - test for sanitizer bypass and mutation XSS")
+            formpoison_flags.extend(["--sanitizer-bypass", "--mXSS"])
+            attack_vectors.extend(["Sanitizer Bypass", "Mutation XSS"])
+        
+        # Encoder Bypass Recommendations
+        if 'WordPress' in tech.get('cms', []) or any(lang in tech.get('programming_languages', []) for lang in ['PHP', 'Python']):
+            recommendations.append("Common CMS/framework - test encoder bypass techniques")
+            formpoison_flags.append("--encoder-bypass")
+            attack_vectors.append("Encoder Bypass")
+        
+        # Encoding Confusion Recommendations
+        if any(form['method'] == 'GET' for form in self.results['forms_analysis']):
+            recommendations.append("GET forms detected - test encoding confusion and parameter pollution")
+            formpoison_flags.extend(["--encoding-confusion", "--method GET"])
+            attack_vectors.extend(["Encoding Confusion", "HTTP Parameter Pollution"])
+        
+        # Size Overflow Recommendations
+        total_text_fields = sum(len(form['text_input_fields']) for form in self.results['forms_analysis'])
+        if total_text_fields > 5:
+            formpoison_flags.append("--brute")
+            recommendations.append(f"Multiple text fields ({total_text_fields}) - use brute force for efficiency")
+        
+        # Size overflow for forms with many fields or large input areas
+        large_forms = [f for f in self.results['forms_analysis'] if len(f['all_fields']) > 10]
+        if large_forms:
+            recommendations.append("Large forms detected - test size overflow attacks")
+            formpoison_flags.append("--size-overflow")
+            attack_vectors.append("Size Overflow")
+        
+        # Additional technology-specific recommendations
+        if 'WordPress' in tech.get('cms', []):
+            recommendations.append("WordPress detected - test WordPress-specific payloads and sanitizer bypasses")
+            formpoison_flags.extend(["--sanitizer-bypass", "--encoder-bypass"])
+            attack_vectors.append("WordPress XSS")
+        
+        if any('ASP.NET' in framework for framework in tech.get('backend_frameworks', [])):
+            recommendations.append("ASP.NET detected - test ViewState and encoder bypasses")
+            formpoison_flags.extend(["--encoder-bypass", "--encoding-confusion"])
+            attack_vectors.append("ASP.NET Bypass")
+        
+        # Headers analysis for additional bypass recommendations
         if not headers.get('X-Frame-Options'):
             recommendations.append("No X-Frame-Options - clickjacking possible (PortSwigger: Clickjacking)")
             attack_vectors.append("Clickjacking")
@@ -747,16 +793,8 @@ class FormAtionAnalyzer:
             recommendations.append("No HSTS - SSL stripping possible")
             attack_vectors.append("SSL Stripping")
         
-        total_text_fields = sum(len(form['text_input_fields']) for form in self.results['forms_analysis'])
-        if total_text_fields > 5:
-            formpoison_flags.append("--brute")
-            recommendations.append(f"Multiple text fields ({total_text_fields}) - use brute force for efficiency")
-        
-        if any(form['method'] == 'GET' for form in self.results['forms_analysis']):
-            recommendations.append("GET forms detected - test parameter pollution (PortSwigger: HPP)")
-            attack_vectors.append("HTTP Parameter Pollution")
-        
-        high_risk_forms=sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 5)
+        # Verbosity based on complexity
+        high_risk_forms = sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 5)
         if high_risk_forms > 0 or total_text_fields > 10:
             formpoison_flags.append("--verbose-all")
             recommendations.append("High risk forms detected - use --verbose-all for detailed response analysis")
@@ -764,8 +802,16 @@ class FormAtionAnalyzer:
             formpoison_flags.append("--verbose")
             recommendations.append("Use --verbose for basic progress information")
         
+        # Remove duplicate flags while preserving order
+        seen = set()
+        unique_flags = []
+        for flag in formpoison_flags:
+            if flag not in seen:
+                seen.add(flag)
+                unique_flags.append(flag)
+        
         self.results['recommendations'] = recommendations
-        self.results['formpoison_flags'] = list(set(formpoison_flags))
+        self.results['formpoison_flags'] = unique_flags
         self.results['attack_vectors'] = list(set(attack_vectors))
     
     def visualize_form_structure(self, form_analysis):
