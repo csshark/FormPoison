@@ -398,7 +398,16 @@ class FormAtionAnalyzer:
         for script in scripts:
             src = script.get('src', '').lower()
             script_content = (script.string or '').lower()
-            script_attrs = ' '.join(script.attrs.values()).lower()
+            
+            
+            script_attrs = []
+            for attr_value in script.attrs.values():
+                if isinstance(attr_value, list):
+                    script_attrs=extend(attr_value)
+                else:
+                    script_attrs.append(attr_value)
+            
+            script_attrs = ' '.join(str(val).lower() for val in script_attrs)
             
             # React
             if any(indicator in src or indicator in script_content or indicator in script_attrs 
@@ -515,7 +524,15 @@ class FormAtionAnalyzer:
         forms = soup.find_all('form')
         for form in forms:
             classes = form.get('class', [])
-            attrs = ' '.join(form.attrs.values()).lower()
+            
+            attrs_list = []
+            for attr_value in form.attrs.values():
+                if isinstance(attr_value, list):
+                    attrs_list.extend(attr_value)
+                else: 
+                    attrs_list.append(attr_value)
+            attrs = ' '.join(str(val).lower() for val in attrs_list)
+            
             action = form.get('action', '').lower()
             id_attr = form.get('id', '').lower()
             
