@@ -1,4 +1,4 @@
-#  <div align ="center">💉 FormPoison 💉</div>
+#  <div align ="center">💉 FormPoison 💉</div><p><sub><sup><sub>Latest update: 21.10.2025, 20:00 (GMT+2)</sub></sup></sub></p>
 
 
 
@@ -28,7 +28,7 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 
 ### Possible optional flags: 
 <div align ="center">
-  <details><summary><b>Click to expand full flags table.</b></summary>
+  <details><summary><b>Click to expand detailed full flags table.</b></summary>
     
 |    flag    | function | type & value(s) | 
 | -------- | ------- | ------- | 
@@ -59,7 +59,13 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --scan | deep scan for .js code and overall web audit | None |
 | --max-urls | specify max urls to scan | int range | 
 | --max-depth | specify max scan depth | int range | 
-| --max-workers | specify number of workers for scanning | int range | 
+| --max-workers | specify number of workers for scanning | int range |
+| --waf-bypass | load CDN/WAF evasion payloads | None | 
+| --csp-bypass | load CSP bypass payloads | None | 
+| --sanitizer-bypass | load HTML sanitizer bypass payloads vs modern JS frameworks (and WordPress) | None | 
+| --encoder-bypass | load payloads vs common CMS/frameworks (WordPress, PHP, Python, ASP.NET) | None | 
+| --encoding-confusion | load encoding confusion payloads (for GET forms and ASP.NET applications) | None | 
+| --size-overflow | load payloads that can lead to overflow or out of bounds | None | 
 
   </details>
 </div>
