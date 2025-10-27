@@ -1,4 +1,4 @@
-#  <div align ="center">💉 FormPoison 💉</div><p><sub><sup><sub>Latest update: 21.10.2025, 20:00 (GMT+2)</sub></sup></sub></p>
+#  <div align ="center">💉 FormPoison 💉</div><p><sub><sup><sub>Latest update: 27.10.2025, 17:15 (GMT+2)</sub></sup></sub></p>
 
 
 
@@ -56,6 +56,7 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --proxy | specify proxy for authentication | String, example: http://login:password@proxy.com:8080/ | 
 | --method | select request method to force web app confusion | String: GET, POST, PUT, DELETE |  
 | -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
+| --interactive | interactive field injecting mode, user will be asked about every field | String | 
 | --scan | deep scan for .js code and overall web audit | None |
 | --max-urls | specify max urls to scan | int range | 
 | --max-depth | specify max scan depth | int range | 
@@ -103,6 +104,7 @@ If you have any ideas on how to improve the tool or have your own implementation
 
 ## New functions: 
 <ul>
+  <li>Interactive field injecting has finally been implemented!</li>
   <li>Brute mode to speed up requests even more</li>
   <li>Filename XSS testing mode</li>
   <li>Mutation XSS (mXSS) testing mode</li>
