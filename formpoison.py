@@ -2198,12 +2198,10 @@ async def get_user_input_for_fields(input_fields, url):
     console.print(f"[yellow]Target URL: {url}[/yellow]")
     console.print(f"[yellow]Found {len(input_fields)} input fields[/yellow]")
     console.print("\n[bold cyan]Available options:[/bold cyan]")
-    console.print("[green]• 'poison' - use payload injection[/green]")
-    console.print("[green]• 'test' - use test value[/green]")
-    console.print("[green]• 'skip' - skip this field[/green]")
-    console.print("[green]• Or enter any custom value[/green]")
-    console.print("[bold magenta]• 'poison - add apostrophe prefix to combine with payloads[/bold magenta]")
-    console.print("[bold magenta]• 'custom_value - combine custom value with payloads[/bold magenta]")
+    console.print("[green]• poison - use payload injection[/green]")
+    console.print("[green]• test - use test value[/green]")
+    console.print("[green]• skip - skip this field[/green]")
+    console.print("[bold magenta]• custom_text'poison'more_text - payload will be injected where 'poison' is[/bold magenta]")
     console.print("[bold red]• Press Ctrl+C to cancel[/bold red]\n")
 
     field_values = {}
@@ -2234,13 +2232,6 @@ async def get_user_input_for_fields(input_fields, url):
                     console.print(f"[red]✓ Field '{field_name}' marked for PAYLOAD INJECTION[/red]")
                     break
 
-                elif user_input.lower() == "'poison":
-                    field_values[field_name] = "'poison"
-                    poison_fields.append(field_name)
-                    console.print(f"[magenta]✓ Field '{field_name}' marked for COMBINED PAYLOAD INJECTION[/magenta]")
-                    console.print(f"[magenta]  (Value 'poison' will be combined with payloads)[/magenta]")
-                    break
-
                 elif user_input.lower() == 'test':
                     if field_type == 'email':
                         field_values[field_name] = 'test@example.com'
@@ -2259,15 +2250,16 @@ async def get_user_input_for_fields(input_fields, url):
                     break
 
                 elif user_input:
-                    if user_input.startswith("'"):
+                    # SPRAWDŹ CZY JEST 'poison' W TEKŚCIE
+                    if "'poison'" in user_input:
                         field_values[field_name] = user_input
                         poison_fields.append(field_name)
-                        console.print(f"[magenta]✓ Using custom value with APOSTROPHE PREFIX: {user_input}[/magenta]")
-                        console.print(f"[magenta]  This will be combined with payloads during testing[/magenta]")
+                        console.print(f"[magenta]✓ Field '{field_name}' will inject payload at 'poison' position[/magenta]")
+                        break
                     else:
                         field_values[field_name] = user_input
                         console.print(f"[green]✓ Using custom value: {user_input}[/green]")
-                    break
+                        break
 
                 else:
                     console.print("[red]Please enter a value or one of the options[/red]")
@@ -2341,6 +2333,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
                 for field_name, user_value in field_values.items():
                     if user_value is None:
+                        # TYLKO PAYLOAD
                         if payload_index is not None and payloads:
                             payload = payloads[payload_index % len(payloads)]
                             data[field_name] = payload['inputField']
@@ -2349,17 +2342,19 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                             data[field_name] = "' OR 1=1 --"
                             payload_category = "SQL"
 
-                    elif isinstance(user_value, str) and user_value.startswith("'"):
-                        base_value = user_value[1:]
+                    elif "'poison'" in user_value:
+                        # WSTRZYKNIJ PAYLOAD W MIEJSCE 'poison'
                         if payload_index is not None and payloads:
                             payload = payloads[payload_index % len(payloads)]
-                            data[field_name] = base_value + payload['inputField']
-                            payload_category = payload['category'] + "_COMBINED"
+                            # ZAMIEŃ 'poison' NA PAYLOAD
+                            data[field_name] = user_value.replace("'poison'", payload['inputField'])
+                            payload_category = payload['category'] + "_INJECTED"
                         else:
-                            data[field_name] = base_value + "' OR 1=1 --"
-                            payload_category = "SQL_COMBINED"
+                            data[field_name] = user_value.replace("'poison'", "' OR 1=1 --")
+                            payload_category = "SQL_INJECTED"
 
                     else:
+                        # ZWYKŁA WARTOŚĆ
                         data[field_name] = user_value
                         payload_category = "USER_DEFINED"
 
