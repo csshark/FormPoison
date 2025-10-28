@@ -104,29 +104,29 @@ class GoScannerIntegration:
                     "🛡️ Checking security patterns",
                     "📊 Generating report"
                 ]
-                
+
                 stage_index = 0
                 start_time = time.time()
-                
+
                 while not stop_animation.is_set():
                     elapsed = int(time.time() - start_time)
                     minutes, seconds = divmod(elapsed, 60)
                     time_str = f"{minutes:02d}:{seconds:02d}"
-                    
+
                     current_stage = stages[stage_index]
                     spinner_char = next(spinner)
                     dots_char = next(dots)
-                    
+
                     self.console.print(
                         f"[cyan]{spinner_char}[/cyan] [bold]{current_stage}[/bold]"
                         f"[yellow]{dots_char}[/yellow] [dim](Time: {time_str})[/dim]",
                         end="\r"
                     )
-                    
+
                     # Change stage every 8 seconds
                     if elapsed % 8 == 0 and elapsed > 0:
                         stage_index = (stage_index + 1) % len(stages)
-                    
+
                     time.sleep(0.2)
 
             # Start the animation
@@ -141,7 +141,7 @@ class GoScannerIntegration:
             stop_animation.set()
             if animation_thread:
                 animation_thread.join(timeout=1.0)
-            
+
             # Clear the animation line
             self.console.print(" " * 100, end="\r")
 
@@ -151,7 +151,7 @@ class GoScannerIntegration:
                     # Display the Go scanner output
                     for line in output_lines:
                         self.console.print(f"[bold cyan]{line}[/bold cyan]")
-                    
+
                     report_file = output_lines[-1].strip()
                     if report_file and os.path.exists(report_file):
                         self.console.print("[green]✓ Scan completed successfully![/green]")
@@ -212,7 +212,7 @@ class GoScannerIntegration:
                 "Buffer overflow - Exceed length limits with large inputs"
             ],
             'size_validator': [
-                "Collection manipulation - Bypass size checks", 
+                "Collection manipulation - Bypass size checks",
                 "Object prototype pollution - Manipulate size properties",
                 "Heap exhaustion - Large size values causing OOM"
             ],
@@ -228,7 +228,7 @@ class GoScannerIntegration:
             ],
             'type_casting': [
                 "Type casting bypass - Malformed type casting",
-                "Object manipulation during casting", 
+                "Object manipulation during casting",
                 "Class cast exception exploitation"
             ],
             'equals_type_check': [
@@ -267,7 +267,7 @@ class GoScannerIntegration:
             ],
             'network_io': [
                 "SSRF attacks - Server-side request forgery",
-                "DNS rebinding", 
+                "DNS rebinding",
                 "Port scanning via application"
             ],
             'string_concatenation': [
@@ -307,7 +307,7 @@ class GoScannerIntegration:
                 "Resource exhaustion - File descriptor leaks",
                 "Resource race conditions"
             ],
-            
+
             # OWASP patterns
             'sql_injection': [
                 "SQL Injection - Standard SQLi payloads",
@@ -317,7 +317,7 @@ class GoScannerIntegration:
                 "Boolean-based SQL Injection"
             ],
             'xss': [
-                "XSS - Standard XSS payloads", 
+                "XSS - Standard XSS payloads",
                 "DOM-based XSS",
                 "Stored XSS",
                 "Reflected XSS",
@@ -341,7 +341,7 @@ class GoScannerIntegration:
                 "JSON/XML deserialization attacks",
                 "Deserialization DoS"
             ],
-            
+
             'type_confusion': [
                 "Type confusion attacks - Fake type information",
                 "Memory corruption via type confusion"
@@ -362,15 +362,15 @@ class GoScannerIntegration:
         # context matching:
         if 'context_matches' in scan_report:
             context_matches = scan_report['context_matches']
-            
+
             if any(ctx in context_matches for ctx in ['financial_vars', 'financial_context']):
                 recommendations.extend([
                     "Manipulate transaction amounts",
-                    "Account Balance manipulation attacks (overflow)", 
+                    "Account Balance manipulation attacks (overflow)",
                     "Payment bypass attempts",
                     "try negative amount",
                 ])
-            
+
             if any(ctx in context_matches for ctx in ['authentication_context', 'session_vars']):
                 recommendations.extend([
                     "🔐 Session hijacking attempts",
@@ -379,15 +379,15 @@ class GoScannerIntegration:
                     "🔐 JWT token manipulation",
                     "🔐 OAuth flow bypass"
                 ])
-            
+
             if 'personal_data_vars' in context_matches:
                 recommendations.extend([
                     "PII data extraction attacks",
-                    "Privacy violation testing", 
+                    "Privacy violation testing",
                     "Data exposure attempts",
                     "GDPR compliance testing"
                 ])
-            
+
             if 'admin_context' in context_matches:
                 recommendations.extend([
                     "⚡ Admin functionality bypass",
@@ -452,8 +452,8 @@ def detect_framework(headers, content):
             'cookies': ['connect.sid'],
             'content_patterns': [r'app\.use\(.*express\)']
         },
-        
-        # Laravel 
+
+        # Laravel
         'Laravel': {
             'headers': [
                 ('x-powered-by', r'laravel/?(\d+\.\d+\.\d+)?'),
@@ -461,7 +461,7 @@ def detect_framework(headers, content):
             'cookies': ['laravel_session', 'XSRF-TOKEN'],
             'content_patterns': [r'<meta name="csrf-token" content="[^"]+"']
         },
-        
+
         # Django
         'Django': {
             'headers': [
@@ -471,7 +471,7 @@ def detect_framework(headers, content):
             'cookies': ['csrftoken', 'sessionid'],
             'content_patterns': [r'csrfmiddlewaretoken']
         },
-        
+
         # Flask
         'Flask': {
             'headers': [
@@ -479,7 +479,7 @@ def detect_framework(headers, content):
             ],
             'cookies': ['session']
         },
-        
+
         # ASP.NET
         'ASP.NET': {
             'headers': [
@@ -488,7 +488,7 @@ def detect_framework(headers, content):
             ],
             'content_patterns': [r'__VIEWSTATE', r'__EVENTVALIDATION']
         },
-        
+
         # React
         'React': {
             'content_patterns': [
@@ -497,7 +497,7 @@ def detect_framework(headers, content):
                 r'react\.js'
             ]
         },
-        
+
         # Angular
         'Angular': {
             'content_patterns': [
@@ -506,7 +506,7 @@ def detect_framework(headers, content):
                 r'zone\.js'
             ]
         },
-        
+
         # Vue.js
         'Vue.js': {
             'content_patterns': [
@@ -544,7 +544,7 @@ def detect_framework(headers, content):
                 # try to get version
                 version_match = re.search(pattern.replace(r'(\d+\.\d+\.\d+)', r'(\d+\.\d+\.\d+)'), content)
                 version_found = version_match.group(1) if version_match and version_match.groups() else None
-                
+
                 if framework not in framework_candidates:
                     framework_candidates[framework] = {
                         'count': 0,
@@ -927,47 +927,47 @@ def load_payloads(file_path, bypass_flags=None):
     try:
         with open(file_path, 'r') as f:
             payloads = json.load(f)
-        
+
         if bypass_flags:
             enhanced_payloads = []
             for payload in payloads:
                 enhanced_payloads.append(payload)
-                
+
                 if bypass_flags.get('waf_bypass'):
                     bypassed = waf_bypass.generate_bypassed_payloads(payload['inputField'], 3)
                     for bp in bypassed:
                         enhanced_payloads.append({'inputField': bp, 'category': payload['category'] + '_WAF_BYPASS'})
-                
+
                 if bypass_flags.get('csp_bypass') and payload['category'] in ['HTML', 'XSS']:
                     bypassed = csp_bypass.generate_csp_bypass_payloads(payload['inputField'], 2)
                     for bp in bypassed:
                         enhanced_payloads.append({'inputField': bp, 'category': payload['category'] + '_CSP_BYPASS'})
-                
+
                 if bypass_flags.get('sanitizer_bypass'):
                     bypassed = sanitizer_bypass.generate_sanitizer_bypass_payloads(payload['inputField'], 3)
                     for bp in bypassed:
                         enhanced_payloads.append({'inputField': bp, 'category': payload['category'] + '_SANITIZER_BYPASS'})
-                
+
                 if bypass_flags.get('encoder_bypass'):
                     bypassed = encoder_bypass.generate_encoding_confusion(payload['inputField'], 2)
                     for bp in bypassed:
                         enhanced_payloads.append({'inputField': bp, 'category': payload['category'] + '_ENCODER_BYPASS'})
-                
+
                 if bypass_flags.get('encoding_confusion'):
                     # Special encoding confusion combinations
                     confused = encoder_bypass.generate_encoding_confusion(payload['inputField'], 3)
                     for cf in confused:
                         enhanced_payloads.append({'inputField': cf, 'category': payload['category'] + '_ENCODING_CONFUSION'})
-                
+
                 if bypass_flags.get('size_overflow'):
                     overflowed = size_overflow.generate_overflow_payloads(payload['inputField'], 2)
                     for of in overflowed:
                         enhanced_payloads.append({'inputField': of, 'category': payload['category'] + '_SIZE_OVERFLOW'})
-            
+
             return enhanced_payloads
-        
+
         return payloads
-        
+
     except FileNotFoundError:
         console.print(f"[bold red]Error: Payload file '{file_path}' not found.[/bold red]")
         sys.exit(1)
@@ -1074,19 +1074,19 @@ def analyze_response_headers(headers):
 
     return vulnerabilities
 
-# second checks: 
+# second checks:
 
 def is_payload_executed(content, payload):
     # restricted IDs to confirm XSS execution
     content_lower = content.lower()
     payload_lower = payload.lower()
-    
+
     # get SPECIFIC payload content
     unique_parts = re.findall(r'\b[a-z0-9_]{10,}\b', payload_lower)  # 10 chars min
-    
+
     for part in unique_parts:
         # avoid common inject keywords
-        common_words = ['script', 'alert', 'select', 'union', 'where', 'from', 
+        common_words = ['script', 'alert', 'select', 'union', 'where', 'from',
                        'database', 'version', 'information', 'schema', 'table',
                        'column', 'insert', 'update', 'delete', 'create']
         if part not in common_words:
@@ -1095,10 +1095,10 @@ def is_payload_executed(content, payload):
     return False
 
 def is_xss_executed(content, payload):
-    # more restricted XSS checker 
+    # more restricted XSS checker
     content_lower = content.lower()
-    
-    # 1. reflected ? 
+
+    # 1. reflected ?
     payload_words = payload.lower().split()
     if len(payload_words) > 3:
         unique_words = [w for w in payload_words if len(w) > 6 and w not in ['script', 'alert', 'onload', 'onerror']]
@@ -1108,34 +1108,34 @@ def is_xss_executed(content, payload):
                 # echo reduction:
                 if re.search(r'<[^>]*' + re.escape(unique_words[0]) + r'[^>]*>', content_lower):
                     return True
-    
+
     # 2. check if java executed
     execution_evidence = [
         r'<script[^>]*>.*?alert\(.*?</script>',  # Tylko z alert wewnątrz
         r'onload\s*=\s*[\'\"][^\'\"]*alert\([^\'\"]*[\'\"]',  # onload z alert
         r'onerror\s*=\s*[\'\"][^\'\"]*alert\([^\'\"]*[\'\"]',  # onerror z alert
     ]
-    
+
     for evidence in execution_evidence:
         if re.search(evidence, content_lower):
             return True
-    
+
     # 3. check if executed
     specific_effects = [
         r'xss_test_executed', r'payload_successful', r'injection_confirmed'
     ]
-    
+
     for effect in specific_effects:
         if effect in content_lower:
             return True
-    
+
     return False
 
 def is_sql_injection_successful(content, payload):
-    # sql checker 
+    # sql checker
     content_lower = content.lower()
-    
-    # 1. check specified erors 
+
+    # 1. check specified erors
     specific_sql_errors = [
         r"you have an error in your sql syntax",
         r"unclosed quotation mark",
@@ -1145,33 +1145,33 @@ def is_sql_injection_successful(content, payload):
         r"unknown column '[^']*'",
         r"table '[^']*' doesn't exist"
     ]
-    
+
     for error in specific_sql_errors:
         if re.search(error, content_lower):
             return True
-    
-    # 2. did we get in ? 
+
+    # 2. did we get in ?
     specific_database_data = [
         r'@@version', r'version\(\)', r'user\(\)', r'database\(\)',
         r'information_schema', r'mysql\.', r'pg_catalog'
     ]
-    
+
     for pattern in specific_database_data:
         if re.search(pattern, content_lower):
             return True
-    
+
     if not is_payload_executed(content, payload):
         return False
-    
+
     # 3. fp reduction attemp
     normal_responses = [
         "welcome", "login", "home", "page", "success", "error"
     ]
-    
+
     normal_count = sum(1 for word in normal_responses if word in content_lower)
     if normal_count > 3:
         return False
-    
+
     return True
 
 def analyze_response(content, headers, payload_category, payload, verbose_all=False):
@@ -1203,7 +1203,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
     # high confidence providing
     payload_executed = False
     execution_confidence = "LOW"
-    
+
     if payload_category == "SQL":
         if is_sql_injection_successful(content, payload):
             payload_executed = True
@@ -1211,7 +1211,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
             # additional checks
             if any(error in content.lower() for error in ["syntax error", "mysql", "postgresql", "ora-"]):
                 execution_confidence = "VERY_HIGH"
-                
+
             console.print(f"[bold red]💀 SQL INJECTION CONFIRMED ({execution_confidence} confidence) 💀[/bold red]")
             console.print(f"[bold green]✅ Payload executed successfully![/bold green]")
             vulnerabilities.append(f"CONFIRMED_SQL_INJECTION ({execution_confidence})")
@@ -1223,7 +1223,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
             # additional checks
             if any(evidence in content.lower() for evidence in ["<script>", "onerror=", "onload=", "javascript:"]):
                 execution_confidence = "VERY_HIGH"
-                
+
             console.print(f"[bold red]💀 XSS CONFIRMED ({execution_confidence} confidence) 💀[/bold red]")
             console.print(f"[bold green]✅ XSS payload executed successfully![/bold green]")
             vulnerabilities.append(f"CONFIRMED_XSS ({execution_confidence})")
@@ -1231,26 +1231,26 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
     if verbose_all:
         console.print(f"[bold yellow]Full response analysis:[/bold yellow]")
         console.print(f"[yellow]Payload executed: {payload_executed} ({execution_confidence} confidence)[/yellow]")
-        
+
         # show more info
         console.print(f"[yellow]Response headers:[/yellow]")
         for header, value in headers.items():
             console.print(f"[yellow]  {header}: {value}[/yellow]")
-        
+
         # check if payload is in the response
         if payload in content:
             console.print(f"[bold red]🚨 PAYLOAD FOUND IN RESPONSE![/bold red]")
             console.print(f"[red]Payload: {payload}[/red]")
             console.print(f"[red]Payload category: {payload_category}[/red]")
-            
-            # show context 
+
+            # show context
             payload_index = content.find(payload)
             if payload_index != -1:
                 start = max(0, payload_index - 50)
                 end = min(len(content), payload_index + len(payload) + 50)
                 context = content[start:end]
                 console.print(f"[red]Payload context: ...{context}...[/red]")
-        
+
         console.print(f"[yellow]Vulnerabilities detected: {vulnerabilities}[/yellow]")
 
     return vulnerabilities
@@ -1258,7 +1258,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
 async def test_input_field(url, payloads, threat_type, cookies, user_agents, input_field, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, filter=None, secs=0,
                           # BRUTE FORCE PARAMETERS
                           brute_mode=False, max_concurrent=50, timeout=15.0, batch_size=100, batch_delay=1.0, max_retries=2):
-    
+
     results = []
     positive_responses = 0
     threshold = len(payloads) * 0.5
@@ -1279,7 +1279,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
     if brute_mode:
         console.print(f"[bold red]⚠️ BRUTE FORCE MODE ACTIVATED[/bold red]")
         console.print(f"[yellow]Concurrent: {max_concurrent} | Timeout: {timeout}s | Batch size: {batch_size}[/yellow]")
-        
+
         ssl_context = ssl.create_default_context()
         if ssl_cert and ssl_key:
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
@@ -1329,12 +1329,12 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
 
                 if brute_mode:
                     async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar, 
+                        cookie_jar=cookie_jar,
                         connector=connector,
                         timeout=timeout_config
                     ) as session:
                         async with session.request(
-                            method, url, data=data, headers=headers, 
+                            method, url, data=data, headers=headers,
                             proxy=proxies.get('http') if proxies else None, ssl=ssl_verify
                         ) as response:
                             content = await response.text()
@@ -1371,9 +1371,9 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
                     "response_code": status_code,
                     "vulnerabilities": vulnerabilities
                 }
-                
+
                 return result
-                    
+
             except Exception as e:
                 current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
                 return {
@@ -1390,7 +1390,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
 
         with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
             main_task = progress.add_task("[cyan]Overall progress...", total=len(all_payloads))
-            
+
             for batch_num in range(total_batches):
                 start_idx = batch_num * batch_size
                 end_idx = min(start_idx + batch_size, len(all_payloads))
@@ -1400,7 +1400,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
                 for future in asyncio.as_completed(tasks):
                     result = await future
                     results.append(result)
-                    
+
                     # Update UI
                     table.add_row(
                         result["payload"],
@@ -1408,22 +1408,22 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
                         str(result["response_code"]),
                         ", ".join(result["vulnerabilities"])
                     )
-                    
+
                     progress.update(main_task, advance=1)
-                    
+
                     if verbose or verbose_all:
                         console.print(f"[bold blue]Tested payload: {result['payload']}[/bold blue]")
                         console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
                         console.print(f"[bold blue]Vulnerabilities: {', '.join(result['vulnerabilities'])}[/bold blue]")
 
-                # add batch delay work somehow 
+                # add batch delay work somehow
                 if batch_num < total_batches - 1 and batch_delay > 0:
                     await asyncio.sleep(batch_delay)
-                    
+
         # clse connector in brute mode
         if connector:
             await connector.close()
-            
+
     else:
         with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
             task = progress.add_task("[cyan]Testing...", total=len(payloads))
@@ -1431,14 +1431,14 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
             for payload in payloads:
                 result = await test_payload(payload)
                 results.append(result)
-                
+
                 table.add_row(
                     result["payload"],
                     result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
                     str(result["response_code"]),
                     ", ".join(result["vulnerabilities"])
                 )
-                
+
                 progress.update(task, advance=1)
                 if secs > 0:
                     await asyncio.sleep(secs)
@@ -1448,7 +1448,7 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
         console.print(f"[bold red]Too many positive responses were given ({positive_responses}/{len(payloads)}). You might consider this result as false-positive.[/bold red]")
 
     console.print(table)
-    
+
     # metadata based results
     results_metadata = {
         "parameters": {
@@ -1461,21 +1461,21 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
         },
         "results": results
     }
-    
+
     with open("test_results.json", "w") as f:
         json.dump(results_metadata, f, indent=4)
-        
+
     console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
-    
+
 async def test_login_input_fields(url, payloads, cookies, user_agents, input_fields, proxies=None, verbose=False, verbose_all=False, secs=0, filter_patterns=None, brute_mode=False, max_concurrent=50, timeout=15.0, batch_size=100, batch_delay=1.0, max_retries=2):
     results = []
 
-    # filtering 
+    # filtering
     if filter_patterns:
         original_count = len(payloads)
         payloads = filter_payloads(payloads, filter_patterns)
         console.print(f"[bold yellow]Filtered payloads: {len(payloads)}/{original_count} after applying filter[/bold yellow]")
-    
+
     if not payloads:
         console.print("[bold red]No payloads left after filtering![/bold red]")
         return results
@@ -1491,7 +1491,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
     if brute_mode:
         console.print(f"[bold red]BRUTE FORCE MODE PARAMETERS:[/bold red]")
         console.print(f"[yellow]Concurrent: {max_concurrent} | Timeout: {timeout}s | Batch size: {batch_size}[/yellow]")
-        
+
         connector = aiohttp.TCPConnector(
             limit=max_concurrent * 2,
             limit_per_host=max_concurrent
@@ -1512,12 +1512,12 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
     initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
     content = await get_page_content(url, initial_user_agent, proxies)
     soup = BeautifulSoup(content, 'html.parser')
-    
+
     # skip checkbox, radio, hidden etc.
     input_fields = soup.find_all('input', {
         'type': ['text', 'password', 'email', 'search', 'tel', 'url', 'query']  # only text fields
     })
-    
+
     filtered_input_fields = []
     for field in input_fields:
         field_type = field.get('type', '').lower()
@@ -1527,7 +1527,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                 console.print(f"[bold yellow]Skipping non-text field: {field.get('name', '')} (type: {field_type})[/bold yellow]")
             continue
         filtered_input_fields.append(field)
-    
+
     input_fields = filtered_input_fields
 
     console.print(f"[bold yellow]Found TEXT input fields:[/bold yellow]")
@@ -1563,10 +1563,10 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
         return results
 
     login_payloads = ["admin", "test", "user", "' OR 1='1"]
-    
+
     # filter flag integration
     all_payloads = [(payload['inputField'], payload['category']) for payload in payloads]
-    
+
     if not all_payloads:
         console.print("[bold yellow]No payloads found after filtering![/bold yellow]")
         return results
@@ -1590,7 +1590,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                         timeout=timeout_config
                     ) as session:
                         async with session.post(
-                            url, data=data, headers=headers, 
+                            url, data=data, headers=headers,
                             proxy=proxies.get('http') if proxies else None
                         ) as response:
                             content = await response.text()
@@ -1598,7 +1598,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                 else:
                     async with aiohttp.ClientSession(cookie_jar=cookie_jar) as session:
                         async with session.post(
-                            url, data=data, headers=headers, 
+                            url, data=data, headers=headers,
                             proxy=proxies.get('http') if proxies else None
                         ) as response:
                             content = await response.text()
@@ -1614,7 +1614,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                     "response_code": status_code,
                     "vulnerabilities": vulnerabilities
                 }
-                
+
                 return result
 
             except Exception as e:
@@ -1641,7 +1641,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
 
         with Progress() as progress:
             main_task = progress.add_task("[cyan]Testing login...", total=total_tests)
-            
+
             for batch_num in range(total_batches):
                 start_idx = batch_num * batch_size
                 end_idx = min(start_idx + batch_size, len(all_combinations))
@@ -1651,7 +1651,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                 for future in asyncio.as_completed(tasks):
                     result = await future
                     results.append(result)
-                    
+
                     # Update UI
                     table.add_row(
                         result["login_payload"],
@@ -1661,7 +1661,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                         str(result["response_code"]),
                         ", ".join(result["vulnerabilities"])
                     )
-                    
+
                     progress.update(main_task, advance=1)
 
                     if verbose or verbose_all:
@@ -1671,10 +1671,10 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
 
                 if batch_num < total_batches - 1 and batch_delay > 0:
                     await asyncio.sleep(batch_delay)
-                    
+
         if connector:
             await connector.close()
-            
+
     else:
         with Progress() as progress:
             task = progress.add_task("[cyan]Testing login...", total=total_tests)
@@ -1682,7 +1682,7 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
             for login_payload, password_payload, payload_category in test_combinations:
                 result = await test_login_combination(login_payload, password_payload, payload_category)
                 results.append(result)
-                
+
                 table.add_row(
                     result["login_payload"],
                     result["password_payload"],
@@ -1691,9 +1691,9 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
                     str(result["response_code"]),
                     ", ".join(result["vulnerabilities"])
                 )
-                
+
                 progress.update(task, advance=1)
-                
+
                 if verbose or verbose_all:
                     console.print(f"[bold blue]Testing login: {result['login_payload']}, password: {result['password_payload']} ({result['payload_category']})[/bold blue]")
                     console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
@@ -1728,14 +1728,14 @@ def get_string_input_fields(content):
     input_fields = soup.find_all('input', {
         'type': ['text', 'password', 'email', 'search', 'tel', 'url']
     })
-    
+
     # additional rules
     filtered_inputs = []
     for field in input_fields:
         field_type = field.get('type', '').lower()
         if field_type not in ['checkbox', 'radio', 'hidden', 'submit', 'button', 'reset', 'file', 'image']:
             filtered_inputs.append(field)
-    
+
     textareas = soup.find_all('textarea')
     return filtered_inputs + textareas
 
@@ -1747,8 +1747,8 @@ def get_forms_and_inputs(content,verbose):
         # get all & filter
         all_inputs = form.find_all('input')
         textareas = form.find_all('textarea')
-        
-        # get txt 
+
+        # get txt
         filtered_inputs = []
         for input_field in all_inputs:
             field_type = input_field.get('type', '').lower()
@@ -1757,7 +1757,7 @@ def get_forms_and_inputs(content,verbose):
             elif field_type in ['checkbox', 'radio', 'hidden', 'submit', 'button', 'reset']:
                 if verbose:
                     console.print(f"[bold yellow]Skipping non-text field in form: {input_field.get('name', '')} (type: {field_type})[/bold yellow]")
-        
+
         forms_with_inputs.append((form, filtered_inputs + textareas))
     return forms_with_inputs
 
@@ -1772,7 +1772,7 @@ def find_field_by_name(input_fields, field_name):
         field_type = field.get('type', '').lower()
         if field_type in ['checkbox', 'radio', 'hidden', 'submit', 'button', 'reset', 'file', 'image']:
             continue
-            
+
         field_attrs = [
             field.get('name', '').lower(),
             field.get('id', '').lower(),
@@ -1787,27 +1787,27 @@ def find_field_by_name(input_fields, field_name):
             return field
 
     return None
-    
+
 async def test_all_forms(url, payloads, threat_type, cookies, user_agents, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0, brute_mode=False, max_concurrent=50, timeout=15.0, batch_size=100, batch_delay=1.0, max_retries=2):
     results = []
-    
+
     initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
     content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
-    
+
     if not content:
         console.print("[bold red]Failed to fetch page content[/bold red]")
         return results
 
     soup = BeautifulSoup(content, 'html.parser')
     forms = soup.find_all('form')
-    
+
     console.print(f"[bold green]Found {len(forms)} forms to test[/bold green]")
-    
+
     # Brute mode optimization
     if brute_mode:
         console.print(f"[bold red]🚀 BRUTE FORCE MODE ACTIVATED[/bold red]")
         console.print(f"[yellow]Concurrent: {max_concurrent} | Timeout: {timeout}s | Batch size: {batch_size}[/yellow]")
-        
+
         ssl_context = ssl.create_default_context()
         if ssl_cert and ssl_key:
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
@@ -1838,14 +1838,14 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                 inputs = form.find_all('input')
                 textareas = form.find_all('textarea')
                 selects = form.find_all('select')
-                
+
                 all_fields = inputs + textareas + selects
-                
+
                 for field in all_fields:
                     field_name = field.get('name', 'input_field')
                     field_type = field.get('type', 'text').lower()
-                    
-                    # Inject payload into all text fields (if not in login mode bruh) 
+
+                    # Inject payload into all text fields (if not in login mode bruh)
                     if field_type in ['text', 'email', 'search', 'url', 'tel'] or field.name in ['textarea', 'select']:
                         data[field_name] = payload['inputField']
                     elif field_type == 'password':
@@ -1858,13 +1858,13 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                 # request with optimized session for brute mode
                 if brute_mode:
                     async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar, 
+                        cookie_jar=cookie_jar,
                         connector=connector,
                         timeout=timeout_config
                     ) as session:
                         async with session.request(
-                            method, url, data=data, headers=headers, 
-                            proxy=proxies.get('http') if proxies else None, 
+                            method, url, data=data, headers=headers,
+                            proxy=proxies.get('http') if proxies else None,
                             ssl=ssl_verify
                         ) as response:
                             content = await response.text()
@@ -1875,12 +1875,12 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                         ssl_context.load_cert_chain(ssl_cert, ssl_key)
 
                     async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar, 
+                        cookie_jar=cookie_jar,
                         connector=aiohttp.TCPConnector(ssl=ssl_context)
                     ) as session:
                         async with session.request(
-                            method, url, data=data, headers=headers, 
-                            proxy=proxies.get('http') if proxies else None, 
+                            method, url, data=data, headers=headers,
+                            proxy=proxies.get('http') if proxies else None,
                             ssl=ssl_verify
                         ) as response:
                             content = await response.text()
@@ -1896,9 +1896,9 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     "response_code": status_code,
                     "vulnerabilities": vulnerabilities
                 }
-                
+
                 return result
-                    
+
             except Exception as e:
                 current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
                 return {
@@ -1931,14 +1931,14 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
         total_batches = (len(all_combinations) + batch_size - 1) // batch_size
 
         with Progress(
-            BarColumn(bar_width=None), 
-            "[progress.percentage]{task.percentage:>3.0f}%", 
-            TimeRemainingColumn(), 
+            BarColumn(bar_width=None),
+            "[progress.percentage]{task.percentage:>3.0f}%",
+            TimeRemainingColumn(),
             console=console
         ) as progress:
-            
+
             main_task = progress.add_task("[cyan]Testing all forms...", total=total_tests)
-            
+
             for batch_num in range(total_batches):
                 start_idx = batch_num * batch_size
                 end_idx = min(start_idx + batch_size, len(all_combinations))
@@ -1949,7 +1949,7 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                 for future in asyncio.as_completed(tasks):
                     result = await future
                     results.append(result)
-                    
+
                     # Update UI
                     table.add_row(
                         result["form_action"],
@@ -1958,9 +1958,9 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                         str(result["response_code"]),
                         ", ".join(result["vulnerabilities"])
                     )
-                    
+
                     progress.update(main_task, advance=1)
-                    
+
                     if verbose or verbose_all:
                         console.print(f"[bold blue]Tested form: {result['form_action']} → {result['payload']}[/bold blue]")
                         console.print(f"[bold blue]Response: {result['response_code']}[/bold blue]")
@@ -1968,25 +1968,25 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                 # Batch delay
                 if batch_num < total_batches - 1 and batch_delay > 0:
                     await asyncio.sleep(batch_delay)
-                    
+
         # Close connector in brute mode
         if connector:
             await connector.close()
-            
+
     else:
         with Progress(
-            BarColumn(bar_width=None), 
-            "[progress.percentage]{task.percentage:>3.0f}%", 
-            TimeRemainingColumn(), 
+            BarColumn(bar_width=None),
+            "[progress.percentage]{task.percentage:>3.0f}%",
+            TimeRemainingColumn(),
             console=console
         ) as progress:
-            
+
             task = progress.add_task("[cyan]Testing all forms...", total=total_tests)
 
             for form, payload in test_combinations:
                 result = await test_form_with_payload(form, payload)
                 results.append(result)
-                
+
                 table.add_row(
                     result["form_action"],
                     result["payload"],
@@ -1994,9 +1994,9 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     str(result["response_code"]),
                     ", ".join(result["vulnerabilities"])
                 )
-                
+
                 progress.update(task, advance=1)
-                
+
                 if verbose or verbose_all:
                     console.print(f"[bold blue]Tested form: {result['form_action']} → {result['payload']}[/bold blue]")
                     console.print(f"[bold blue]Response: {result['response_code']}[/bold blue]")
@@ -2008,12 +2008,12 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
     # results analysis
     positive_responses = sum(1 for r in results if r['response_code'] == 200)
     threshold = len(results) * 0.5
-    
+
     if positive_responses > threshold:
         console.print(f"[bold red]Too many positive responses were given ({positive_responses}/{len(results)}). You might consider this result as false-positive.[/bold red]")
 
     console.print(table)
-    
+
     # save results with metadata
     results_metadata = {
         "parameters": {
@@ -2027,74 +2027,74 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
         },
         "results": results
     }
-    
+
     with open("all_forms_test_results.json", "w") as f:
         json.dump(results_metadata, f, indent=4)
-        
+
     console.print(f"[bold green]Test results saved to 'all_forms_test_results.json'[/bold green]")
-    
+
     return results
 
 def analyze_mutation_xss_response(content, payload):
     vulnerabilities = []
-    
+
     if 'alert(1)' in content:
         if '<script>' in content and 'alert(1)' in content:
             vulnerabilities.append("SCRIPT_EXEC")
         if 'onerror' in content and 'alert(1)' in content:
-            vulnerabilities.append("ONERROR_EXEC") 
+            vulnerabilities.append("ONERROR_EXEC")
         if 'onload' in content and 'alert(1)' in content:
             vulnerabilities.append("ONLOAD_EXEC")
         if 'javascript:' in content.lower() and 'alert(1)' in content:
             vulnerabilities.append("JS_URL_EXEC")
-    
+
     soup = BeautifulSoup(content, 'html.parser')
-    
+
     dangerous_elements = soup.find_all(['script', 'img', 'svg', 'math', 'body'])
     for elem in dangerous_elements:
         elem_str = str(elem)
         if 'alert(1)' in elem_str:
             vulnerabilities.append(f"MUTATED_{elem.name.upper()}")
-    
+
     return vulnerabilities
 
 async def test_filename_xss(url, input_fields, cookies, user_agents, proxies=None, ssl_verify=False):
-    
+
     filename_payloads = [
         # filename XSS
         'test<img src=x onerror=alert(1)>.txt',
         'file<script>alert(1)</script>.jpg',
         'photo" onerror="alert(1).png',
-        
+
         # multi-extension confusion
         'test.jpg.php',
         'file.png.html',
         'document.pdf.exe',
-        
+
         # Path traversal + XSS
         '../../../etc/passwd<img src=x onerror=alert(1)>',
         '..\\..\\windows\\system32<img src=x>',
-        
+
         # special chars
         'file%00.jpg',
         'test%0a%0d.txt',
         'photo\0.png',
-        
+
         # too long filename
         'A' * 255 + '.jpg',
         'test' + '../' * 50 + 'exploit.jpg',
-        
+
         # unicode and encoding
-        'file%C0%AE%C0%AE.jpg',  # UTF-8 
+        'file%C0%AE%C0%AE.jpg',  # UTF-8
         'photo%2e%2e%2f.jpg',    # URL enc
         'test\u202eexe.jpg',     # right-to-left override
     ]
-    
+
     results = []
-    
+
     for filename_payload in filename_payloads:
         file_content = generate_random_file_content()
-        
+
         for field in input_fields:
             if field.get('type') == 'file' or 'file' in field.get('name', '').lower():
                 vulnerability = await test_single_filename_xss(
@@ -2106,82 +2106,82 @@ async def test_filename_xss(url, input_fields, cookies, user_agents, proxies=Non
                         'filename': filename_payload,
                         'vulnerability': vulnerability
                     })
-    
+
     return results
 
 def generate_random_file_content():
-#filling file with whatever 
-    
+#filling file with whatever
+
     file_types = [
         # JPEG
         b'\xff\xd8\xff\xe0' + os.urandom(100),  # JPEG header + random data
-        
-        # PNG  
+
+        # PNG
         b'\x89PNG\r\n\x1a\n' + os.urandom(100),  # PNG header
-        
+
         # PDF
         b'%PDF-1.4\n' + os.urandom(100),  # PDF header
-        
+
         # ZIP
         b'PK\x03\x04' + os.urandom(100),  # ZIP header
-        
+
         # Plain text
         b'This is a test file for security testing.\n' + os.urandom(50),
     ]
-    
+
     return random.choice(file_types)
 
 async def test_single_filename_xss(url, field, filename, file_content, cookies, user_agents, proxies, ssl_verify):
-    
+
     try:
         current_user_agent = random.choice(user_agents)
         headers = {
             'User-Agent': sanitize_user_agent(current_user_agent),
             'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW'
         }
-        
+
         # multipart FormData
         data = aiohttp.FormData()
-        data.add_field(field.get('name', 'file'), 
+        data.add_field(field.get('name', 'file'),
                       file_content,
                       filename=filename,
                       content_type='application/octet-stream')
-        
+
         # add more fields if they exist (expand it in future)
         data.add_field('submit', 'Upload')
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=data, cookies=cookies, headers=headers,
                                   proxy=proxies.get('http') if proxies else None,
                                   ssl=ssl_verify) as response:
-                
+
                 content = await response.text()
-                
+
                 # sucess detection
                 if detect_filename_xss_success(content, filename):
                     return "CONFIRMED_FILENAME_XSS"
-                
+
                 # is reflected?
                 if filename in content:
                     return "POTENTIAL_FILENAME_XSS"
-        
+
         return None
-        
+
     except Exception as e:
         console.print(f"[red]Filename XSS test error: {e}[/red]")
         return None
 
 def detect_filename_xss_success(content, filename):
-    
+
     content_lower = content.lower()
     filename_clean = re.sub(r'[^a-zA-Z0-9]', '', filename).lower()
-    
+
     execution_indicators = [
         r'<script[^>]*>.*?alert\(.*?</script>',
         r'onerror\s*=\s*[\'\"][^\'\"]*alert\([^\'\"]*[\'\"]',
         r'javascript:\s*alert\(1\)'
     ]
-    
+
     for indicator in execution_indicators:
         if re.search(indicator, content_lower):
             return True
@@ -2190,28 +2190,30 @@ def detect_filename_xss_success(content, filename):
         for part in filename_clean.split():
             if part in ['img', 'script', 'onerror', 'alert'] and part in content_lower:
                 return True
-    
+
     return False
 
 async def get_user_input_for_fields(input_fields, url):
-    
+
     console.print(f"[yellow]Target URL: {url}[/yellow]")
     console.print(f"[yellow]Found {len(input_fields)} input fields[/yellow]")
     console.print("\n[bold cyan]Available options:[/bold cyan]")
     console.print("[green]• 'poison' - use payload injection[/green]")
-    console.print("[green]• 'test' - use test value[/green]") 
+    console.print("[green]• 'test' - use test value[/green]")
     console.print("[green]• 'skip' - skip this field[/green]")
     console.print("[green]• Or enter any custom value[/green]")
+    console.print("[bold magenta]• 'poison - add apostrophe prefix to combine with payloads[/bold magenta]")
+    console.print("[bold magenta]• 'custom_value - combine custom value with payloads[/bold magenta]")
     console.print("[bold red]• Press Ctrl+C to cancel[/bold red]\n")
-    
+
     field_values = {}
     poison_fields = []
-    
+
     for i, field in enumerate(input_fields, 1):
         field_name = field.get('name', f'field_{i}')
         field_type = field.get('type', 'text')
         field_id = field.get('id', '')
-        
+
         console.print(f"\n[bold blue]Field {i}/{len(input_fields)}:[/bold blue]")
         console.print(f"  Name: {field_name}")
         console.print(f"  Type: {field_type}")
@@ -2219,21 +2221,27 @@ async def get_user_input_for_fields(input_fields, url):
             console.print(f"  ID: {field_id}")
         if field.get('placeholder'):
             console.print(f"  Placeholder: {field.get('placeholder')}")
-        
+
         while True:
             try:
                 user_input = console.input(
                     f"[bold green]Fill '{field_name}' with: [/bold green]"
                 ).strip()
-                
+
                 if user_input.lower() == 'poison':
                     field_values[field_name] = None
                     poison_fields.append(field_name)
                     console.print(f"[red]✓ Field '{field_name}' marked for PAYLOAD INJECTION[/red]")
                     break
-                    
-                elif user_input.lower() == 'test':
 
+                elif user_input.lower() == "'poison":
+                    field_values[field_name] = "'poison"
+                    poison_fields.append(field_name)
+                    console.print(f"[magenta]✓ Field '{field_name}' marked for COMBINED PAYLOAD INJECTION[/magenta]")
+                    console.print(f"[magenta]  (Value 'poison' will be combined with payloads)[/magenta]")
+                    break
+
+                elif user_input.lower() == 'test':
                     if field_type == 'email':
                         field_values[field_name] = 'test@example.com'
                     elif field_type == 'password':
@@ -2244,51 +2252,57 @@ async def get_user_input_for_fields(input_fields, url):
                         field_values[field_name] = 'testvalue'
                     console.print(f"[yellow]✓ Using test value: {field_values[field_name]}[/yellow]")
                     break
-                    
+
                 elif user_input.lower() == 'skip':
                     field_values[field_name] = ''
                     console.print(f"[yellow]✓ Field '{field_name}' will be skipped (empty)[/yellow]")
                     break
-                    
+
                 elif user_input:
-                    field_values[field_name] = user_input
-                    console.print(f"[green]✓ Using custom value: {user_input}[/green]")
+                    if user_input.startswith("'"):
+                        field_values[field_name] = user_input
+                        poison_fields.append(field_name)
+                        console.print(f"[magenta]✓ Using custom value with APOSTROPHE PREFIX: {user_input}[/magenta]")
+                        console.print(f"[magenta]  This will be combined with payloads during testing[/magenta]")
+                    else:
+                        field_values[field_name] = user_input
+                        console.print(f"[green]✓ Using custom value: {user_input}[/green]")
                     break
-                    
+
                 else:
                     console.print("[red]Please enter a value or one of the options[/red]")
-                    
+
             except KeyboardInterrupt:
                 console.print("\n[bold red]✗ Operation cancelled by user[/bold red]")
                 return None, None
-    
+
     return field_values, poison_fields
 
-async def interactive_injection_mode(url, payloads, cookies, user_agents, method="POST", 
+async def interactive_injection_mode(url, payloads, cookies, user_agents, method="POST",
                                    proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False,
                                    verbose=False, verbose_all=False, secs=0,
-                                   brute_mode=False, max_concurrent=50, timeout=15.0, 
+                                   brute_mode=False, max_concurrent=50, timeout=15.0,
                                    batch_size=100, batch_delay=1.0, max_retries=2):
-    
+
 
     initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
     content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
-    
+
     if not content:
         console.print("[bold red]Failed to fetch page content[/bold red]")
         return []
-    
+
     input_fields = get_string_input_fields(content)
-    
+
     if not input_fields:
         console.print("[bold yellow]No input fields found on the page[/bold yellow]")
         return []
-    
+
     field_values, poison_fields = await get_user_input_for_fields(input_fields, url)
-    
+
     if field_values is None:
         return []
-    
+
     if not poison_fields:
         console.print("\n[bold yellow]⚠️ No fields marked for 'poison' - no payloads will be injected[/bold yellow]")
         response = console.input("[yellow]Continue with basic testing? (y/N): [/yellow]")
@@ -2296,7 +2310,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
             return []
 
     results = []
-    
+
     if brute_mode:
         ssl_context = ssl.create_default_context()
         if ssl_cert and ssl_key:
@@ -2334,19 +2348,33 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                         else:
                             data[field_name] = "' OR 1=1 --"
                             payload_category = "SQL"
+
+                    elif isinstance(user_value, str) and user_value.startswith("'"):
+                        base_value = user_value[1:]
+                        if payload_index is not None and payloads:
+                            payload = payloads[payload_index % len(payloads)]
+                            data[field_name] = base_value + payload['inputField']
+                            payload_category = payload['category'] + "_COMBINED"
+                        else:
+                            data[field_name] = base_value + "' OR 1=1 --"
+                            payload_category = "SQL_COMBINED"
+
                     else:
                         data[field_name] = user_value
                         payload_category = "USER_DEFINED"
 
+                # Proxy configuration
+                proxy_url = proxies.get('http') if proxies else None
+
                 if brute_mode:
                     async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar, 
+                        cookie_jar=cookie_jar,
                         connector=connector,
                         timeout=timeout_config
                     ) as session:
                         async with session.request(
-                            method, url, data=data, headers=headers, 
-                            proxy=proxies.get('http') if proxies else None, ssl=ssl_verify
+                            method, url, data=data, headers=headers,
+                            proxy=proxy_url, ssl=ssl_verify
                         ) as response:
                             content = await response.text()
                             status_code = response.status
@@ -2356,12 +2384,12 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                         ssl_context.load_cert_chain(ssl_cert, ssl_key)
 
                     async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar, 
+                        cookie_jar=cookie_jar,
                         connector=aiohttp.TCPConnector(ssl=ssl_context)
                     ) as session:
                         async with session.request(
-                            method, url, data=data, headers=headers, 
-                            proxy=proxies.get('http') if proxies else None, ssl=ssl_verify
+                            method, url, data=data, headers=headers,
+                            proxy=proxy_url, ssl=ssl_verify
                         ) as response:
                             content = await response.text()
                             status_code = response.status
@@ -2378,9 +2406,9 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                     "vulnerabilities": vulnerabilities,
                     "request_data": data
                 }
-                
+
                 return result
-                    
+
             except Exception as e:
                 current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
                 return {
@@ -2402,7 +2430,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
     if poison_fields and payloads:
         console.print(f"\n[bold green]🧪 Testing {len(payloads)} payloads on {len(poison_fields)} poison fields[/bold green]")
-        
+
         if brute_mode:
             # brute mode
             all_payloads = list(range(len(payloads)))
@@ -2410,7 +2438,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
             with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
                 main_task = progress.add_task("[cyan]Testing payloads...", total=len(payloads))
-                
+
                 for batch_num in range(total_batches):
                     start_idx = batch_num * batch_size
                     end_idx = min(start_idx + batch_size, len(all_payloads))
@@ -2420,7 +2448,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                     for future in asyncio.as_completed(tasks):
                         result = await future
                         results.append(result)
-                        
+
                         # Update UI
                         table.add_row(
                             ", ".join(poison_fields),
@@ -2429,19 +2457,19 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                             str(result["response_code"]),
                             ", ".join(result["vulnerabilities"])
                         )
-                        
+
                         progress.update(main_task, advance=1)
-                        
+
                         if verbose or verbose_all:
                             console.print(f"[bold blue]Tested with payload: {result['payload_used']}[/bold blue]")
                             console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
 
                     if batch_num < total_batches - 1 and batch_delay > 0:
                         await asyncio.sleep(batch_delay)
-                        
+
             if connector:
                 await connector.close()
-                
+
         else:
             # normal mode
             with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
@@ -2450,7 +2478,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                 for i in range(len(payloads)):
                     result = await test_with_user_config(i, len(payloads))
                     results.append(result)
-                    
+
                     table.add_row(
                         ", ".join(poison_fields),
                         result["payload_used"][:100] + "..." if len(result["payload_used"]) > 100 else result["payload_used"],
@@ -2458,9 +2486,9 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                         str(result["response_code"]),
                         ", ".join(result["vulnerabilities"])
                     )
-                    
+
                     progress.update(task, advance=1)
-                    
+
                     if verbose or verbose_all:
                         console.print(f"[bold blue]Tested with payload: {result['payload_used']}[/bold blue]")
                         console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
@@ -2472,7 +2500,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
         console.print("\n[bold yellow]🧪 Testing with user configuration (single request)[/bold yellow]")
         result = await test_with_user_config()
         results.append(result)
-        
+
         table.add_row(
             ", ".join(poison_fields) if poison_fields else "NONE",
             result["payload_used"],
@@ -2482,7 +2510,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
         )
 
     console.print(table)
-    
+
     results_metadata = {
         "parameters": {
             "interactive_mode": True,
@@ -2497,12 +2525,12 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
         },
         "results": results
     }
-    
+
     with open("interactive_test_results.json", "w") as f:
         json.dump(results_metadata, f, indent=4)
-        
+
     console.print(f"[bold green]Interactive test results saved to 'interactive_test_results.json'[/bold green]")
-    
+
     return results
 async def main():
     console.clear()
@@ -2538,7 +2566,7 @@ async def main():
     parser.add_argument("--filemode", action="store_true", help="Test filename XSS in file upload forms")
     parser.add_argument("-s", "--seconds", type=float, default=0, help="Delay between requests in seconds")
     parser.add_argument("--waf-bypass", action="store_true", help="Generate WAF bypass payloads")
-    parser.add_argument("--csp-bypass", action="store_true", help="Generate CSP bypass payloads") 
+    parser.add_argument("--csp-bypass", action="store_true", help="Generate CSP bypass payloads")
     parser.add_argument("--sanitizer-bypass", action="store_true", help="Generate HTML sanitizer bypass payloads")
     parser.add_argument("--encoder-bypass", action="store_true", help="Generate encoder bypass payloads")
     parser.add_argument("--encoding-confusion", action="store_true", help="Generate encoding confusion payloads")
@@ -2553,28 +2581,28 @@ async def main():
     args = parser.parse_args()
     if args.brute:
         console.print("[bold yellow]⚠️  BRUTE FORCE MODE ACTIVATED - USE WITH CAUTION! ⚠️[/bold yellow]")
-        
+
         if args.concurrent < 10 or args.concurrent > 500:
             console.print(f"[yellow]Warning: --concurrent {args.concurrent} is outside recommended range 10-500[/yellow]")
-        
+
         if args.timeout < 3 or args.timeout > 60:
             console.print(f"[yellow]Warning: --timeout {args.timeout} is outside recommended range 3-60 seconds[/yellow]")
-        
+
         if args.batch_size < 10 or args.batch_size > 1000:
             console.print(f"[yellow]Warning: --batch-size {args.batch_size} is outside recommended range 10-1000[/yellow]")
-        
+
         if args.batch_delay < 0 or args.batch_delay > 10:
             console.print(f"[yellow]Warning: --batch-delay {args.batch_delay} is outside recommended range 0-10 seconds[/yellow]")
-        
+
         if args.retries < 1 or args.retries > 5:
             console.print(f"[yellow]Warning: --retries {args.retries} is outside recommended range 1-5[/yellow]")
 
         if args.concurrent > 200:
             console.print("[red]🚨 HIGH CONCURRENCY WARNING: May overwhelm the target server![/red]")
-        
+
         if args.batch_delay < 0.5:
             console.print("[red]🚨 LOW DELAY WARNING: May trigger rate limiting or be detected as attack![/red]")
-        
+
         if args.concurrent > 100 and args.batch_delay < 1.0:
             response = console.input("[bold red]🚨 EXTREME BRUTE FORCE: Are you sure? (y/N): [/bold red]")
             if response.lower() not in ('y', 'yes'):
@@ -2596,7 +2624,7 @@ async def main():
 
     bypass_flags = {
     'waf_bypass': args.waf_bypass,
-    'csp_bypass': args.csp_bypass, 
+    'csp_bypass': args.csp_bypass,
     'sanitizer_bypass': args.sanitizer_bypass,
     'encoder_bypass': args.encoder_bypass,
     'encoding_confusion': args.encoding_confusion,
@@ -2630,7 +2658,7 @@ async def main():
 
         # technology stack scan
         await scan(args.url)
-        
+
         sys.exit(0)
     default_user_agent = "FormPoison/v.1.0.1"
     cookies = parse_cookies(args.cookies) if args.cookies else {}
@@ -2642,64 +2670,64 @@ async def main():
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-    
+
     # Chrome - macOS
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-    
+
     # Chrome - Linux
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-    
+
     # Firefox - Windows
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
-    
+
     # Firefox - macOS
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0",
-    
+
     # Firefox - Linux
     "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
     "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
-    
+
     # Safari - macOS
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6.1 Safari/605.1.15",
-    
+
     # Safari - iOS
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
-    
+
     # Edge - Windows
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.0.0",
-    
+
     # Edge - macOS
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-    
+
     # Android - Chrome Mobile
     "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 13; SM-A536B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 11; Redmi Note 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-    
+
     # Android - Samsung Browser
     "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/21.0 Chrome/110.0.5481.154 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/20.0 Chrome/106.0.5249.126 Mobile Safari/537.36",
-    
+
     # Opera
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
     "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 OPR/73.2.3816.54321",
-    
+
     # Legacy browsers for compatibility
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
@@ -2718,7 +2746,7 @@ async def main():
             if matching_agents:
                 user_agents=[matching_agents[0]]
                 console.print(f"[bold green]Using specified user agent: {user_agents[0]}[/bold green]")
-            else: 
+            else:
                 user_agents = [args.user_agent]
                 console.print(f"[bold green]Using custom user agent: {args.user_agent}[/bold green]")
     else:
@@ -2726,7 +2754,7 @@ async def main():
         console.print(f"[bold blue]Using default User Agent: {default_user_agent}[/bold blue]")
 
     page_content = None
-    for current_user_agent in user_agents: 
+    for current_user_agent in user_agents:
         page_content = await get_page_content(args.url, current_user_agent, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify)
         if page_content:
             break
@@ -2741,39 +2769,39 @@ async def main():
 
     if args.filemode:
         console.print("[bold blue]📁 Testing Filename XSS in upload forms...[/bold blue]")
-    
+
         filemode_results = await test_filename_xss(
             args.url, input_fields, cookies, user_agents, proxies, args.ssl_verify
         )
-    
-    
+
+
         for result in filemode_results:
             console.print(f"[red]FILENAME XSS: {result['field']} → {result['filename']} → {result['vulnerability']}[/red]")
-    
+
 
     if args.mXSS:
         console.print("[bold blue]🧬 Testing Mutation XSS vulnerabilities...[/bold blue]")
-        
+
         # --login
         fields_to_test = input_fields
         if args.login:
             login_field = None
             password_field = None
-            
-            
+
+
             for field in input_fields:
                 name = field.get('name', '').lower()
                 id_ = field.get('id', '').lower()
                 placeholder = field.get('placeholder', '').lower()
                 field_type = field.get('type', '').lower()
 
-                
+
                 login_keywords = ['login', 'username', 'user', 'email', 'e-mail', 'mail', 'userid', 'user_id', 'loginname', 'account', 'mat-input-1']
                 if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in login_keywords):
                     login_field = field
                     console.print(f"[bold green]Found login field: name={name}, id={id_}, type={field_type}[/bold green]")
 
-                
+
                 password_keywords = ['password', 'pass', 'passwd', 'pwd', 'userpassword', 'user_pass']
                 if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in password_keywords):
                     if field_type == 'password':
@@ -2786,33 +2814,33 @@ async def main():
             else:
                 console.print(f"[yellow]Login mode: Could not find both login and password fields, testing all {len(input_fields)} fields[/yellow]")
                 fields_to_test = input_fields
-        
+
         mXSS_results = await test_mutation_xss(
-            args.url, 
-            fields_to_test, 
-            cookies, 
-            user_agents, 
-            args.method, 
+            args.url,
+            fields_to_test,
+            cookies,
+            user_agents,
+            args.method,
             proxies,
-            args.ssl_cert, 
-            args.ssl_key, 
-            args.ssl_verify, 
-            args.verbose, 
-            args.verbose_all, 
+            args.ssl_cert,
+            args.ssl_key,
+            args.ssl_verify,
+            args.verbose,
+            args.verbose_all,
             args.seconds,
             payload_filters=args.filter
         )
-        
+
         console.print("[bold green]mXSS testing completed.[/bold green]")
-    
+
     # STANDARD TESTS
     if args.fieldname:
         field = find_field_by_name(input_fields, args.fieldname)
         if field:
             console.print(f"[bold yellow]Focusing only on input field: {args.fieldname}[/bold yellow]")
             await test_input_field(
-                args.url, payloads, args.threat, cookies, user_agents, field, 
-                args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify, 
+                args.url, payloads, args.threat, cookies, user_agents, field,
+                args.method, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify,
                 args.verbose, args.verbose_all, args.filter, args.seconds,
                 brute_mode=args.brute,
                 max_concurrent=args.concurrent,
@@ -2830,7 +2858,7 @@ async def main():
         else:
             console.print(f"[bold green]Testing login fields with User Agent: {user_agents[0]}[/bold green]")
         await test_login_input_fields(
-            args.url, payloads, cookies, user_agents, input_fields, 
+            args.url, payloads, cookies, user_agents, input_fields,
             proxies, args.verbose, args.verbose_all, args.seconds, args.filter,
             brute_mode=args.brute,
             max_concurrent=args.concurrent,
@@ -2839,23 +2867,7 @@ async def main():
             batch_delay=args.batch_delay,
             max_retries=args.retries
         )
-    else:
-        if len(user_agents) > 1:
-            console.print(f"[bold green]Testing all forms with {len(user_agents)} shuffled User Agents[/bold green]")
-        else:
-            console.print(f"[bold green]Testing all forms with User Agent: {user_agents[0]}[/bold green]")
-        await test_all_forms(
-            args.url, payloads, args.threat, cookies, user_agents, 
-            args.method, proxies, args.ssl_cert, args.ssl_key, args.filter, 
-            args.ssl_verify, args.verbose, args.verbose_all, args.seconds,
-            brute_mode=args.brute,
-            max_concurrent=args.concurrent,
-            timeout=args.timeout,
-            batch_size=args.batch_size,
-            batch_delay=args.batch_delay,
-            max_retries=args.retries
-        )
-        
+
     if args.interactive:
         console.print("[bold blue]INTERACTIVE MODE[/bold blue]")
         await interactive_injection_mode(
@@ -2871,6 +2883,24 @@ async def main():
         )
         sys.exit(0)
 
-        
+    else:
+        if len(user_agents) > 1:
+            console.print(f"[bold green]Testing all forms with {len(user_agents)} shuffled User Agents[/bold green]")
+        else:
+            console.print(f"[bold green]Testing all forms with User Agent: {user_agents[0]}[/bold green]")
+        await test_all_forms(
+            args.url, payloads, args.threat, cookies, user_agents,
+            args.method, proxies, args.ssl_cert, args.ssl_key, args.filter,
+            args.ssl_verify, args.verbose, args.verbose_all, args.seconds,
+            brute_mode=args.brute,
+            max_concurrent=args.concurrent,
+            timeout=args.timeout,
+            batch_size=args.batch_size,
+            batch_delay=args.batch_delay,
+            max_retries=args.retries
+        )
+
+
+
 if __name__ == "__main__":
     asyncio.run(main())
