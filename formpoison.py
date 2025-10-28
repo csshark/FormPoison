@@ -2546,7 +2546,7 @@ async def main():
     parser.add_argument("--ssl-key", help="Path to SSL private key file (e.g., key.pem)")
     parser.add_argument("--ssl-verify", action="store_true", help="Verify SSL certificate (default: False)")
     parser.add_argument("--mXSS", action="store_true", help="Test Mutation XSS vulnerabilities")
-    parser.add_argument('--brute', action='store_true', help='Brute force mode - maximum speed (UWAŻAJ: może przeciążyć cel!)')
+    parser.add_argument('--brute', action='store_true', help='Brute force mode - maximum speed')
     parser.add_argument('--concurrent', type=int, default=50, help='Max concurrent requests (brute: 10-500, default: 50)')
     parser.add_argument('--timeout', type=float, default=15.0, help='Request timeout in seconds (brute: 3-60, default: 15)')
     parser.add_argument('--batch-size', type=int, default=100, help='Requests per batch (brute: 10-1000, default: 100)')
