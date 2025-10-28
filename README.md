@@ -77,7 +77,12 @@ Please note that not all flags are compatible with each other (e.g., --login doe
 
 ## FormAtion module 
 FormAtion is quick form audior, it differs from scan mode in that it performs a quick analysis based on the server's response to a given query. It does not scan the code, nor does it delve into anything other than the input fields themselves. It only analyzes their connections and proposes a ready-made command for FormPoison to execute. Copy + Paste in CLI and now your injection is 20% more likely to be successful.
-
+## Interactive mode - take control under injections
+The latest powerful feature is interactive mode where user can specify the exact point in input field where payload needs to be injected.
+If there is need to inject payloads in specific part of the input, framework is capable of interactive testing mode: <pre><code>python3 formpoison.py [URL] [optional flags] --interactive</code></pre></p> Please keep in mind that your inejection point needs to be specified with quotas like this: <code>'poison'</code> otherwise tool will use it as a static custom user input.
+<pre><code>Field 1: admin''poison'
+Field 2: diff'poison'iculty</code></pre>
+Interactive mode supports a lot of flags and there is still need to provide them for this mode (threat type, filter, delay etc.).
 ### Scan mode
 Scan mode has been extended into JavaScript code scanning and looking for common vectors of code / inproper value injection to bypass some filters. The scanner is separate project integrated into FormPoison by default. It is recommended to run scan to identify attack vectors by yourself first. Scanner works for <b>10 minutes max.</b> for smaller apps, to keep lightweight form - this is not autonomus DAST replacement. By default scanner runs with 100 3 10 (100 MaxURLs, 3 MaxDepth, 10 Workers) to suit all the enviroments. However user is allowed to change those values via FormPoison flags. Output file is named *scan_report_[targetURL]_[dateTime].json*. Scanner recognizes ~20 patterns in Java web files and also checks for OWASP Top 10 vulnerabilities. Scanner output gives recommendations and points to forms that might be vulnerable (false-positive reduction applied): <div align ="center">![Scanning](scan-output-example.png)</div>
 
