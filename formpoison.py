@@ -23,13 +23,7 @@ import os
 import tempfile
 from pathlib import Path
 import html
-from waf_bypass import waf_bypass
-from csp_bypass import csp_bypass
-from sanitizer_bypass import sanitizer_bypass
-from encoder_bypass import encoder_bypass
-from size_overflow import size_overflow
-from dynamic_payloads_gen import generate_targeted_payloads
-
+from functions import *
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
