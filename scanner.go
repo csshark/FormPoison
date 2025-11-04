@@ -16,6 +16,9 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	"net/http"
+    "net/url"
+    "flag"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/fatih/color"
@@ -52,6 +55,7 @@ type Crawler struct {
 	urlCount       int
 	mu             sync.Mutex
 	progress       chan string
+    proxyURL       string 
 }
 
 // more 
@@ -213,24 +217,24 @@ var semanticDictionaries = map[string][]string{
 	},
 }
 
-func NewContextAwareCrawler(startURL string, maxDepth, maxURLs int, progress chan string) *ContextAwareCrawler {
-	baseCrawler := NewCrawler(startURL, maxDepth, maxURLs, progress)
-	
-	c := &ContextAwareCrawler{
-		Crawler:          baseCrawler,
-		variableContexts: make(map[string]*VariableContext),
-		contextPatterns:  make(map[string]*regexp.Regexp),
-		semanticPatterns: make(map[string]*regexp.Regexp),
-	}
+func NewContextAwareCrawler(startURL string, maxDepth, maxURLs int, progress chan string, proxyURL string) *ContextAwareCrawler {
+    baseCrawler := NewCrawler(startURL, maxDepth, maxURLs, progress, proxyURL)
+    
+    c := &ContextAwareCrawler{
+        Crawler:          baseCrawler,
+        variableContexts: make(map[string]*VariableContext),
+        contextPatterns:  make(map[string]*regexp.Regexp),
+        semanticPatterns: make(map[string]*regexp.Regexp),
+    }
 
-	for name, pattern := range contextPatterns {
-		c.contextPatterns[name] = regexp.MustCompile(pattern)
-	}
-	for name, pattern := range semanticPatterns {
-		c.semanticPatterns[name] = regexp.MustCompile(pattern)
-	}
+    for name, pattern := range contextPatterns {
+        c.contextPatterns[name] = regexp.MustCompile(pattern)
+    }
+    for name, pattern := range semanticPatterns {
+        c.semanticPatterns[name] = regexp.MustCompile(pattern)
+    }
 
-	return c
+    return c
 }
 
 // contextAwareCrawl
@@ -574,23 +578,43 @@ func (r *EnhancedScanReport) calculateContextStatistics() {
 	}
 }
 
-func NewCrawler(startURL string, maxDepth, maxURLs int, progress chan string) *Crawler {
-	c := &Crawler{
-		discoveredURLs: make(chan string, 10000),
-		client: &http.Client{
-			Timeout: 15 * time.Second,
-			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 100,
-				IdleConnTimeout:     30 * time.Second,
-				TLSHandshakeTimeout: 10 * time.Second,
-			},
-		},
-		maxDepth: maxDepth,
-		maxURLs:  maxURLs,
-		patterns: make(map[string]*regexp.Regexp),
-		progress: progress,
-	}
+func NewCrawler(startURL string, maxDepth, maxURLs int, progress chan string, proxyURL string) *Crawler {
+    client := &http.Client{
+        Timeout: 15 * time.Second,
+    }
+
+    // config proxy
+    if proxyURL != "" {
+        proxy, err := url.Parse(proxyURL)
+        if err != nil {
+            log.Printf("Warning: Invalid proxy URL %s: %v", proxyURL, err)
+        } else {
+            client.Transport = &http.Transport{
+                Proxy: http.ProxyURL(proxy),
+                MaxIdleConns:        100,
+                MaxIdleConnsPerHost: 100,
+                IdleConnTimeout:     30 * time.Second,
+                TLSHandshakeTimeout: 10 * time.Second,
+            }
+        }
+    } else {
+        client.Transport = &http.Transport{
+            MaxIdleConns:        100,
+            MaxIdleConnsPerHost: 100,
+            IdleConnTimeout:     30 * time.Second,
+            TLSHandshakeTimeout: 10 * time.Second,
+        }
+    }
+    
+    c := &Crawler{
+        discoveredURLs: make(chan string, 10000),
+        client:         client,
+        maxDepth:       maxDepth,
+        maxURLs:        maxURLs,
+        patterns:       make(map[string]*regexp.Regexp),
+        progress:       progress,
+        proxyURL:       proxyURL,
+    }
 
 	parsedURL, err := url.Parse(startURL)
 	if err != nil {
@@ -613,17 +637,17 @@ func NewCrawler(startURL string, maxDepth, maxURLs int, progress chan string) *C
 }
 
 func (c *Crawler) fetchURL(urlStr string) (string, error) {
-	req, err := http.NewRequest("GET", urlStr, nil)
-	if err != nil {
-		return "", err
-	}
+    req, err := http.NewRequest("GET", urlStr, nil)
+    if err != nil {
+        return "", err
+    }
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Upgrade-Insecure-Requests", "1")
-
+    req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+    req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+    req.Header.Set("Connection", "keep-alive")
+    req.Header.Set("Upgrade-Insecure-Requests", "1")
+    
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return "", err
@@ -915,275 +939,296 @@ func getFileExtension(urlStr string) string {
 }
 
 func main() {
-	green := color.New(color.FgGreen).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
-	red := color.New(color.FgRed).SprintFunc()
-	blue := color.New(color.FgBlue).SprintFunc()
+    green := color.New(color.FgGreen).SprintFunc()
+    yellow := color.New(color.FgYellow).SprintFunc()
+    red := color.New(color.FgRed).SprintFunc()
+    blue := color.New(color.FgBlue).SprintFunc()
 
-	progress := make(chan string, 100)
-	
-	go func() {
-		for msg := range progress {
-			fmt.Printf("\r%s", msg)
-		}
-	}()
+    progress := make(chan string, 100)
+    
+    go func() {
+        for msg := range progress {
+            fmt.Printf("\r%s", msg)
+        }
+    }()
 
-	scanner := bufio.NewScanner(os.Stdin)
+    var startURL, outputFilename, proxyURL string
+    var maxURLs, maxDepth, workers int
+    var useContextAnalysis bool
 
-	var startURL, outputFilename string
-	var maxURLs, maxDepth, workers int
-	useContextAnalysis := true
+    flag.StringVar(&startURL, "url", "", "Target URL to scan")
+    flag.IntVar(&maxURLs, "max-urls", 100, "Maximum number of URLs to scan")
+    flag.IntVar(&maxDepth, "max-depth", 3, "Maximum depth of scanning")
+    flag.IntVar(&workers, "workers", 10, "Number of workers for scanning")
+    flag.StringVar(&outputFilename, "output", "", "Output filename for the report")
+    flag.StringVar(&proxyURL, "proxy", "", "Proxy URL (e.g., http://proxy:port or http://user:pass@proxy:port)")
+    flag.BoolVar(&useContextAnalysis, "context", true, "Use context-aware analysis")
 
-	if len(os.Args) > 1 {
-		startURL = os.Args[1]
-		if len(os.Args) > 2 {
-			fmt.Sscanf(os.Args[2], "%d", &maxURLs)
-		}
-		if len(os.Args) > 3 {
-			fmt.Sscanf(os.Args[3], "%d", &maxDepth)
-		}
-		if len(os.Args) > 4 {
-			fmt.Sscanf(os.Args[4], "%d", &workers)
-		}
-		if len(os.Args) > 5 {
-			outputFilename = os.Args[5]
-		}
-		for _, arg := range os.Args {
-			if arg == "--no-context" {
-				useContextAnalysis = false
-			}
-		}
-	} else if scanner.Scan() {
-		input := scanner.Text()
-		params := strings.Split(input, "|")
+    if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
+        startURL = os.Args[1]
+        if len(os.Args) > 2 {
+            fmt.Sscanf(os.Args[2], "%d", &maxURLs)
+        }
+        if len(os.Args) > 3 {
+            fmt.Sscanf(os.Args[3], "%d", &maxDepth)
+        }
+        if len(os.Args) > 4 {
+            fmt.Sscanf(os.Args[4], "%d", &workers)
+        }
+        if len(os.Args) > 5 {
+            outputFilename = os.Args[5]
+        }
+        if len(os.Args) > 6 && strings.HasPrefix(os.Args[6], "http") {
+            proxyURL = os.Args[6]
+        }
+        for _, arg := range os.Args {
+            if arg == "--no-context" {
+                useContextAnalysis = false
+            }
+        }
+    } else {
+        // flags
+        flag.Parse()
+        
+        if startURL == "" {
+            scanner := bufio.NewScanner(os.Stdin)
+            if scanner.Scan() {
+                input := scanner.Text()
+                params := strings.Split(input, "|")
+                if len(params) >= 1 {
+                    startURL = params[0]
+                }
+                if len(params) >= 2 {
+                    fmt.Sscanf(params[1], "%d", &maxURLs)
+                }
+                if len(params) >= 3 {
+                    fmt.Sscanf(params[2], "%d", &maxDepth)
+                }
+                if len(params) >= 4 {
+                    fmt.Sscanf(params[3], "%d", &workers)
+                }
+                if len(params) >= 5 {
+                    outputFilename = params[4]
+                }
+                if len(params) >= 6 && params[5] == "no-context" {
+                    useContextAnalysis = false
+                }
+                if len(params) >= 7 && strings.HasPrefix(params[6], "http") {
+                    proxyURL = params[6]
+                }
+            }
+        }
+    }
 
-		if len(params) >= 1 {
-			startURL = params[0]
-		}
-		if len(params) >= 2 {
-			fmt.Sscanf(params[1], "%d", &maxURLs)
-		}
-		if len(params) >= 3 {
-			fmt.Sscanf(params[2], "%d", &maxDepth)
-		}
-		if len(params) >= 4 {
-			fmt.Sscanf(params[3], "%d", &workers)
-		}
-		if len(params) >= 5 {
-			outputFilename = params[4]
-		}
-		if len(params) >= 6 && params[5] == "no-context" {
-			useContextAnalysis = false
-		}
-	} else {
-		fmt.Println("Usage: echo 'url|max_urls|max_depth|workers|output_filename|[no-context]' | ./scanner")
-		fmt.Println("Or: ./scanner <url> [max_urls] [max_depth] [workers] [output_filename] [--no-context]")
-		os.Exit(1)
-	}
+    if startURL == "" {
+        fmt.Println("Usage:")
+        fmt.Println("  Old format: ./scanner <url> [max_urls] [max_depth] [workers] [output_filename] [proxy_url]")
+        fmt.Println("  New format: ./scanner -url <url> -max-urls <num> -max-depth <num> -workers <num> -output <file> -proxy <proxy_url>")
+        fmt.Println("  Or: echo 'url|max_urls|max_depth|workers|output_filename|[no-context]|proxy_url' | ./scanner")
+        os.Exit(1)
+    }
 
-	// defaults
-	if maxURLs == 0 { maxURLs = 100 }
-	if maxDepth == 0 { maxDepth = 3 }
-	if workers == 0 { workers = 10 }
-	if outputFilename == "" {
-		timestamp := time.Now().Format("20060102_150405")
-		domain := strings.ReplaceAll(strings.ReplaceAll(startURL, "://", "_"), "/", "_")
-		if useContextAnalysis {
-			outputFilename = fmt.Sprintf("context_scan_report_%s_%s.json", domain, timestamp)
-		} else {
-			outputFilename = fmt.Sprintf("scan_report_%s_%s.json", domain, timestamp)
-		}
-	}
+    if maxURLs == 0 { maxURLs = 100 }
+    if maxDepth == 0 { maxDepth = 3 }
+    if workers == 0 { workers = 10 }
+    if outputFilename == "" {
+        timestamp := time.Now().Format("20060102_150405")
+        domain := strings.ReplaceAll(strings.ReplaceAll(startURL, "://", "_"), "/", "_")
+        if useContextAnalysis {
+            outputFilename = fmt.Sprintf("context_scan_report_%s_%s.json", domain, timestamp)
+        } else {
+            outputFilename = fmt.Sprintf("scan_report_%s_%s.json", domain, timestamp)
+        }
+    }
 
-	fmt.Printf("\n%s Starting %sscan of %s\n", 
-		green("➤"), 
-		map[bool]string{true: "context-aware ", false: ""}[useContextAnalysis],
-		startURL)
-	fmt.Printf("%s Max URLs: %d, Depth: %d, Workers: %d\n", 
-		yellow("➤"), maxURLs, maxDepth, workers)
-	fmt.Printf("%s Output: %s\n", yellow("➤"), outputFilename)
+    fmt.Printf("\n%s Starting %sscan of %s\n", 
+        green("➤"), 
+        map[bool]string{true: "context-aware ", false: ""}[useContextAnalysis],
+        startURL)
+    fmt.Printf("%s Max URLs: %d, Depth: %d, Workers: %d\n", 
+        yellow("➤"), maxURLs, maxDepth, workers)
+    if proxyURL != "" {
+        fmt.Printf("%s Using proxy: %s\n", yellow("➤"), proxyURL)
+    } else {
+        fmt.Printf("%s No proxy configured\n", yellow("➤"))
+    }
+    fmt.Printf("%s Output: %s\n", yellow("➤"), outputFilename)
 
-	var report interface{}
-	
-	if useContextAnalysis {
-		crawler := NewContextAwareCrawler(startURL, maxDepth, maxURLs, progress)
-		enhancedReport := crawler.CrawlAndScanWithContext(workers, outputFilename)
-		report = enhancedReport
-	} else {
-		crawler := NewCrawler(startURL, maxDepth, maxURLs, progress)
-		baseReport := crawler.CrawlAndScan(workers, outputFilename)
-		report = baseReport
-	}
-	
-	close(progress)
+    var report interface{}
+    
+    if useContextAnalysis {
+        crawler := NewContextAwareCrawler(startURL, maxDepth, maxURLs, progress, proxyURL)
+        enhancedReport := crawler.CrawlAndScanWithContext(workers, outputFilename)
+        report = enhancedReport
+    } else {
+        crawler := NewCrawler(startURL, maxDepth, maxURLs, progress, proxyURL)
+        baseReport := crawler.CrawlAndScan(workers, outputFilename)
+        report = baseReport
+    }
+    
+    close(progress)
 
-	// save report func
-	reportJSON, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		log.Fatal("Error generating JSON report:", err)
-	}
+    reportJSON, err := json.MarshalIndent(report, "", "  ")
+    if err != nil {
+        log.Fatal("Error generating JSON report:", err)
+    }
 
-	err = os.WriteFile(outputFilename, reportJSON, 0644)
-	if err != nil {
-		log.Fatal("Error writing report file:", err)
-	}
+    err = os.WriteFile(outputFilename, reportJSON, 0644)
+    if err != nil {
+        log.Fatal("Error writing report file:", err)
+    }
 
-	// extended summary
-	fmt.Printf("\n%s\n", outputFilename)
+    fmt.Printf("\n%s\n", green("Scan completed successfully!"))
+    fmt.Printf("%s Report saved to: %s\n", green("✓"), outputFilename)
+    
+    if enhancedReport, ok := report.(*EnhancedScanReport); ok {
+        fmt.Printf("\n%s CONTEXT ANALYSIS SUMMARY\n", blue("🔍"))
+        fmt.Printf("%s Variables analyzed: %d\n", blue("➤"), enhancedReport.ContextStats.VariablesAnalyzed)
+        fmt.Printf("%s High-risk variables: %d\n", blue("➤"), enhancedReport.ContextStats.HighRiskVariables)
+        fmt.Printf("%s User input variables: %d\n", blue("➤"), enhancedReport.ContextStats.UserInputVariables)
+        fmt.Printf("%s Critical variables: %d\n", blue("➤"), enhancedReport.ContextStats.CriticalVariables)
+        fmt.Printf("%s Average confidence: %.2f\n", blue("➤"), enhancedReport.ContextStats.AverageConfidence)
+        fmt.Printf("%s False positives reduced: %d\n", green("✓"), enhancedReport.FalsePositivesReduced)
+        
+        fmt.Printf("\n%s CONTEXTUAL VULNERABILITIES\n", red("⚠"))
+        for _, vuln := range enhancedReport.ContextualVulns {
+            severityColor := map[string]func(...interface{}) string{
+                "HIGH":   red,
+                "MEDIUM": yellow,
+                "LOW":    green,
+            }[vuln.Severity]
+            
+            fpRisk := vuln.FalsePositiveRisk
+            fpIndicator := ""
+            if fpRisk < 0.3 {
+                fpIndicator = green("✓ LOW FP")
+            } else if fpRisk < 0.6 {
+                fpIndicator = yellow("⚠ MEDIUM FP")
+            } else {
+                fpIndicator = red("✗ HIGH FP")
+            }
+            
+            fmt.Printf("\n%s %s | %s | FP Risk: %s\n", 
+                severityColor("■"), vuln.Pattern, severityColor(vuln.Severity), fpIndicator)
+            fmt.Printf("   URL: %s:%d\n", vuln.URL, vuln.Line)
+            if vuln.VariableContext != nil {
+                fmt.Printf("   Variable: %s (%s, %s)\n", 
+                    vuln.VariableContext.Name, vuln.VariableContext.UsageContext, vuln.VariableContext.RiskLevel)
+            }
+            fmt.Printf("   Context: %s\n", vuln.ContextAnalysis)
+            fmt.Printf("   Snippet: %s\n", truncateString(vuln.CodeSnippet, 100))
+        }
+    } else if baseReport, ok := report.(*ScanReport); ok {
+        fmt.Printf("\n%s Scan completed in %s!\n", green("✓"), baseReport.ExecutionTime)
+        fmt.Printf("%s URLs scanned: %d\n", yellow("➤"), baseReport.ScannedURLs)
+        fmt.Printf("%s Vulnerabilities found: %d\n", yellow("➤"), len(baseReport.Vulnerabilities))
 
-	if enhancedReport, ok := report.(*EnhancedScanReport); ok {
-		// context summary
-		fmt.Printf("\n%s CONTEXT ANALYSIS SUMMARY\n", blue("🔍"))
-		fmt.Printf("%s Variables analyzed: %d\n", blue("➤"), enhancedReport.ContextStats.VariablesAnalyzed)
-		fmt.Printf("%s High-risk variables: %d\n", blue("➤"), enhancedReport.ContextStats.HighRiskVariables)
-		fmt.Printf("%s User input variables: %d\n", blue("➤"), enhancedReport.ContextStats.UserInputVariables)
-		fmt.Printf("%s Critical variables: %d\n", blue("➤"), enhancedReport.ContextStats.CriticalVariables)
-		fmt.Printf("%s Average confidence: %.2f\n", blue("➤"), enhancedReport.ContextStats.AverageConfidence)
-		fmt.Printf("%s False positives reduced: %d\n", green("✓"), enhancedReport.FalsePositivesReduced)
-		
-		fmt.Printf("\n%s CONTEXTUAL VULNERABILITIES\n", red("⚠"))
-		for _, vuln := range enhancedReport.ContextualVulns {
-			severityColor := map[string]func(...interface{}) string{
-				"HIGH":   red,
-				"MEDIUM": yellow,
-				"LOW":    green,
-			}[vuln.Severity]
-			
-			fpRisk := vuln.FalsePositiveRisk
-			fpIndicator := ""
-			if fpRisk < 0.3 {
-				fpIndicator = green("✓ LOW FP")
-			} else if fpRisk < 0.6 {
-				fpIndicator = yellow("⚠ MEDIUM FP")
-			} else {
-				fpIndicator = red("✗ HIGH FP")
-			}
-			
-			fmt.Printf("\n%s %s | %s | FP Risk: %s\n", 
-				severityColor("■"), vuln.Pattern, severityColor(vuln.Severity), fpIndicator)
-			fmt.Printf("   URL: %s:%d\n", vuln.URL, vuln.Line)
-			if vuln.VariableContext != nil {
-				fmt.Printf("   Variable: %s (%s, %s)\n", 
-					vuln.VariableContext.Name, vuln.VariableContext.UsageContext, vuln.VariableContext.RiskLevel)
-			}
-			fmt.Printf("   Context: %s\n", vuln.ContextAnalysis)
-			fmt.Printf("   Snippet: %s\n", truncateString(vuln.CodeSnippet, 100))
-		}
-	} else if baseReport, ok := report.(*ScanReport); ok {
-		// basic summary
-		fmt.Printf("\n%s Scan completed in %s!\n", green("✓"), baseReport.ExecutionTime)
-		fmt.Printf("%s URLs scanned: %d\n", yellow("➤"), baseReport.ScannedURLs)
-		fmt.Printf("%s Vulnerabilities found: %d\n", yellow("➤"), len(baseReport.Vulnerabilities))
+        if len(baseReport.Vulnerabilities) > 0 {
+            fmt.Printf("\n%s VULNERABILITY SUMMARY\n", red("⚠"))
+            for pattern, count := range baseReport.VulnByType {
+                severity := "MEDIUM"
+                if strings.Contains(pattern, "injection") ||
+                    strings.Contains(pattern, "deserialization") ||
+                    strings.Contains(pattern, "xss") {
+                    severity = red("HIGH")
+                } else if strings.Contains(pattern, "validator") ||
+                    strings.Contains(pattern, "check") {
+                    severity = yellow("LOW")
+                }
+                fmt.Printf("%s %s: %d vulnerabilities\n", severity, pattern, count)
+            }
+        } else {
+            fmt.Printf("\n%s No vulnerabilities found!\n", green("✓"))
+        }
+    }
 
-		if len(baseReport.Vulnerabilities) > 0 {
-			fmt.Printf("\n%s VULNERABILITY SUMMARY\n", red("⚠"))
-			for pattern, count := range baseReport.VulnByType {
-				severity := "MEDIUM"
-				if strings.Contains(pattern, "injection") ||
-					strings.Contains(pattern, "deserialization") ||
-					strings.Contains(pattern, "xss") {
-					severity = red("HIGH")
-				} else if strings.Contains(pattern, "validator") ||
-					strings.Contains(pattern, "check") {
-					severity = yellow("LOW")
-				}
-				fmt.Printf("%s %s: %d vulnerabilities\n", severity, pattern, count)
-			}
-		} else {
-			fmt.Printf("\n%s No vulnerabilities found!\n", green("✓"))
-		}
-	}
+    fmt.Printf("\n%s DETAILED VULNERABILITY SUMMARY\n", red("📊"))
+    
+    criticalCount := 0
+    highCount := 0 
+    mediumCount := 0
+    lowCount := 0
+    fpReduced := 0
 
-	fmt.Printf("\n%s Report saved to: %s\n", green("✓"), outputFilename)
-	
-	fmt.Printf("\n%s DETAILED VULNERABILITY SUMMARY\n", red("📊"))
-	
-	criticalCount := 0
-	highCount := 0 
-	mediumCount := 0
-	lowCount := 0
-	fpReduced := 0
+    // stats counter 
+    if enhancedReport, ok := report.(*EnhancedScanReport); ok {
+        for _, vuln := range enhancedReport.ContextualVulns {
+            switch vuln.Severity {
+            case "CRITICAL":
+                criticalCount++
+            case "HIGH":
+                highCount++
+            case "MEDIUM":
+                mediumCount++
+            case "LOW":
+                lowCount++
+            }
+        }
+        fpReduced = enhancedReport.FalsePositivesReduced
+    } else if baseReport, ok := report.(*ScanReport); ok {
+        for _, vuln := range baseReport.Vulnerabilities {
+            switch vuln.Severity {
+            case "CRITICAL":
+                criticalCount++
+            case "HIGH":
+                highCount++
+            case "MEDIUM":
+                mediumCount++
+            case "LOW":
+                lowCount++
+            }
+        }
+        // FP for basic report 
+        fpReduced = len(baseReport.Vulnerabilities) / 3
+    }
 
-	// stats counter 
-	if enhancedReport, ok := report.(*EnhancedScanReport); ok {
-		for _, vuln := range enhancedReport.ContextualVulns {
-			switch vuln.Severity {
-			case "CRITICAL":
-				criticalCount++
-			case "HIGH":
-				highCount++
-			case "MEDIUM":
-				mediumCount++
-			case "LOW":
-				lowCount++
-			}
-		}
-		fpReduced = enhancedReport.FalsePositivesReduced
-	} else if baseReport, ok := report.(*ScanReport); ok {
-		for _, vuln := range baseReport.Vulnerabilities {
-			switch vuln.Severity {
-			case "CRITICAL":
-				criticalCount++
-			case "HIGH":
-				highCount++
-			case "MEDIUM":
-				mediumCount++
-			case "LOW":
-				lowCount++
-			}
-		}
-		// FP for basic report 
-		fpReduced = len(baseReport.Vulnerabilities) / 3
-	}
+    criticalColor := color.New(color.BgRed, color.FgWhite, color.Bold).SprintFunc()
+    highColor := color.New(color.FgRed, color.Bold).SprintFunc()
+    mediumColor := color.New(color.FgYellow, color.Bold).SprintFunc()
+    lowColor := color.New(color.FgGreen, color.Bold).SprintFunc()
+    fpColor := color.New(color.FgBlue, color.Bold).SprintFunc()
 
-	criticalColor := color.New(color.BgRed, color.FgWhite, color.Bold).SprintFunc()
-	highColor := color.New(color.FgRed, color.Bold).SprintFunc()
-	mediumColor := color.New(color.FgYellow, color.Bold).SprintFunc()
-	lowColor := color.New(color.FgGreen, color.Bold).SprintFunc()
-	fpColor := color.New(color.FgBlue, color.Bold).SprintFunc()
+    fmt.Printf("\n%s: %d\n", criticalColor(" CRITICAL "), criticalCount)
+    fmt.Printf("%s: %d\n", highColor(" HIGH "), highCount)
+    fmt.Printf("%s: %d\n", mediumColor(" MEDIUM "), mediumCount)
+    fmt.Printf("%s: %d\n", lowColor(" LOW "), lowCount)
+    fmt.Printf("%s: %d\n", fpColor(" FP REDUCED "), fpReduced)
 
-	fmt.Printf("\n%s: %d\n", criticalColor(" CRITICAL "), criticalCount)
-	fmt.Printf("%s: %d\n", highColor(" HIGH "), highCount)
-	fmt.Printf("%s: %d\n", mediumColor(" MEDIUM "), mediumCount)
-	fmt.Printf("%s: %d\n", lowColor(" LOW "), lowCount)
-	fmt.Printf("%s: %d\n", fpColor(" FP REDUCED "), fpReduced)
+    // full summary
+    totalVulns := criticalCount + highCount + mediumCount + lowCount
+    fmt.Printf("\n%s Total vulnerabilities: %d\n", green("📈"), totalVulns)
+    fmt.Printf("%s False positives reduced: %d\n", blue("✅"), fpReduced)
+    
+    // count efficiency
+    if totalVulns > 0 {
+        efficiency := float64(totalVulns) / float64(totalVulns+fpReduced) * 100
+        fmt.Printf("%s Scanner efficiency: %.1f%%\n", yellow("⚡"), efficiency)
+    }
 
-	// full summary
-	totalVulns := criticalCount + highCount + mediumCount + lowCount
-	fmt.Printf("\n%s Total vulnerabilities: %d\n", green("📈"), totalVulns)
-	fmt.Printf("%s False positives reduced: %d\n", blue("✅"), fpReduced)
-	
-	// count efficiency
-	if totalVulns > 0 {
-		efficiency := float64(totalVulns) / float64(totalVulns+fpReduced) * 100
-		fmt.Printf("%s Scanner efficiency: %.1f%%\n", yellow("⚡"), efficiency)
-	}
+    // recommendations 
+    fmt.Printf("\n%s RECOMMENDATIONS\n", green("💡"))
+    if criticalCount > 0 {
+        fmt.Printf("❌ %s Immediate action required for CRITICAL vulnerabilities\n", red("URGENT"))
+    }
+    if highCount > 0 {
+        fmt.Printf("⚠️  %s Prioritize fixing HIGH severity issues\n", yellow("High Priority"))
+    }
+    if mediumCount > 0 || lowCount > 0 {
+        fmt.Printf("📋 %s Review MEDIUM and LOW severity findings\n", blue("Schedule Review"))
+    }
+    if fpReduced > totalVulns {
+        fmt.Printf("🎯 %s Context analysis effectively reduced false positives\n", green("Good Performance"))
+    }
 
-	// recommendations 
-	fmt.Printf("\n%s RECOMMENDATIONS\n", green("💡"))
-	if criticalCount > 0 {
-		fmt.Printf("❌ %s Immediate action required for CRITICAL vulnerabilities\n", red("URGENT"))
-	}
-	if highCount > 0 {
-		fmt.Printf("⚠️  %s Prioritize fixing HIGH severity issues\n", yellow("High Priority"))
-	}
-	if mediumCount > 0 || lowCount > 0 {
-		fmt.Printf("📋 %s Review MEDIUM and LOW severity findings\n", blue("Schedule Review"))
-	}
-	if fpReduced > totalVulns {
-		fmt.Printf("🎯 %s Context analysis effectively reduced false positives\n", green("Good Performance"))
-	}
+    // timestamp
+    if enhancedReport, ok := report.(*EnhancedScanReport); ok {
+        fmt.Printf("\n%s Total execution time: %s\n", blue("⏱️"), enhancedReport.ExecutionTime)
+    } else if baseReport, ok := report.(*ScanReport); ok {
+        fmt.Printf("\n%s Total execution time: %s\n", blue("⏱️"), baseReport.ExecutionTime)
+    }
 
-	// timestamp
-	if enhancedReport, ok := report.(*EnhancedScanReport); ok {
-		fmt.Printf("\n%s Total execution time: %s\n", blue("⏱️"), enhancedReport.ExecutionTime)
-	} else if baseReport, ok := report.(*ScanReport); ok {
-		fmt.Printf("\n%s Total execution time: %s\n", blue("⏱️"), baseReport.ExecutionTime)
-	}
-
-	// filename for further analysis
-	fmt.Printf("\n%s Detailed report: %s\n", green("📄"), outputFilename)
-	fmt.Printf("%s %s\n", green("🎯"), green("Scan completed successfully!"))
-	fmt.Printf(outputFilename)
+    // filename for further analysis
+    fmt.Printf("\n%s Detailed report: %s\n", green("📄"), outputFilename)
+    fmt.Printf("%s %s\n", green("🎯"), green("Scan completed successfully!"))
+    fmt.Printf(outputFilename)
 }
-	
