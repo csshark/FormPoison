@@ -1,4 +1,4 @@
-#  <div align ="center">💉 FormPoison 💉</div><p><sub><sup><sub>Latest update: 27.10.2025, 17:15 (GMT+2)</sub></sup></sub></p>
+#  <div align ="center">💉 FormPoison 💉</div><p><sub><sup><sub>Latest update: 4.11.2025, 18:50 (GMT+2)</sub></sup></sub></p>
 
 
 
@@ -33,6 +33,7 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 |    flag    | function | type & value(s) | 
 | -------- | ------- | ------- | 
 | -h --help  | display help message | None |
+| --no-banner | disable banner loading animation | None | 
 | -t --threat | select threat type | String: Java, SQL, HTML | 
 | --filter | filter payloads by user-defined pattern | String, example: 'xss, script, DROP' |
 | --fieldname | specify a fieldname to target directly | String, example: Second Name | 
@@ -55,12 +56,13 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --ssl-verify | verify ssl certificate | bool: None |
 | --proxy | specify proxy for authentication | String, example: http://login:password@proxy.com:8080/ | 
 | --method | select request method to force web app confusion | String: GET, POST, PUT, DELETE |  
-| -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (int range but > 0) | 
+| -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (float range but > 0) | 
 | --interactive | interactive field injecting mode, user will be asked about every field | String | 
 | --scan | deep scan for .js code and overall web audit | None |
 | --max-urls | specify max urls to scan | int range | 
 | --max-depth | specify max scan depth | int range | 
 | --max-workers | specify number of workers for scanning | int range |
+| --auto-target | perform scan results-based injections | None | 
 | --waf-bypass | load CDN/WAF evasion payloads | None | 
 | --csp-bypass | load CSP bypass payloads | None | 
 | --sanitizer-bypass | load HTML sanitizer bypass payloads vs modern JS frameworks (and WordPress) | None | 
