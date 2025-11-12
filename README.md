@@ -58,6 +58,7 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --method | select request method to force web app confusion | String: GET, POST, PUT, DELETE |  
 | -s --seconds | delay between requests to aviod blacklisting | 0-2147483647 (float range but > 0) | 
 | --interactive | interactive field injecting mode, user will be asked about every field | String | 
+| -qs --check | quick input fields scan/check based on server's response | None | 
 | --scan | deep scan for .js code and overall web audit | None |
 | --max-urls | specify max urls to scan | int range | 
 | --max-depth | specify max scan depth | int range | 
