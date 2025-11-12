@@ -3122,6 +3122,7 @@ async def main():
     parser.add_argument("url", help="Form URL")
     parser.add_argument("--no-banner", action="store_true", help="Skip banner animation on startup")
     parser.add_argument("--interactive", action="store_true", help="Interactive mode - more control over injections.")
+    parser.add_argument("--check", "-qs", action="store_true",help="Quick scan mode - perform FormAtion analysis before testing")
     parser.add_argument("--scan", action="store_true", help="Perform a quick scan of the website")
     parser.add_argument("--max-urls", type=int, default=100, help="Maximum number of URLs to scan (default: 100)")
     parser.add_argument("--max-depth", type=int, default=3, help="Maximum depth of scanning (default: 3)")
@@ -3298,6 +3299,28 @@ async def main():
     }
 
     payloads = []
+    
+    if args.check:
+        
+        try:
+            formation_analyzer = FormAtionAnalyzer(args.url, args.user_agent, proxies)
+            await formation_analyzer.analyze_site()
+            
+            console.print("[green]✓ FormAtion analysis completed[/green]")
+            
+            # if pure --check end
+            only_check = not any([
+                args.scan, args.auto_target, args.interactive, 
+                args.fieldname, args.login, args.mXSS, args.filemode,
+                args.threat, args.brute
+            ])
+            
+            if only_check:
+                console.print("\n[bold yellow]Bye bye![/bold yellow]")
+                return
+                
+        except Exception as e:
+            console.print(f"[red]Error during FormAtion analysis: {e}[/red]")
 
     if args.scan:
         console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
