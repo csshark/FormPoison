@@ -16,8 +16,6 @@ import (
 	"sync"
 	"time"
 	"unicode"
-	"net/http"
-    "net/url"
     "flag"
 
 	"github.com/PuerkitoBio/goquery"
