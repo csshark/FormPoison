@@ -80,7 +80,7 @@ Please note that not all flags are compatible with each other (e.g., --login doe
 
 ## FormAtion module 
 FormAtion is quick form audior, it differs from scan mode in that it performs a quick analysis based on the server's response to a given query. It does not scan the code, nor does it delve into anything other than the input fields themselves. It only analyzes their connections and proposes a ready-made command for FormPoison to execute. Copy + Paste in CLI and now your injection is 20% more likely to be successful.
-## Interactive mode - take control under injections
+## Interactive mode - take control over injections
 The latest powerful feature is interactive mode where user can specify the exact point in input field where payload needs to be injected.
 If there is need to inject payloads in specific part of the input, framework is capable of interactive testing mode: <pre><code>python3 formpoison.py [URL] [optional flags] --interactive</code></pre></p> Please keep in mind that your inejection point needs to be specified with quotas like this: <code>'poison'</code> otherwise tool will use it as a static custom user input.
 <pre><code>Field 1: admin''poison'
