@@ -49,7 +49,7 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --concurrent | Max concurrent requests for --brute | int: 10-500 (default: 50) | 
 | --timeout | Request timeout in seconds for --brute | int: 3-60 (default: 15) | 
 | --batch-size | Requests per batch for --brute | int: 10-1000 (default: 100) | 
-| --batch-delay | Delay between batches in seconds for --brute | Delay between batches in seconds | int: 0-10 (default: 1) | 
+| --batch-delay | Delay between batches in seconds for --brute | int: 0-10 (default: 1) | 
 | --retries | Max retries on failure for --brute | int: 1-5 (default: 2) |
 | --ssl-cert | use ssl certificate file | String: /home/user/certs/cert.pem | 
 | --ssl-key | use ssl private key | String: /home/user/certs/key.pem |
