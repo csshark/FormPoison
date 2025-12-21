@@ -2851,6 +2851,8 @@ async def automated_targeted_testing(url, targeted_payloads, scan_report, cookie
     
     return results
 
+
+
 async def test_sql_injection_targeted(url, payloads, cookies, user_agents, content, proxies, ssl_cert, ssl_key, ssl_verify, brute_mode, max_concurrent, timeout):
     console.print("[yellow]🎯 Running targeted SQL injection tests[/yellow]")
     
