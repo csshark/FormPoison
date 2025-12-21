@@ -2575,32 +2575,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                             data[field_name] = user_value.replace("'poison'", "' OR 1=1 --")
                             payload_category = "SQL_INJECTED"
 
-                    else:
-                        # user defined input
-                        data[field_name] = user_value
-                        payload_category = "USER_DEFINED"
-                        
-                if verbose:
-                    timestamp = time.strftime("%H:%M:%S")
-                    current_payload = next((data[f] for f in poison_fields if f in data), "USER_CONFIG")
-                    console.print(f"[{timestamp}] [INFO] Testing payload {current_payload} -> ", end="")
-
-                # Proxy configuration
-                proxy_url = proxies.get('http') if proxies else None
-
-                if brute_mode:
-                    async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar,
-                        connector=connector,
-                        timeout=timeout_config
-                    ) as session:
-                        async with session.request(
-                            method, url, data=data, headers=headers,
-                            proxy=proxy_url, ssl=ssl_verify
-                        ) as response:
-                            content = await response.text()
-                            status_code = response.status
-                else:
 async def interactive_injection_mode(url, payloads, cookies, user_agents, method="POST",
                                    proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False,
                                    verbose=False, verbose_all=False, secs=0,
