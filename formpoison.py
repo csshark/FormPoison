@@ -2601,6 +2601,110 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                             content = await response.text()
                             status_code = response.status
                 else:
+async def interactive_injection_mode(url, payloads, cookies, user_agents, method="POST",
+                                   proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False,
+                                   verbose=False, verbose_all=False, secs=0,
+                                   brute_mode=False, max_concurrent=50, timeout=15.0,
+                                   batch_size=100, batch_delay=1.0, max_retries=2):
+
+
+    initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+    content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
+
+    if not content:
+        console.print("[bold red]Failed to fetch page content[/bold red]")
+        return []
+
+    input_fields = get_string_input_fields(content)
+
+    if not input_fields:
+        console.print("[bold yellow]No input fields found on the page[/bold yellow]")
+        return []
+
+    field_values, poison_fields = await get_user_input_for_fields(input_fields, url)
+
+    if field_values is None:
+        return []
+
+    if not poison_fields:
+        console.print("\n[bold yellow]⚠️ No fields marked for 'poison' - no payloads will be injected[/bold yellow]")
+        response = console.input("[yellow]Continue with basic testing? (y/N): [/yellow]")
+        if response.lower() not in ('y', 'yes'):
+            return []
+
+    results = []
+
+    if brute_mode:
+        ssl_context = ssl.create_default_context()
+        if ssl_cert and ssl_key:
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+        connector = aiohttp.TCPConnector(
+            limit=max_concurrent * 2,
+            limit_per_host=max_concurrent,
+            ssl=ssl_context
+        )
+        timeout_config = aiohttp.ClientTimeout(total=timeout)
+    else:
+        connector = None
+        timeout_config = None
+
+    cookie_jar = aiohttp.CookieJar()
+    for key, value in cookies.items():
+        cookie_jar.update_cookies({key: value})
+
+    semaphore = asyncio.Semaphore(max_concurrent if brute_mode else 1)
+
+    async def test_with_user_config(payload_index=None, total_payloads=None):
+        async with semaphore:
+            try:
+                current_user_agent = random.choice(user_agents) if user_agents else "FormPoison/v.1.0.1"
+                headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
+                data = {}
+
+                for field_name, user_value in field_values.items():
+                    if user_value is None:
+                        # ONLY payload 
+                        if payload_index is not None and payloads:
+                            payload = payloads[payload_index % len(payloads)]
+                            data[field_name] = payload['inputField']
+                            payload_category = payload['category']
+                        else:
+                            data[field_name] = "' OR 1=1 --"
+                            payload_category = "SQL"
+
+                    elif "'poison'" in user_value:
+                        # replace 'poison' with payload
+                        if payload_index is not None and payloads:
+                            payload = payloads[payload_index % len(payloads)]
+                            # tracking 'poison' 
+                            data[field_name] = user_value.replace("'poison'", payload['inputField'])
+                            payload_category = payload['category'] + "_INJECTED"
+                        else:
+                            data[field_name] = user_value.replace("'poison'", "' OR 1=1 --")
+                            payload_category = "SQL_INJECTED"
+
+                    else:
+                        # user defined input
+                        data[field_name] = user_value
+                        payload_category = "USER_DEFINED"
+
+                # Proxy configuration
+                proxy_url = proxies.get('http') if proxies else None
+
+                if brute_mode:
+                    async with aiohttp.ClientSession(
+                        cookie_jar=cookie_jar,
+                        connector=connector,
+                        timeout=timeout_config
+                    ) as session:
+                        async with session.request(
+                            method, url, data=data, headers=headers,
+                            proxy=proxy_url, ssl=ssl_verify
+                        ) as response:
+                            content = await response.text()
+                            status_code = response.status
+                else:
                     ssl_context = ssl.create_default_context()
                     if ssl_cert and ssl_key:
                         ssl_context.load_cert_chain(ssl_cert, ssl_key)
@@ -2618,12 +2722,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
                 current_payload = next((data[f] for f in poison_fields if f in data), "USER_CONFIG")
                 vulnerabilities = analyze_response(content, response.headers, payload_category, current_payload, verbose_all)
-                if verbose:
-                    injection_detected = any("CONFIRMED" in vuln for vuln in vulnerabilities)
-                    if injection_detected:
-                        console.print(f"[bold red]{status_code}[/bold red]")
-                    else:
-                        console.print(f"[green]{status_code}[/green]")
+                
                 result = {
                     "user_config": field_values,
                     "poison_fields": poison_fields,
@@ -2663,20 +2762,21 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
             all_payloads = list(range(len(payloads)))
             total_batches = (len(all_payloads) + batch_size - 1) // batch_size
 
-            with Progress(BarColumn(bar_width=None), "[progress.percentage]{task.percentage:>3.0f}%", TimeRemainingColumn(), console=console) as progress:
-                main_task = progress.add_task("[cyan]Testing payloads...", total=len(payloads))
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min(start_idx + batch_size, len(all_payloads))
+                batch_payload_indices = all_payloads[start_idx:end_idx]
 
-                for batch_num in range(total_batches):
-                    start_idx = batch_num * batch_size
-                    end_idx = min(start_idx + batch_size, len(all_payloads))
-                    batch_payload_indices = all_payloads[start_idx:end_idx]
-
-                    tasks = [test_with_user_config(payload_idx, len(payloads)) for payload_idx in batch_payload_indices]
-                    for future in asyncio.as_completed(tasks):
-                        result = await future
+                console.print(f"[dim]Batch {batch_num + 1}/{total_batches} ({len(batch_payload_indices)} requests)[/dim]")
+                
+                batch_tasks = [test_with_user_config(payload_idx, len(payloads)) for payload_idx in batch_payload_indices]
+                batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+                
+                for result in batch_results:
+                    if isinstance(result, dict):
                         results.append(result)
-
-                        # Update UI
+                        
+                        # Dodaj do tabeli
                         table.add_row(
                             ", ".join(poison_fields),
                             result["payload_used"][:100] + "..." if len(result["payload_used"]) > 100 else result["payload_used"],
@@ -2684,39 +2784,48 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                             str(result["response_code"]),
                             ", ".join(result["vulnerabilities"])
                         )
+                        
+                        # Prosty output jak wszędzie
+                        timestamp = time.strftime("%H:%M:%S")
+                        short_payload = result["payload_used"][:50] + "..." if len(result["payload_used"]) > 50 else result["payload_used"]
+                        injection_detected = any("CONFIRMED" in vuln for vuln in result["vulnerabilities"])
+                        
+                        if injection_detected:
+                            console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [bold red]{result['response_code']} 💀[/bold red]")
+                        else:
+                            console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [green]{result['response_code']}[/green]")
 
-                        progress.update(main_task, advance=1)
-
-                        if verbose or verbose_all:
-                            console.print(f"[bold blue]Tested with payload: {result['payload_used']}[/bold blue]")
-                            console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
-
-                    if batch_num < total_batches - 1 and batch_delay > 0:
-                        await asyncio.sleep(batch_delay)
+                if batch_num < total_batches - 1 and batch_delay > 0:
+                    await asyncio.sleep(batch_delay)
 
             if connector:
                 await connector.close()
 
         else:
-                for i in range(len(payloads)):
-                    result = await test_with_user_config(i, len(payloads))
-                    results.append(result)
+            for i in range(len(payloads)):
+                result = await test_with_user_config(i, len(payloads))
+                results.append(result)
 
-                    table.add_row(
-                        ", ".join(poison_fields),
-                        result["payload_used"][:100] + "..." if len(result["payload_used"]) > 100 else result["payload_used"],
-                        result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
-                        str(result["response_code"]),
-                        ", ".join(result["vulnerabilities"])
-                    )
+                table.add_row(
+                    ", ".join(poison_fields),
+                    result["payload_used"][:100] + "..." if len(result["payload_used"]) > 100 else result["payload_used"],
+                    result["user_agent"][:50] + "..." if len(result["user_agent"]) > 50 else result["user_agent"],
+                    str(result["response_code"]),
+                    ", ".join(result["vulnerabilities"])
+                )
+                
+                # Prosty output
+                timestamp = time.strftime("%H:%M:%S")
+                short_payload = result["payload_used"][:50] + "..." if len(result["payload_used"]) > 50 else result["payload_used"]
+                injection_detected = any("CONFIRMED" in vuln for vuln in result["vulnerabilities"])
+                
+                if injection_detected:
+                    console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [bold red]{result['response_code']} 💀[/bold red]")
+                else:
+                    console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [green]{result['response_code']}[/green]")
 
-
-                    if verbose or verbose_all:
-                        console.print(f"[bold blue]Tested with payload: {result['payload_used']}[/bold blue]")
-                        console.print(f"[bold blue]Response code: {result['response_code']}[/bold blue]")
-
-                    if secs > 0:
-                        await asyncio.sleep(secs)
+                if secs > 0:
+                    await asyncio.sleep(secs)
     else:
         # one attemp
         console.print("\n[bold yellow]🧪 Testing with user configuration (single request)[/bold yellow]")
@@ -2730,6 +2839,16 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
             str(result["response_code"]),
             ", ".join(result["vulnerabilities"])
         )
+        
+        # Prosty output
+        timestamp = time.strftime("%H:%M:%S")
+        short_payload = result["payload_used"][:50] + "..." if len(result["payload_used"]) > 50 else result["payload_used"]
+        injection_detected = any("CONFIRMED" in vuln for vuln in result["vulnerabilities"])
+        
+        if injection_detected:
+            console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [bold red]{result['response_code']} 💀[/bold red]")
+        else:
+            console.print(f"[{timestamp}] [INFO] Testing payload {short_payload} -> [green]{result['response_code']}[/green]")
 
     console.print(table)
 
