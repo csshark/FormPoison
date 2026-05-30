@@ -196,7 +196,14 @@ class FormAtionAnalyzer:
         # Security patterns for analysis
         self.security_patterns = self._load_security_patterns()
         self.technology_fingerprints = self._load_technology_fingerprints()
-        
+    
+    @staticmethod
+    def _escape_markup(text: str) -> str:
+        """Escape Rich markup characters in text."""
+        if not isinstance(text, str):
+            text = str(text)
+        return text.replace('[', '\\[')
+    
     def _load_security_patterns(self) -> Dict[str, List[str]]:
         """Load comprehensive security testing patterns."""
         return {
@@ -317,8 +324,8 @@ class FormAtionAnalyzer:
             task = progress.add_task("[cyan]Analyzing web forms...", total=None)
             
             console.print(Panel.fit(
-                f"🔍 [bold cyan]FormAtion {self.VERSION} - Advanced Web Form Analysis[/bold cyan]\n"
-                f"[dim]Target: {self.url}[/dim]\n"
+                f"[bold cyan]FormAtion {self.VERSION} - Advanced Web Form Analysis[/bold cyan]\n"
+                f"[dim]Target: {self._escape_markup(self.url)}[/dim]\n"
                 f"[dim]Using official FormPoison flags[/dim]",
                 border_style="cyan"
             ))
@@ -327,7 +334,7 @@ class FormAtionAnalyzer:
             progress.update(task, description="[cyan]Fetching page content...")
             self.page_content = await self._fetch_page()
             if not self.page_content:
-                console.print("[bold red]❌ Failed to fetch page content[/bold red]")
+                console.print("[bold red]Failed to fetch page content[/bold red]")
                 return self.results
             
             # Phase 2: Form analysis
@@ -388,14 +395,14 @@ class FormAtionAnalyzer:
             except asyncio.TimeoutError:
                 logger.warning(f"Timeout on attempt {attempt + 1}")
                 if attempt == max_retries - 1:
-                    console.print(f"[red]❌ Timeout fetching {self.url}[/red]")
+                    console.print(f"[red]Timeout fetching {self._escape_markup(self.url)}[/red]")
                     return None
                 await asyncio.sleep(2 ** attempt)
                 
             except Exception as e:
                 logger.error(f"Error: {e}")
                 if attempt == max_retries - 1:
-                    console.print(f"[red]❌ Error: {str(e)}[/red]")
+                    console.print(f"[red]Error: {self._escape_markup(str(e))}[/red]")
                     return None
                 await asyncio.sleep(2 ** attempt)
         
@@ -409,7 +416,7 @@ class FormAtionAnalyzer:
         soup = BeautifulSoup(self.page_content, 'html.parser')
         forms = soup.find_all('form')
         
-        console.print(f"\n[bold yellow]📋 Found {len(forms)} forms[/bold yellow]")
+        console.print(f"\n[bold yellow]Found {len(forms)} forms[/bold yellow]")
         
         for i, form in enumerate(forms):
             form_analysis = FormAnalysis(
@@ -712,7 +719,7 @@ class FormAtionAnalyzer:
         
         for header, config in security_headers.items():
             value = self.response_headers.get(header.lower())
-            status = "✅ Present" if value else "❌ Missing"
+            status = "Present" if value else "Missing"
             
             headers_analysis[header] = {
                 'value': value,
@@ -729,7 +736,7 @@ class FormAtionAnalyzer:
             
             headers_analysis['Cookie-Security'] = {
                 'value': 'Secure' if cookie_secure else 'Insecure',
-                'status': '✅ Secure' if cookie_secure else '⚠️ Insecure',
+                'status': 'Secure' if cookie_secure else 'Insecure',
                 'risk_level': 'high',
                 'description': 'Cookie security attributes',
                 'is_compliant': cookie_secure
@@ -840,7 +847,7 @@ class FormAtionAnalyzer:
             # GET method
             if 'get_method_used' in indicators:
                 recommendations.append(f"Form {form_id}: Uses GET method")
-                self._add_flag('--method', 'GET forms detected')
+                self._add_flag('--method GET', 'GET forms detected')
                 attack_vectors.add('Reflected XSS via GET')
             
             # SQL Injection potential
@@ -952,7 +959,7 @@ class FormAtionAnalyzer:
         sorted_flags = sorted(self.recommended_flags)
         command = f"python formpoison.py {self.url} {' '.join(sorted_flags)}"
         
-        recommendations.append(f"\n[bold]Recommended FormPoison command:[/bold]")
+        recommendations.append(f"[bold]Recommended FormPoison command:[/bold]")
         recommendations.append(f"[cyan]{command}[/cyan]")
         
         self.results['recommendations'] = recommendations
@@ -973,7 +980,7 @@ class FormAtionAnalyzer:
         
         missing_critical = sum(
             1 for info in self.results.get('security_headers', {}).values()
-            if info.get('status') == '❌ Missing' and info.get('risk_level') == 'high'
+            if info.get('status') == 'Missing' and info.get('risk_level') == 'high'
         )
         risk_score += missing_critical * 8
         risk_score = min(risk_score, 100)
@@ -1006,22 +1013,25 @@ class FormAtionAnalyzer:
         
         # Executive Summary
         risk = self.results.get('risk_assessment', {})
+        risk_color = risk.get('color', 'white')
+        risk_level = risk.get('risk_level', 'UNKNOWN')
+        
         console.print(Panel.fit(
             f"[bold]EXECUTIVE SUMMARY[/bold]\n\n"
-            f"Target: {self.results['url']}\n"
-            f"Risk Level: [bold {risk.get('color', 'white')}]{risk.get('risk_level', 'UNKNOWN')}[/bold]\n"
+            f"Target: {self._escape_markup(self.results['url'])}\n"
+            f"Risk Level: [bold {risk_color}]{risk_level}[/bold {risk_color}]\n"
             f"Risk Score: {risk.get('risk_score', 0)}/100\n"
             f"Forms: {risk.get('total_forms', 0)} "
             f"(Critical: {risk.get('critical_forms', 0)}, "
             f"High: {risk.get('high_risk_forms', 0)})\n"
             f"Attack Vectors: {risk.get('attack_vectors_count', 0)}",
-            title="📊 FormAtion Analysis",
-            border_style=risk.get('color', 'white')
+            title="FormAtion Analysis",
+            border_style=risk_color
         ))
         
         # Forms Analysis
         if self.results['forms_analysis']:
-            console.print("\n[bold cyan]📋 FORM ANALYSIS[/bold cyan]")
+            console.print("\n[bold cyan]FORM ANALYSIS[/bold cyan]")
             
             for form in self.results['forms_analysis']:
                 form_id = form.get('form_id', 0)
@@ -1050,17 +1060,21 @@ class FormAtionAnalyzer:
                 for field in form.get('text_input_fields', []):
                     risks = ', '.join(field.get('portswigger_risks', [])[:3])
                     form_table.add_row(
-                        field.get('name', 'N/A'),
-                        field.get('field_type', 'text'),
-                        field.get('field_category', 'other'),
-                        risks if risks else 'None'
+                        self._escape_markup(field.get('name', 'N/A')),
+                        self._escape_markup(field.get('field_type', 'text')),
+                        self._escape_markup(field.get('field_category', 'other')),
+                        self._escape_markup(risks) if risks else 'None'
                     )
                 
                 console.print(form_table)
+                
+                if form.get('portswigger_vectors'):
+                    safe_vectors = self._escape_markup(', '.join(form['portswigger_vectors'][:5]))
+                    console.print(f"[bold cyan]Attack Vectors:[/bold cyan] {safe_vectors}")
         
         # Security Headers
         if self.results.get('security_headers'):
-            console.print("\n[bold cyan]🛡️ SECURITY HEADERS[/bold cyan]")
+            console.print("\n[bold cyan]SECURITY HEADERS[/bold cyan]")
             
             headers_table = Table(
                 title="Security Headers",
@@ -1073,10 +1087,13 @@ class FormAtionAnalyzer:
             headers_table.add_column("Risk", style="red")
             
             for header, info in self.results['security_headers'].items():
-                status_style = 'green' if info.get('is_compliant') else 'red'
+                is_compliant = info.get('is_compliant', False)
+                status_style = 'green' if is_compliant else 'red'
+                status_text = info.get('status', 'Unknown')
+                
                 headers_table.add_row(
-                    header,
-                    f"[{status_style}]{info['status']}[/{status_style}]",
+                    self._escape_markup(header),
+                    f"[{status_style}]{self._escape_markup(status_text)}[/{status_style}]",
                     info.get('risk_level', 'unknown').upper()
                 )
             
@@ -1084,45 +1101,47 @@ class FormAtionAnalyzer:
         
         # Technology Stack
         if self.results.get('technology_stack'):
-            console.print("\n[bold cyan]🔧 TECHNOLOGY STACK[/bold cyan]")
+            console.print("\n[bold cyan]TECHNOLOGY STACK[/bold cyan]")
             
             tech_tree = Tree("Detected Technologies")
             for category, technologies in self.results['technology_stack'].items():
                 if technologies:
-                    category_node = tech_tree.add(f"[bold]{category.replace('_', ' ').title()}[/bold]")
+                    category_node = tech_tree.add(f"[bold]{self._escape_markup(category.replace('_', ' ').title())}[/bold]")
                     for tech in technologies:
-                        category_node.add(f"[green]{tech}[/green]")
+                        category_node.add(f"[green]{self._escape_markup(tech)}[/green]")
             
             console.print(tech_tree)
         
         # FormPoison Command
         if self.results.get('formpoison_command'):
             console.print(Panel.fit(
-                f"🎯 [bold cyan]Recommended FormPoison Command[/bold cyan]\n\n"
-                f"[white]{self.results['formpoison_command']}[/white]\n\n"
-                f"[dim]Flags: {', '.join(self.results.get('formpoison_flags', []))}[/dim]",
+                f"[bold cyan]Recommended FormPoison Command[/bold cyan]\n\n"
+                f"[white]{self._escape_markup(self.results['formpoison_command'])}[/white]\n\n"
+                f"[dim]Flags: {self._escape_markup(', '.join(self.results.get('formpoison_flags', [])))}[/dim]",
                 border_style="cyan",
                 title="Execute"
             ))
         
         # Flag explanations
         if self.flag_reasons:
-            console.print("\n[bold yellow]📝 FLAG RECOMMENDATIONS:[/bold yellow]")
+            console.print("\n[bold yellow]FLAG RECOMMENDATIONS:[/bold yellow]")
             for flag, reason in self.flag_reasons.items():
-                console.print(f"  • [cyan]{flag}[/cyan]: {reason}")
+                console.print(f"  [cyan]{self._escape_markup(flag)}[/cyan]: {self._escape_markup(reason)}")
         
         # Attack Vectors
         if self.results.get('attack_vectors'):
-            console.print("\n[bold red]⚡ ATTACK VECTORS:[/bold red]")
+            console.print("\n[bold red]ATTACK VECTORS:[/bold red]")
             for vector in self.results['attack_vectors']:
-                console.print(f"  • [yellow]{vector}[/yellow]")
+                console.print(f"  [yellow]{self._escape_markup(vector)}[/yellow]")
         
         # Recommendations
         if self.results.get('recommendations'):
-            console.print("\n[bold green]💡 RECOMMENDATIONS:[/bold green]")
+            console.print("\n[bold green]RECOMMENDATIONS:[/bold green]")
             for rec in self.results['recommendations']:
                 if not rec.startswith('[bold]'):
-                    console.print(f"  • {rec}")
+                    console.print(f"  {self._escape_markup(rec)}")
+                else:
+                    console.print(f"  {rec}")
 
 async def main():
     """Main entry point."""
@@ -1148,28 +1167,35 @@ async def main():
         border_style="cyan"
     ))
     
-    async with FormAtionAnalyzer(
+    analyzer = FormAtionAnalyzer(
         url=args.url,
         user_agent=args.user_agent,
         proxies=args.proxy,
         timeout=args.timeout,
         max_redirects=args.max_redirects,
         verify_ssl=not args.no_ssl_verify
-    ) as analyzer:
-        try:
+    )
+    
+    try:
+        async with analyzer:
             results = await analyzer.analyze_site()
-        except Exception as e:
-            console.print(f"[bold red]Error: {str(e)}[/bold red]")
-            logger.exception("Analysis failed")
-            return
+    except Exception as e:
+        error_msg = str(e).replace('[', '\\[')
+        console.print(f"[bold red]Error during FormAtion analysis:[/bold red] [red]{error_msg}[/red]")
+        logger.exception("Analysis failed")
+        return
+    finally:
+        if analyzer.session and not analyzer.session.closed:
+            await analyzer.session.close()
     
     if args.output:
         try:
             with open(args.output, 'w') as f:
                 json.dump(results, f, indent=2, default=str)
-            console.print(f"\n[bold green]✅ Results saved to: {args.output}[/bold green]")
+            console.print(f"\n[bold green]Results saved to: {args.output}[/bold green]")
         except Exception as e:
-            console.print(f"[bold red]Error saving: {str(e)}[/bold red]")
+            error_msg = str(e).replace('[', '\\[')
+            console.print(f"[bold red]Error saving results:[/bold red] [red]{error_msg}[/red]")
 
 if __name__ == "__main__":
     asyncio.run(main())
