@@ -27,6 +27,7 @@ from rich.syntax import Syntax
 from rich.layout import Layout
 from rich.tree import Tree
 import logging
+import copy
 
 # Configure logging
 logging.basicConfig(
@@ -66,11 +67,11 @@ class VulnerabilityType(Enum):
 
 @dataclass
 class FieldAnalysis:
-    element_type: str
-    field_type: str
-    name: str
-    id: str
-    value: str
+    element_type: str = ""
+    field_type: str = ""
+    name: str = ""
+    id: str = ""
+    value: str = ""
     attributes: Dict[str, str] = field(default_factory=dict)
     suspicious_patterns: List[str] = field(default_factory=list)
     field_category: str = 'other'
@@ -85,10 +86,10 @@ class FieldAnalysis:
 
 @dataclass
 class FormAnalysis:
-    form_id: int
-    action: str
-    method: str
-    enctype: str
+    form_id: int = 0
+    action: str = ""
+    method: str = ""
+    enctype: str = ""
     all_fields: List[FieldAnalysis] = field(default_factory=list)
     text_input_fields: List[FieldAnalysis] = field(default_factory=list)
     non_text_fields: List[FieldAnalysis] = field(default_factory=list)
@@ -111,19 +112,6 @@ class FormAnalysis:
             'portswigger_vectors': self.portswigger_vectors,
             'html_source': self.html_source
         }
-
-@dataclass
-class SecurityHeaderAnalysis:
-    header_name: str
-    value: Optional[str]
-    status: str
-    risk_level: ThreatLevel
-    description: str
-    recommendation: str
-    compliance_standard: str
-    
-    def to_dict(self) -> Dict:
-        return asdict(self)
 
 @dataclass
 class TechnologyInfo:
@@ -371,7 +359,7 @@ class FormAtionAnalyzer:
                     self.results['response_size'] = response.headers.get('Content-Length', 'Unknown')
                     self.results['final_url'] = str(response.url)
                     
-                    # Store all headers
+                    # Store all headers (convert to lowercase keys)
                     self.response_headers = {k.lower(): v for k, v in response.headers.items()}
                     
                     # Check for redirects
@@ -414,16 +402,12 @@ class FormAtionAnalyzer:
         
         soup = BeautifulSoup(self.page_content, 'html.parser')
         
-        # Find all forms including dynamically created ones
+        # Find all forms
         forms = soup.find_all('form')
-        # Also check for form-like structures
-        form_like = soup.find_all(['div', 'section'], class_=re.compile(r'form|login|signup|contact|search'))
         
-        all_forms = list(forms) + [f for f in form_like if f not in forms]
+        console.print(f"\n[bold yellow]📋 Found {len(forms)} forms[/bold yellow]")
         
-        console.print(f"\n[bold yellow]📋 Found {len(all_forms)} forms/form-like structures[/bold yellow]")
-        
-        for i, form in enumerate(all_forms):
+        for i, form in enumerate(forms):
             form_analysis = FormAnalysis(
                 form_id=i + 1,
                 action=form.get('action', ''),
@@ -541,8 +525,7 @@ class FormAtionAnalyzer:
             'date': ['date', 'time', 'year', 'month', 'day', 'dob', 'birthday'],
             'url': ['url', 'link', 'website', 'href', 'redirect', 'callback'],
             'api': ['api_key', 'apikey', 'token', 'auth', 'bearer', 'jwt', 'access'],
-            'database': ['id', 'uid', 'pid', 'item_id', 'record_id', 'object_id'],
-            'other': []
+            'database': ['id', 'uid', 'pid', 'item_id', 'record_id', 'object_id']
         }
         
         # Check by priority
@@ -614,7 +597,7 @@ class FormAtionAnalyzer:
             field_analysis.suspicious_patterns.append('missing_name_attribute')
         
         # Large maxlength
-        if 'maxlength' in attrs and int(attrs['maxlength']) > 5000:
+        if 'maxlength' in attrs and attrs['maxlength'].isdigit() and int(attrs['maxlength']) > 5000:
             field_analysis.suspicious_patterns.append('excessive_maxlength')
         
         # Disabled fields
@@ -840,6 +823,9 @@ class FormAtionAnalyzer:
         if any(f.field_category == 'payment' for f in form_analysis.all_fields):
             if any(f.field_category == 'choice' for f in form_analysis.all_fields):
                 form_analysis.portswigger_vectors.append('business_logic_price_manipulation')
+        
+        # Remove duplicates
+        form_analysis.portswigger_vectors = list(set(form_analysis.portswigger_vectors))
     
     def _analyze_form_behavior(self, form_analysis: FormAnalysis) -> None:
         """Analyze form behavior and event handlers."""
@@ -866,63 +852,65 @@ class FormAtionAnalyzer:
     
     async def _analyze_security_headers_comprehensive(self) -> None:
         """Comprehensive security headers analysis."""
+        # FIX: Work with a copy of security headers to avoid modification during iteration
         security_headers_config = {
             'Content-Security-Policy': {
-                'risk_level': ThreatLevel.HIGH,
+                'risk_level': 'high',
                 'description': 'Content Security Policy',
                 'compliance': ['PCI DSS', 'HIPAA', 'GDPR'],
                 'recommendation': 'Implement strict CSP to prevent XSS attacks'
             },
             'X-Frame-Options': {
-                'risk_level': ThreatLevel.MEDIUM,
+                'risk_level': 'medium',
                 'description': 'Clickjacking Protection',
                 'compliance': ['OWASP Top 10'],
                 'recommendation': 'Set to DENY or SAMEORIGIN'
             },
             'Strict-Transport-Security': {
-                'risk_level': ThreatLevel.HIGH,
+                'risk_level': 'high',
                 'description': 'HSTS Enforcement',
                 'compliance': ['PCI DSS', 'HIPAA'],
                 'recommendation': 'Enable HSTS with max-age >= 31536000'
             },
             'X-Content-Type-Options': {
-                'risk_level': ThreatLevel.LOW,
+                'risk_level': 'low',
                 'description': 'MIME Type Sniffing Protection',
                 'compliance': ['OWASP Top 10'],
                 'recommendation': 'Set to nosniff'
             },
             'X-XSS-Protection': {
-                'risk_level': ThreatLevel.MEDIUM,
+                'risk_level': 'medium',
                 'description': 'XSS Filter',
                 'compliance': ['OWASP Top 10'],
                 'recommendation': 'Set to 1; mode=block'
             },
             'Referrer-Policy': {
-                'risk_level': ThreatLevel.LOW,
+                'risk_level': 'low',
                 'description': 'Referrer Information Control',
                 'compliance': ['GDPR'],
                 'recommendation': 'Set to strict-origin-when-cross-origin'
             },
             'Permissions-Policy': {
-                'risk_level': ThreatLevel.MEDIUM,
+                'risk_level': 'medium',
                 'description': 'Feature Policy',
                 'compliance': ['OWASP Top 10'],
                 'recommendation': 'Restrict unnecessary browser features'
             },
             'Cross-Origin-Resource-Policy': {
-                'risk_level': ThreatLevel.HIGH,
+                'risk_level': 'high',
                 'description': 'Cross-Origin Resource Sharing',
                 'compliance': ['OWASP Top 10'],
                 'recommendation': 'Set to same-origin or same-site'
             },
             'Cache-Control': {
-                'risk_level': ThreatLevel.MEDIUM,
+                'risk_level': 'medium',
                 'description': 'Cache Control',
                 'compliance': ['PCI DSS'],
                 'recommendation': 'Set to no-store for sensitive pages'
             }
         }
         
+        # Create a new dictionary to avoid modifying during iteration
         headers_analysis = {}
         
         for header, config in security_headers_config.items():
@@ -932,29 +920,36 @@ class FormAtionAnalyzer:
             headers_analysis[header] = {
                 'value': value,
                 'status': status,
-                'risk_level': config['risk_level'].value,
+                'risk_level': config['risk_level'],
                 'description': config['description'],
                 'compliance': config['compliance'],
                 'recommendation': config['recommendation'],
                 'is_compliant': value is not None
             }
         
-        # Additional header analysis
+        # Additional header analysis - add after main loop
         if 'set-cookie' in self.response_headers:
             cookies = self.response_headers['set-cookie']
+            cookie_secure = 'secure' in cookies.lower()
+            cookie_httponly = 'httponly' in cookies.lower()
+            cookie_samesite = 'samesite' in cookies.lower()
+            
             cookie_security = {
-                'httponly': 'httponly' in cookies.lower(),
-                'secure': 'secure' in cookies.lower(),
-                'samesite': 'samesite' in cookies.lower()
+                'secure': cookie_secure,
+                'httponly': cookie_httponly,
+                'samesite': cookie_samesite
             }
+            
+            all_secure = all(cookie_security.values())
+            
             headers_analysis['Cookie-Security'] = {
                 'value': str(cookie_security),
-                'status': '⚠️ Partial' if not all(cookie_security.values()) else '✅ Secure',
+                'status': '⚠️ Partial' if not all_secure else '✅ Secure',
                 'risk_level': 'high',
                 'description': 'Cookie Security Attributes',
                 'compliance': ['PCI DSS', 'GDPR'],
                 'recommendation': 'Set HttpOnly, Secure, and SameSite=Strict',
-                'is_compliant': all(cookie_security.values())
+                'is_compliant': all_secure
             }
         
         self.results['security_headers'] = headers_analysis
@@ -965,6 +960,8 @@ class FormAtionAnalyzer:
             return
         
         soup = BeautifulSoup(self.page_content, 'html.parser')
+        
+        # Initialize tech stack with empty lists
         tech_stack = {
             'frontend_frameworks': [],
             'backend_frameworks': [],
@@ -994,18 +991,14 @@ class FormAtionAnalyzer:
                         if version_match:
                             version = version_match.group(1)
                     
-                    tech_info = TechnologyInfo(
-                        name=framework,
-                        version=version,
-                        confidence='High',
-                        category=fingerprint['category'],
-                        evidence=f'Detected in script src/content'
-                    )
+                    tech_name = f"{framework} {version or ''}".strip()
                     
                     if fingerprint['category'] == 'frontend':
-                        tech_stack['frontend_frameworks'].append(f"{framework} {version or ''}".strip())
+                        if tech_name not in tech_stack['frontend_frameworks']:
+                            tech_stack['frontend_frameworks'].append(tech_name)
                     else:
-                        tech_stack['backend_frameworks'].append(f"{framework} {version or ''}".strip())
+                        if tech_name not in tech_stack['backend_frameworks']:
+                            tech_stack['backend_frameworks'].append(tech_name)
         
         # Meta tag analysis
         for meta in soup.find_all('meta'):
@@ -1017,7 +1010,9 @@ class FormAtionAnalyzer:
                 if 'generator' in name and cms.lower() in content:
                     version_match = re.search(fingerprint['version_regex'], content)
                     version = version_match.group(1) if version_match else None
-                    tech_stack['cms'].append(f"{cms} {version or ''}".strip())
+                    tech_name = f"{cms} {version or ''}".strip()
+                    if tech_name not in tech_stack['cms']:
+                        tech_stack['cms'].append(tech_name)
         
         # URL path analysis
         url_path = self.parsed_url.path.lower()
@@ -1031,7 +1026,7 @@ class FormAtionAnalyzer:
         
         for cms, patterns in path_patterns.items():
             if any(pattern in url_path for pattern in patterns):
-                if not any(cms in t for t in tech_stack['cms']):
+                if cms not in tech_stack['cms']:
                     tech_stack['cms'].append(cms)
         
         # Server header analysis
@@ -1055,13 +1050,19 @@ class FormAtionAnalyzer:
         
         for indicator, language in language_indicators.items():
             if indicator in server or indicator in powered_by:
-                tech_stack['programming_languages'].append(language)
+                if language not in tech_stack['programming_languages']:
+                    tech_stack['programming_languages'].append(language)
         
-        # Clean up and deduplicate
-        for category in tech_stack:
-            tech_stack[category] = list(set(tech_stack[category]))
+        # Clean up - remove empty categories
+        # FIX: Create a list of categories to remove instead of modifying during iteration
+        categories_to_remove = []
+        for category, items in tech_stack.items():
+            tech_stack[category] = list(set(items))
             if not tech_stack[category]:
-                del tech_stack[category]
+                categories_to_remove.append(category)
+        
+        for category in categories_to_remove:
+            del tech_stack[category]
         
         self.results['technology_stack'] = tech_stack
     
@@ -1082,7 +1083,7 @@ class FormAtionAnalyzer:
     
     async def _check_cors_configuration(self) -> None:
         """Check CORS configuration."""
-        cors_headers = [
+        cors_headers_list = [
             'access-control-allow-origin',
             'access-control-allow-methods',
             'access-control-allow-headers',
@@ -1092,7 +1093,7 @@ class FormAtionAnalyzer:
         ]
         
         cors_config = {}
-        for header in cors_headers:
+        for header in cors_headers_list:
             value = self.response_headers.get(header)
             if value:
                 cors_config[header] = value
@@ -1102,10 +1103,12 @@ class FormAtionAnalyzer:
             if 'access-control-allow-origin' in cors_config:
                 if cors_config['access-control-allow-origin'] == '*':
                     is_weak = True
-                    self.results['attack_vectors'].append('CORS_Wildcard_Misconfiguration')
+                    if 'CORS_Wildcard_Misconfiguration' not in self.results['attack_vectors']:
+                        self.results['attack_vectors'].append('CORS_Wildcard_Misconfiguration')
                 elif cors_config.get('access-control-allow-credentials') == 'true':
                     is_weak = True
-                    self.results['attack_vectors'].append('CORS_Credentials_With_Reflected_Origin')
+                    if 'CORS_Credentials_With_Reflected_Origin' not in self.results['attack_vectors']:
+                        self.results['attack_vectors'].append('CORS_Credentials_With_Reflected_Origin')
             
             self.results['cors_configuration'] = {
                 'headers': cors_config,
@@ -1196,7 +1199,8 @@ class FormAtionAnalyzer:
                 'test_payloads': redirect_payloads[:3],
                 'risk': 'Open Redirect Potential'
             }
-            self.results['attack_vectors'].append('Open_Redirect')
+            if 'Open_Redirect' not in self.results['attack_vectors']:
+                self.results['attack_vectors'].append('Open_Redirect')
     
     def _generate_recommendations_enhanced(self) -> None:
         """Generate enhanced recommendations based on all findings."""
@@ -1204,51 +1208,55 @@ class FormAtionAnalyzer:
         formpoison_flags = []
         attack_vectors = set()
         
+        # Process forms analysis
         for form in self.results['forms_analysis']:
-            form_id = form['form_id']
+            form_id = form.get('form_id', 0)
+            complexity_score = form.get('complexity_score', 0)
             
             # Complexity-based recommendations
-            if form['complexity_score'] >= 10:
-                recommendations.append(f"[CRITICAL] Form {form_id}: Extremely high vulnerability potential (Score: {form['complexity_score']})")
-            elif form['complexity_score'] >= 7:
-                recommendations.append(f"[HIGH] Form {form_id}: High vulnerability potential (Score: {form['complexity_score']})")
+            if complexity_score >= 10:
+                recommendations.append(f"[CRITICAL] Form {form_id}: Extremely high vulnerability potential (Score: {complexity_score})")
+            elif complexity_score >= 7:
+                recommendations.append(f"[HIGH] Form {form_id}: High vulnerability potential (Score: {complexity_score})")
             
             # Authentication forms
-            if 'login_form_detected' in form['vulnerability_indicators']:
+            if 'login_form_detected' in form.get('vulnerability_indicators', []):
                 recommendations.append(f"Form {form_id}: Test authentication bypass techniques")
                 formpoison_flags.extend(['--login', '--auth-bypass'])
                 attack_vectors.add('Authentication Bypass')
                 
-                if 'possible_no_rate_limiting' in form['vulnerability_indicators']:
+                if 'possible_no_rate_limiting' in form.get('vulnerability_indicators', []):
                     recommendations.append(f"Form {form_id}: Possible lack of rate limiting - test credential stuffing")
                     formpoison_flags.append('--brute-force')
                     attack_vectors.add('Brute Force')
             
             # File upload forms
-            if 'file_upload_detected' in form['vulnerability_indicators']:
+            if 'file_upload_detected' in form.get('vulnerability_indicators', []):
                 recommendations.append(f"Form {form_id}: Test file upload vulnerabilities")
                 formpoison_flags.extend(['--filemode', '--upload-test'])
                 attack_vectors.add('File Upload Attack')
                 
-                if 'no_file_type_restriction' in form['vulnerability_indicators']:
+                if 'no_file_type_restriction' in form.get('vulnerability_indicators', []):
                     recommendations.append(f"Form {form_id}: No file type restrictions - test malicious upload")
                     formpoison_flags.append('--unrestricted-upload')
             
             # XSS vectors
-            xss_vectors = [v for v in form['portswigger_vectors'] if 'xss' in v.lower()]
+            portswigger_vectors = form.get('portswigger_vectors', [])
+            xss_vectors = [v for v in portswigger_vectors if 'xss' in v.lower()]
             if xss_vectors:
                 recommendations.append(f"Form {form_id}: XSS vectors detected ({', '.join(xss_vectors)})")
                 formpoison_flags.extend(['--xss', '--xss-all'])
                 attack_vectors.add('Cross-Site Scripting (XSS)')
             
             # SQL Injection
-            if any('sql_injection' in field.get('portswigger_risks', []) for field in form.get('text_input_fields', [])):
+            text_fields = form.get('text_input_fields', [])
+            if any('sql_injection' in field.get('portswigger_risks', []) for field in text_fields):
                 recommendations.append(f"Form {form_id}: SQL Injection potential detected")
                 formpoison_flags.extend(['-t SQL', '--sqli-blinds'])
                 attack_vectors.add('SQL Injection')
         
         # Technology-specific recommendations
-        tech = self.results['technology_stack']
+        tech = self.results.get('technology_stack', {})
         
         if 'frontend_frameworks' in tech:
             frontend = tech['frontend_frameworks']
@@ -1410,8 +1418,8 @@ class FormAtionAnalyzer:
     def _create_risk_assessment(self) -> None:
         """Create overall risk assessment."""
         total_forms = len(self.results['forms_analysis'])
-        high_risk_forms = sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 7)
-        critical_forms = sum(1 for f in self.results['forms_analysis'] if f['complexity_score'] >= 10)
+        high_risk_forms = sum(1 for f in self.results['forms_analysis'] if f.get('complexity_score', 0) >= 7)
+        critical_forms = sum(1 for f in self.results['forms_analysis'] if f.get('complexity_score', 0) >= 10)
         
         # Calculate risk score (0-100)
         risk_score = 0
@@ -1432,7 +1440,7 @@ class FormAtionAnalyzer:
             color = 'red'
         elif risk_score >= 50:
             risk_level = 'HIGH'
-            color = 'orange'
+            color = 'orange1'
         elif risk_score >= 25:
             risk_level = 'MEDIUM'
             color = 'yellow'
@@ -1457,9 +1465,9 @@ class FormAtionAnalyzer:
         
         # Forms remediation
         for form in self.results['forms_analysis']:
-            form_id = form['form_id']
+            form_id = form.get('form_id', 0)
             
-            if form['method'] == 'GET' and form.get('text_input_fields'):
+            if form.get('method') == 'GET' and form.get('text_input_fields'):
                 remediation.append({
                     'priority': 'HIGH',
                     'form_id': form_id,
@@ -1469,7 +1477,7 @@ class FormAtionAnalyzer:
                 })
             
             has_csrf = any('csrf' in f.get('name', '').lower() for f in form.get('all_fields', []))
-            if not has_csrf and form['method'] != 'GET':
+            if not has_csrf and form.get('method') != 'GET':
                 remediation.append({
                     'priority': 'HIGH',
                     'form_id': form_id,
@@ -1512,8 +1520,8 @@ class FormAtionAnalyzer:
             console.print("\n[bold cyan]📋 FORM ANALYSIS[/bold cyan]")
             
             for form in self.results['forms_analysis']:
-                form_id = form['form_id']
-                score = form['complexity_score']
+                form_id = form.get('form_id', 0)
+                score = form.get('complexity_score', 0)
                 
                 # Risk color
                 if score >= 10:
@@ -1555,7 +1563,7 @@ class FormAtionAnalyzer:
                     console.print(f"[bold cyan]Attack Vectors:[/bold cyan] {', '.join(form['portswigger_vectors'][:5])}")
         
         # Security Headers
-        if self.results['security_headers']:
+        if self.results.get('security_headers'):
             console.print("\n[bold cyan]🛡️ SECURITY HEADERS[/bold cyan]")
             
             headers_table = Table(
@@ -1579,7 +1587,7 @@ class FormAtionAnalyzer:
             console.print(headers_table)
         
         # Technology Stack
-        if self.results['technology_stack']:
+        if self.results.get('technology_stack'):
             console.print("\n[bold cyan]🔧 TECHNOLOGY STACK[/bold cyan]")
             
             tech_tree = Tree("Detected Technologies")
@@ -1592,7 +1600,7 @@ class FormAtionAnalyzer:
             console.print(tech_tree)
         
         # Recommendations and Command
-        if self.results['formpoison_flags']:
+        if self.results.get('formpoison_flags'):
             command = f"python formpoison.py {self.url} {' '.join(self.results['formpoison_flags'])}"
             console.print(Panel.fit(
                 f"🎯 [bold cyan]Recommended FormPoison Command[/bold cyan]\n\n"
@@ -1602,7 +1610,7 @@ class FormAtionAnalyzer:
             ))
         
         # Attack Vectors
-        if self.results['attack_vectors']:
+        if self.results.get('attack_vectors'):
             console.print("\n[bold red]⚡ IDENTIFIED ATTACK VECTORS[/bold red]")
             for vector in self.results['attack_vectors']:
                 console.print(f"  • [yellow]{vector}[/yellow]")
@@ -1613,7 +1621,7 @@ class FormAtionAnalyzer:
             console.print("\n[bold green]📜 COMPLIANCE STATUS[/bold green]")
             
             for standard, report in compliance.items():
-                status = "[green]✅ Compliant[/green]" if report['compliant'] else "[red]❌ Non-Compliant[/red]"
+                status = "[green]✅ Compliant[/green]" if report.get('compliant') else "[red]❌ Non-Compliant[/red]"
                 console.print(f"  {standard.upper()}: {status}")
 
 async def main():
@@ -1656,13 +1664,21 @@ Examples:
         max_redirects=args.max_redirects,
         verify_ssl=not args.no_ssl_verify
     ) as analyzer:
-        results = await analyzer.analyze_site()
+        try:
+            results = await analyzer.analyze_site()
+        except Exception as e:
+            console.print(f"[bold red]Error during FormAtion analysis: {str(e)}[/bold red]")
+            logger.exception("Analysis failed")
+            return
     
     # Save results if requested
     if args.output:
-        with open(args.output, 'w') as f:
-            json.dump(results, f, indent=2, default=str)
-        console.print(f"\n[bold green]✅ Results saved to: {args.output}[/bold green]")
+        try:
+            with open(args.output, 'w') as f:
+                json.dump(results, f, indent=2, default=str)
+            console.print(f"\n[bold green]✅ Results saved to: {args.output}[/bold green]")
+        except Exception as e:
+            console.print(f"[bold red]Error saving results: {str(e)}[/bold red]")
 
 if __name__ == "__main__":
     asyncio.run(main())
