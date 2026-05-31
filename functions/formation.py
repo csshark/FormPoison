@@ -2,7 +2,8 @@
 """
 FormAtion - Advanced Web Form Analysis Module for FormPoison
 PortSwigger Research-Based Web Application Security Analyzer
-Uses official FormPoison flags only
+Uses official FormPoison flags only 
+Scan command recommendation is not a bug - just launch it :) 
 """
 
 import asyncio
