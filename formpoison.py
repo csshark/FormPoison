@@ -1409,8 +1409,20 @@ def analyze_mutation_xss_response(content, payload):
             vulnerabilities.append(f"MUTATED_{elem.name.upper()}")
     
     return vulnerabilities
+def show_interactive_banner():
+    banner = """
+⠒⠤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠈⠑⠲⣖⠤⣤⣠⡤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀Interactive Form Injector ⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠉⢺⣿⡸⣷⠭⣟⣶⡤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀FormPoison module 
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠓⠾⣟⣯⠦⡿⣾⡝⣲⠤⣴⡀⠀⠀⠀⠀⠀   v. 1.0.1.
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠓⠬⢜⡜⣰⡿⣗⣢⠄⣀⣠⣄
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠛⠉⠑⠚⠽⣚⣿⡏
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠊⠀
+"""
+    console.print(banner, style="bold cyan")
 async def get_user_input_for_fields(input_fields, url):
     """Interactive field configuration"""
+    show_interactive_banner()
     console.print(f"[yellow]Target URL: {url}[/yellow]")
     console.print(f"[yellow]Found {len(input_fields)} input fields[/yellow]")
     console.print("\n[bold cyan]Interactive Field Poisoning Shell:[/bold cyan]")
