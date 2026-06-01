@@ -70,6 +70,10 @@ python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title"
 | --encoder-bypass | load payloads vs common CMS/frameworks (WordPress, PHP, Python, ASP.NET) | None | 
 | --encoding-confusion | load encoding confusion payloads (for GET forms and ASP.NET applications) | None | 
 | --size-overflow | load payloads that can lead to overflow or out of bounds | None | 
+| --url-param | analyze and test URL parameters | None | 
+| --url param-name | specific URL parameter to test | String | 
+| --csp-directive | CSP directive to inject / force | String, example: "script-src-elem" | 
+| --csp-value | CSP value to inject | String, example: "unsafe inline" | 
 
   </details>
 </div>
@@ -80,6 +84,7 @@ Please note that not all flags are compatible with each other (e.g., --login doe
 
 ## FormAtion module 
 FormAtion is quick form audior, it differs from scan mode in that it performs a quick analysis based on the server's response to a given query. It does not scan the code, nor does it delve into anything other than the input fields themselves. It only analyzes their connections and proposes a ready-made command for FormPoison to execute. Copy + Paste in CLI and now your injection is 20% more likely to be successful.
+<b> Warning:</b> FormAtion does not apply compatibility checks to flags, verify output. 
 ## Interactive mode - take control over injections
 The latest powerful feature is interactive mode where user can specify the exact point in input field where payload needs to be injected.
 If there is need to inject payloads in specific part of the input, framework is capable of interactive testing mode: <pre><code>python3 formpoison.py [URL] [optional flags] --interactive</code></pre></p> Please keep in mind that your inejection point needs to be specified with quotas like this: <code>'poison'</code> otherwise tool will use it as a static custom user input.
@@ -114,11 +119,10 @@ If you have any ideas on how to improve the tool or have your own implementation
 <ul>
   <li>Interactive field injecting has finally been implemented!</li>
   <li>Brute mode to speed up requests even more</li>
-  <li>Filename XSS testing mode</li>
-  <li>Mutation XSS (mXSS) testing mode</li>
   <li>Multithreading to speed up injecting attemps</li>
   <li>Filtering now supported in Login mode</li>
-  <li>More Burp-like responses in verbose mode</li>
+  <li>CSP bypass methods fully implemented</li>
+  <li>Reflection validator has been optimized</li>
 </ul>
 
 InjOy! 💉
