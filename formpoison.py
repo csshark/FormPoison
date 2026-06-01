@@ -1291,18 +1291,6 @@ async def test_login_input_fields(url, payloads, cookies, user_agents, input_fie
     console.print(f"[bold blue]Testing login fields with {len(payloads)} payloads[/bold blue]")
     return results
 
-
-async def interactive_injection_mode(url, payloads, cookies, user_agents, method="POST",
-                                   proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False,
-                                   verbose=False, verbose_all=False, secs=0,
-                                   brute_mode=False, max_concurrent=50, timeout=15.0,
-                                   batch_size=100, batch_delay=1.0, max_retries=2):
-    """Interactive mode for manual injection"""
-    console.print("[bold blue]INTERACTIVE MODE[/bold blue]")
-    console.print("[yellow]Enter payloads manually or type 'exit' to quit[/yellow]")
-    return []
-
-
 async def test_filename_xss(url, input_fields, cookies, user_agents, proxies=None, ssl_verify=False):
     """Test filename XSS in file upload forms"""
     console.print("[bold blue]Testing Filename XSS[/bold blue]")
@@ -1421,7 +1409,330 @@ def analyze_mutation_xss_response(content, payload):
             vulnerabilities.append(f"MUTATED_{elem.name.upper()}")
     
     return vulnerabilities
+async def get_user_input_for_fields(input_fields, url):
+    """Interactive field configuration"""
+    console.print(f"[yellow]Target URL: {url}[/yellow]")
+    console.print(f"[yellow]Found {len(input_fields)} input fields[/yellow]")
+    console.print("\n[bold cyan]Interactive Field Poisoning Shell:[/bold cyan]")
+    console.print("[green]- 'poison' - use payload injection (write with quotas!)[/green]")
+    console.print("[green]- test - use test value[/green]")
+    console.print("[green]- skip - skip this field[/green]")
+    console.print("[green]- custom value - use your own input[/green]")
+    console.print("[bold red]- Ctrl+C to exit[/bold red]\n")
+
+    field_values = {}
+    poison_fields = []
+
+    for i, field in enumerate(input_fields, 1):
+        field_name = field.get('name', f'field_{i}')
+        field_type = field.get('type', 'text')
+        field_id = field.get('id', '')
+
+        console.print(f"\n[bold blue]Field {i}/{len(input_fields)}:[/bold blue]")
+        console.print(f"  Name: {field_name}")
+        console.print(f"  Type: {field_type}")
+        if field_id:
+            console.print(f"  ID: {field_id}")
+        if field.get('placeholder'):
+            console.print(f"  Placeholder: {field.get('placeholder')}")
+
+        while True:
+            try:
+                user_input = console.input(
+                    f"[bold green]Fill '{field_name}' with: [/bold green]"
+                ).strip()
+
+                if user_input.lower() == 'poison':
+                    field_values[field_name] = None
+                    poison_fields.append(field_name)
+                    console.print(f"[red]Field '{field_name}' marked for PAYLOAD INJECTION[/red]")
+                    break
+
+                elif user_input.lower() == 'test':
+                    if field_type == 'email':
+                        field_values[field_name] = 'test@example.com'
+                    elif field_type == 'password':
+                        field_values[field_name] = 'testpassword123'
+                    elif 'user' in field_name.lower() or 'login' in field_name.lower():
+                        field_values[field_name] = 'testuser'
+                    else:
+                        field_values[field_name] = 'testvalue'
+                    console.print(f"[yellow]Using test value: {field_values[field_name]}[/yellow]")
+                    break
+
+                elif user_input.lower() == 'skip':
+                    field_values[field_name] = ''
+                    console.print(f"[yellow]Field '{field_name}' will be skipped (empty)[/yellow]")
+                    break
+
+                elif user_input:
+                    if "'poison'" in user_input:
+                        field_values[field_name] = user_input
+                        poison_fields.append(field_name)
+                        console.print(f"[magenta]Field '{field_name}' will inject payload at 'poison' position[/magenta]")
+                        break
+                    else:
+                        field_values[field_name] = user_input
+                        console.print(f"[green]Using custom value: {user_input}[/green]")
+                        break
+
+                else:
+                    console.print("[red]Please enter a value or one of the options[/red]")
+
+            except KeyboardInterrupt:
+                console.print("\n[bold red]Operation cancelled by user[/bold red]")
+                return None, None
+
+    return field_values, poison_fields
+
+
+async def interactive_injection_mode(url, payloads, cookies, user_agents, method="POST",
+                                   proxies=None, ssl_cert=None, ssl_key=None, ssl_verify=False,
+                                   verbose=False, verbose_all=False, secs=0,
+                                   brute_mode=False, max_concurrent=50, timeout=15.0,
+                                   batch_size=100, batch_delay=1.0, max_retries=2):
+    """Interactive mode for manual injection testing"""
     
+    initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+    content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
+
+    if not content:
+        console.print("[bold red]Failed to fetch page content[/bold red]")
+        return []
+
+    input_fields = get_string_input_fields(content)
+
+    if not input_fields:
+        console.print("[bold yellow]No input fields found on the page[/bold yellow]")
+        return []
+
+    field_values, poison_fields = await get_user_input_for_fields(input_fields, url)
+
+    if field_values is None:
+        return []
+
+    if not poison_fields:
+        console.print("\n[bold yellow]No fields marked for 'poison' - no payloads will be injected[/bold yellow]")
+        response = console.input("[yellow]Continue with basic testing? (y/N): [/yellow]")
+        if response.lower() not in ('y', 'yes'):
+            return []
+
+    results = []
+
+    if brute_mode:
+        ssl_context = ssl.create_default_context()
+        if ssl_cert and ssl_key:
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
+
+        connector = aiohttp.TCPConnector(
+            limit=max_concurrent * 2,
+            limit_per_host=max_concurrent,
+            ssl=ssl_context
+        )
+        timeout_config = aiohttp.ClientTimeout(total=timeout)
+    else:
+        connector = None
+        timeout_config = None
+
+    cookie_jar = aiohttp.CookieJar()
+    for key, value in cookies.items():
+        cookie_jar.update_cookies({key: value})
+
+    semaphore = asyncio.Semaphore(max_concurrent if brute_mode else 1)
+
+    async def test_with_user_config(payload_index=None):
+        async with semaphore:
+            try:
+                current_user_agent = random.choice(user_agents) if len(user_agents) > 1 else user_agents[0]
+                headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
+                data = {}
+
+                for field_name, user_value in field_values.items():
+                    if user_value is None:
+                        # Field marked for payload injection
+                        if payload_index is not None and payloads:
+                            payload = payloads[payload_index % len(payloads)]
+                            data[field_name] = payload['inputField']
+                            payload_category = payload['category']
+                        else:
+                            data[field_name] = "' OR 1=1 --"
+                            payload_category = "SQL"
+
+                    elif "'poison'" in str(user_value):
+                        # Replace 'poison' placeholder with payload
+                        if payload_index is not None and payloads:
+                            payload = payloads[payload_index % len(payloads)]
+                            data[field_name] = user_value.replace("'poison'", payload['inputField'])
+                            payload_category = payload['category'] + "_INJECTED"
+                        else:
+                            data[field_name] = user_value.replace("'poison'", "' OR 1=1 --")
+                            payload_category = "SQL_INJECTED"
+
+                    else:
+                        # User-defined value
+                        data[field_name] = user_value
+                        payload_category = "USER_DEFINED"
+
+                proxy_url = proxies.get('http') if proxies else None
+
+                if brute_mode:
+                    async with aiohttp.ClientSession(
+                        cookie_jar=cookie_jar,
+                        connector=connector,
+                        timeout=timeout_config
+                    ) as session:
+                        async with session.request(
+                            method, url, data=data, headers=headers,
+                            proxy=proxy_url, ssl=ssl_verify
+                        ) as response:
+                            response_content = await response.text()
+                            status_code = response.status
+                            response_headers = response.headers
+                else:
+                    ssl_ctx = ssl.create_default_context()
+                    if ssl_cert and ssl_key:
+                        ssl_ctx.load_cert_chain(ssl_cert, ssl_key)
+
+                    async with aiohttp.ClientSession(
+                        cookie_jar=cookie_jar,
+                        connector=aiohttp.TCPConnector(ssl=ssl_ctx)
+                    ) as session:
+                        async with session.request(
+                            method, url, data=data, headers=headers,
+                            proxy=proxy_url, ssl=ssl_verify
+                        ) as response:
+                            response_content = await response.text()
+                            status_code = response.status
+                            response_headers = response.headers
+
+                current_payload = "USER_CONFIG"
+                for f in poison_fields:
+                    if f in data:
+                        current_payload = data[f]
+                        break
+
+                vulnerabilities = analyze_response(
+                    response_content, response_headers, 
+                    payload_category, current_payload, status_code, verbose_all
+                )
+                
+                reflected = is_payload_reflected(response_content, current_payload)
+                _, execution_indicators = is_payload_executed(
+                    response_content, current_payload, 
+                    response_headers, status_code
+                )
+
+                timestamp = time.strftime("%H:%M:%S")
+                short_payload = current_payload[:50] + "..." if len(current_payload) > 50 else current_payload
+                
+                if status_code >= 500:
+                    status_display = f"[bold red]{status_code}[/bold red]"
+                elif status_code >= 400:
+                    status_display = f"[bold yellow]{status_code}[/bold yellow]"
+                else:
+                    status_display = f"[green]{status_code}[/green]"
+                
+                injection_detected = any(ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED'] for ind in execution_indicators)
+                
+                if injection_detected:
+                    console.print(f"[{timestamp}] {short_payload} -> {status_display} [bold red]VULNERABLE[/bold red]")
+                    for ind in execution_indicators:
+                        if ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED']:
+                            console.print(f"[{timestamp}]   [red]{ind}[/red]")
+                else:
+                    console.print(f"[{timestamp}] {short_payload} -> {status_display} | Reflected: {reflected}")
+
+                return {
+                    "user_config": field_values,
+                    "poison_fields": poison_fields,
+                    "payload_used": current_payload,
+                    "user_agent": current_user_agent,
+                    "response_code": status_code,
+                    "reflected": reflected,
+                    "vulnerabilities": vulnerabilities,
+                    "execution_indicators": execution_indicators,
+                    "request_data": data
+                }
+
+            except Exception as e:
+                current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+                console.print(f"[red]Error: {str(e)[:80]}[/red]")
+                return {
+                    "user_config": field_values,
+                    "poison_fields": poison_fields,
+                    "payload_used": "ERROR",
+                    "user_agent": current_user_agent,
+                    "response_code": 0,
+                    "reflected": False,
+                    "vulnerabilities": [f"Request Failed: {str(e)}"],
+                    "execution_indicators": [],
+                    "request_data": {}
+                }
+
+    if poison_fields and payloads:
+        console.print(f"\n[bold green]Testing {len(payloads)} payloads on {len(poison_fields)} poison fields[/bold green]")
+
+        if brute_mode:
+            all_payload_indices = list(range(len(payloads)))
+            total_batches = (len(all_payload_indices) + batch_size - 1) // batch_size
+
+            for batch_num in range(total_batches):
+                start_idx = batch_num * batch_size
+                end_idx = min(start_idx + batch_size, len(all_payload_indices))
+                batch_indices = all_payload_indices[start_idx:end_idx]
+
+                console.print(f"[dim]Batch {batch_num + 1}/{total_batches} ({len(batch_indices)} requests)[/dim]")
+                
+                batch_tasks = [test_with_user_config(idx) for idx in batch_indices]
+                batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+                
+                for result in batch_results:
+                    if isinstance(result, dict):
+                        results.append(result)
+
+                if batch_num < total_batches - 1 and batch_delay > 0:
+                    await asyncio.sleep(batch_delay)
+
+            if connector:
+                await connector.close()
+
+        else:
+            for i in range(len(payloads)):
+                result = await test_with_user_config(i)
+                results.append(result)
+
+                if secs > 0:
+                    await asyncio.sleep(secs)
+    else:
+        # Single request with user configuration only
+        console.print("\n[bold yellow]Testing with user configuration (single request)[/bold yellow]")
+        result = await test_with_user_config()
+        results.append(result)
+
+    # Summary
+    total_tests = len(results)
+    reflected_count = sum(1 for r in results if r.get('reflected'))
+    executed_count = sum(1 for r in results if r.get('execution_indicators') and len(r['execution_indicators']) > 0)
+    
+    console.print(f"\n[bold green]Interactive Testing Completed: {total_tests} requests[/bold green]")
+    console.print(f"[yellow]Reflected: {reflected_count}/{total_tests}[/yellow]")
+    console.print(f"[bold red]Executed: {executed_count}/{total_tests}[/bold red]")
+
+    # Save results
+    with open("interactive_test_results.json", "w") as f:
+        json.dump({
+            "parameters": {
+                "interactive_mode": True,
+                "user_field_config": field_values,
+                "poison_fields": poison_fields,
+                "brute_mode": brute_mode
+            },
+            "results": results
+        }, f, indent=4)
+
+    console.print(f"[bold green]Interactive test results saved to 'interactive_test_results.json'[/bold green]")
+
+    return results
 async def main():
     parser = argparse.ArgumentParser(description="Over 3500 payloads included!")
     parser.add_argument("url", help="Form URL")
@@ -1510,6 +1821,8 @@ async def main():
         'size_overflow': args.size_overflow
     }
 
+    payloads = []
+
     # ============ GO SCANNER - DEEP ANALYSIS ============
     if args.scan:
         console.print("[bold blue]Running Go scanner for deep vulnerability analysis...[/bold blue]")
@@ -1576,8 +1889,8 @@ async def main():
             console.print("[red]Scan failed, falling back to standard payloads[/red]")
             payloads = load_payloads(args.payloads, bypass_flags)
 
-    # ============ LOAD PAYLOADS (if not already loaded) ============
-    if 'payloads' not in locals() or not payloads:
+    # ============ LOAD PAYLOADS ============
+    if not payloads:
         payloads = load_payloads(args.payloads, bypass_flags, args.url if args.url_param else None)
 
     if args.filter:
@@ -1596,55 +1909,19 @@ async def main():
             console.print(f"[bold green]Using random User Agent[/bold green]")
         else:
             user_agents = [args.user_agent]
-    # ============ CHECK MODE - FormAtion Analysis ============
+
+    # ============ CHECK MODE ============
     if args.check:
         try:
             console.print("[bold blue]Running FormAtion analysis...[/bold blue]")
-            
-            # Use FormAtionAnalyzer if available
             try:
                 formation_analyzer = FormAtionAnalyzer(args.url, args.user_agent, proxies)
                 await formation_analyzer.analyze_site()
                 console.print("[green]FormAtion analysis completed[/green]")
             except NameError:
-                # Fallback if FormAtionAnalyzer not available
-                console.print("[yellow]FormAtionAnalyzer not available, running manual analysis...[/yellow]")
-                
-                # Do manual analysis
-                page_content = await get_page_content(args.url, user_agents[0], proxies, args.ssl_cert, args.ssl_key, args.ssl_verify)
-                if page_content:
-                    # Analyze forms
-                    forms_and_inputs = get_forms_and_inputs(page_content, args.verbose)
-                    console.print(f"[green]Found {len(forms_and_inputs)} forms on the page[/green]")
-                    
-                    # Detect technologies
-                    headers = {}
-                    framework, version = detect_framework(headers, page_content)
-                    if framework:
-                        console.print(f"[green]Detected framework: {framework} {version or ''}[/green]")
-                    
-                    cms, _ = detect_cms(page_content)
-                    if cms:
-                        console.print(f"[green]Detected CMS: {cms}[/green]")
-                    
-                    # Analyze input fields
-                    input_fields = get_string_input_fields(page_content)
-                    console.print(f"[green]Found {len(input_fields)} input fields[/green]")
-                    
-                    for i, field in enumerate(input_fields):
-                        name = field.get('name', 'N/A')
-                        field_type = field.get('type', 'text')
-                        console.print(f"[yellow]  Field {i+1}: name={name}, type={field_type}[/yellow]")
-                    
-                    # Check security headers
-                    console.print(f"[yellow]Security analysis:[/yellow]")
-                    console.print(f"[yellow]  - Check for CSP, X-Frame-Options, HSTS headers[/yellow]")
-                    console.print(f"[yellow]  - Analyze form actions and methods[/yellow]")
-                    console.print(f"[yellow]  - Look for hidden fields and CSRF tokens[/yellow]")
-                else:
-                    console.print("[red]Failed to fetch page for analysis[/red]")
+                console.print("[yellow]FormAtionAnalyzer not available, running basic scan...[/yellow]")
+                await scan(args.url, proxies)
             
-            # Check if only --check was used
             only_check = not any([
                 args.scan, args.auto_target, args.interactive, 
                 args.fieldname, args.login, args.mXSS, args.filemode,
@@ -1652,17 +1929,11 @@ async def main():
             ])
             
             if only_check:
-                console.print("\n[bold yellow]Analysis complete. Use other flags to perform tests.[/bold yellow]")
+                console.print("\n[bold yellow]Analysis complete.[/bold yellow]")
                 return
-                
         except Exception as e:
-            console.print(f"[red]Error during FormAtion analysis: {e}[/red]")
-            console.print("[yellow]Continuing with requested tests...[/yellow]")
+            console.print(f"[red]Error during analysis: {e}[/red]")
 
-    if args.filter:
-        filter_patterns = [pattern.strip() for pattern in args.filter.split(",")]
-        payloads = filter_payloads(payloads, filter_patterns)
-        console.print(f"[bold green]Filtered payloads: {len(payloads)} remaining[/bold green]")
     # ============ CSP PARAMETER BYPASS ============
     if args.csp_bypass and '?' in args.url:
         parsed = urlparse(args.url)
@@ -1736,11 +2007,36 @@ async def main():
                 json.dump({'url': args.url, 'results': url_results, 'timestamp': time.time()}, f, indent=2)
             console.print("[green]Results saved to url_parameter_results.json[/green]")
 
-    # ============ SCAN ONLY MODE ============
-    if args.scan and not args.csp_bypass and not args.url_param:
-        # Just do a quick scan without form testing
-        console.print("[bold blue]Quick scan mode[/bold blue]")
-        await scan(args.url, proxies)
+    # ============ INTERACTIVE MODE ============
+    if args.interactive:
+        console.print("[bold blue]INTERACTIVE MODE[/bold blue]")
+        
+        page_content = None
+        for current_user_agent in user_agents:
+            page_content = await get_page_content(args.url, current_user_agent, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify)
+            if page_content:
+                break
+
+        if not page_content:
+            console.print("[bold red]Failed to fetch page content.[/bold red]")
+            sys.exit()
+
+        input_fields = get_string_input_fields(page_content)
+        
+        if not input_fields:
+            console.print("[bold yellow]No input fields found.[/bold yellow]")
+            sys.exit(0)
+            
+        console.print(f"[bold green]{len(input_fields)} input fields found[/bold green]")
+        
+        await interactive_injection_mode(
+            args.url, payloads, cookies, user_agents, args.method,
+            proxies, args.ssl_cert, args.ssl_key, args.ssl_verify,
+            args.verbose, args.verbose_all, args.seconds,
+            brute_mode=args.brute, max_concurrent=args.concurrent,
+            timeout=args.timeout, batch_size=args.batch_size,
+            batch_delay=args.batch_delay, max_retries=args.retries
+        )
         return
 
     # ============ STANDARD FORM TESTING ============
@@ -1757,40 +2053,29 @@ async def main():
     input_fields = get_string_input_fields(page_content)
     console.print(f"[bold green]{len(input_fields)} input fields found[/bold green]")
 
-    # File mode testing
     if args.filemode:
-        console.print("[bold blue]Testing Filename XSS in upload forms...[/bold blue]")
-        filemode_results = await test_filename_xss(
-            args.url, input_fields, cookies, user_agents, proxies, args.ssl_verify
-        )
-        for result in filemode_results:
-            console.print(f"[red]FILENAME XSS: {result.get('field', 'unknown')}[/red]")
+        console.print("[bold blue]Testing Filename XSS[/bold blue]")
+        await test_filename_xss(args.url, input_fields, cookies, user_agents, proxies, args.ssl_verify)
 
-    # mXSS testing
     if args.mXSS:
-        console.print("[bold blue]Testing Mutation XSS vulnerabilities...[/bold blue]")
+        console.print("[bold blue]Testing Mutation XSS[/bold blue]")
         await test_mutation_xss(
             args.url, input_fields, cookies, user_agents,
             args.method, proxies, args.ssl_cert, args.ssl_key,
             args.ssl_verify, args.verbose, args.verbose_all,
             args.seconds, payload_filters=args.filter
         )
-        console.print("[bold green]mXSS testing completed.[/bold green]")
 
-    # Specific field testing
     if args.fieldname:
         field_found = False
         for f in input_fields:
             if args.fieldname.lower() in f.get('name', '').lower() or args.fieldname.lower() in f.get('id', '').lower():
                 field_found = True
-                console.print(f"[bold yellow]Testing only field: {args.fieldname}[/bold yellow]")
+                console.print(f"[bold yellow]Testing field: {args.fieldname}[/bold yellow]")
                 break
-        
         if not field_found:
             console.print(f"[bold red]Field '{args.fieldname}' not found[/bold red]")
-            sys.exit(1)
 
-    # Login testing
     if args.login:
         console.print(f"[bold green]Testing login fields[/bold green]")
         await test_login_input_fields(
@@ -1801,21 +2086,8 @@ async def main():
             batch_delay=args.batch_delay, max_retries=args.retries
         )
 
-    # Interactive mode
-    if args.interactive:
-        console.print("[bold blue]INTERACTIVE MODE[/bold blue]")
-        await interactive_injection_mode(
-            args.url, payloads, cookies, user_agents, args.method,
-            proxies, args.ssl_cert, args.ssl_key, args.ssl_verify,
-            args.verbose, args.verbose_all, args.seconds,
-            brute_mode=args.brute, max_concurrent=args.concurrent,
-            timeout=args.timeout, batch_size=args.batch_size,
-            batch_delay=args.batch_delay, max_retries=args.retries
-        )
-        sys.exit(0)
-
     # Default: test all forms
-    if not args.fieldname and not args.interactive:
+    if not args.interactive:
         console.print(f"[bold green]Testing all forms with {len(payloads)} payloads[/bold green]")
         await test_all_forms(
             args.url, payloads, args.threat, cookies, user_agents,
@@ -1825,5 +2097,7 @@ async def main():
             timeout=args.timeout, batch_size=args.batch_size,
             batch_delay=args.batch_delay, max_retries=args.retries
         )
+
+
 if __name__ == "__main__":
     asyncio.run(main())
