@@ -7,7 +7,7 @@
 </p>
 
 Smart form-focused injection Framework based on experience with data validation issues, XSS and SQL attacks executed so far.
-The main purpose of the framework is to perform tests that cover the maximum XSS risk for a given application. Please do not treat this tool as a replacement for existing offensive security tools, but rather as a support/companion to them. Cross-Site Scripting is unusual vulnerability and could be found almost randomly with different tools. <b>Before you start</b>, be aware of false-positives when running attack. I did fake results reduction, however web application might return '200 OK' <b>by default</b> and do not get injected at all. Run scan, check for inject CVEs, investigate and then attack. <p><b>Disclaimer:</b> I do not take repsonisbility for triggering security systems. Use responsible.</p>
+The main purpose of the framework is to perform tests that cover the maximum XSS risk for a given application. Please do not treat this tool as a replacement for existing offensive security tools, but rather as a support/companion to them.<b>Before you start</b>, be aware of false-positives when running attack. I did fake results reduction, however web application might return '200 OK' <b>by default</b> and do not get injected at all - I couldn't predict all web apps implementations. <p><b>Disclaimer:</b> I do not take repsonisbility for triggering security systems. Use responsible.</p>
 
 ## Installation:
 <pre><code>git clone https://github.com/csshark/FormPoison.git
@@ -84,7 +84,8 @@ Please note that not all flags are compatible with each other (e.g., --login doe
 
 ## FormAtion module 
 FormAtion is quick form audior, it differs from scan mode in that it performs a quick analysis based on the server's response to a given query. It does not scan the code, nor does it delve into anything other than the input fields themselves. It only analyzes their connections and proposes a ready-made command for FormPoison to execute. Copy + Paste in CLI and now your injection is 20% more likely to be successful.
-<b> Warning:</b> FormAtion does not apply compatibility checks to flags, verify output. 
+<p><b> Warning:</b> FormAtion does not apply compatibility checks to flags, verify output. </p>
+
 ## Interactive mode - take control over injections
 The latest powerful feature is interactive mode where user can specify the exact point in input field where payload needs to be injected.
 If there is need to inject payloads in specific part of the input, framework is capable of interactive testing mode: <pre><code>python3 formpoison.py [URL] [optional flags] --interactive</code></pre></p> Please keep in mind that your inejection point needs to be specified with quotas like this: <code>'poison'</code> otherwise tool will use it as a static custom user input.
@@ -111,9 +112,9 @@ Example *input.txt* file format:
 The user can create their own payloads.json file and does not even need to pay attention to the category if the filtering function is available, and without the *type* flag, FormPoison will go through the entire file anyways.
 
 ## Bugs & Issues 
-Please note that FormPoison is in the early stages of development, and this is its first release. There may be bugs, which you are encouraged to report so that they can be fixed. 
+Please note that FormPoison is "underground tool" and it's used mainly by people who know this for some reason, so I do not frequently test all features possible. 
 
-If you have any ideas on how to improve the tool or have your own implementation, feel free to dig in the source code. Please contact me about contributing.
+If you have any ideas on how to improve the tool or have your own implementation, feel free to dig in the source code. Please contact me about contributing. help me with this! 
 
 ## New functions: 
 <ul>
