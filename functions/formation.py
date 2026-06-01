@@ -3,14 +3,13 @@
 FormAtion - Advanced Web Form Analysis Module for FormPoison
 PortSwigger Research-Based Web Application Security Analyzer
 Uses official FormPoison flags only 
-Scan command recommendation is not a bug - just launch it :) 
 """
 
 import asyncio
 import aiohttp
 import argparse
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import urljoin, urlparse, parse_qs, urlencode
 import json
 import ssl
 import hashlib
@@ -28,9 +27,7 @@ from rich.text import Text
 from rich.syntax import Syntax
 from rich.tree import Tree
 import logging
-import copy
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -39,41 +36,31 @@ logger = logging.getLogger('FormAtion')
 
 console = Console()
 
-# Official FormPoison flags mapping
 FORMPOISON_FLAGS = {
-    # Threat types
     '-t': {'type': 'threat', 'values': ['Java', 'SQL', 'HTML'], 'description': 'Select threat type'},
-    
-    # Modes
     '--filemode': {'type': 'mode', 'description': 'Filename injection mode'},
     '--login': {'type': 'mode', 'description': 'Login+password mode only'},
     '--mXSS': {'type': 'mode', 'description': 'Mutation XSS injections only'},
     '--brute': {'type': 'mode', 'description': 'Maximum requests speed'},
     '--interactive': {'type': 'mode', 'description': 'Interactive field injecting mode'},
-    
-    # Scanning
     '-qs': {'type': 'scan', 'description': 'Quick input fields scan'},
     '--check': {'type': 'scan', 'description': 'Quick input fields scan/check'},
     '--scan': {'type': 'scan', 'description': 'Deep scan for .js code and web audit'},
     '--auto-target': {'type': 'scan', 'description': 'Perform scan results-based injections'},
-    
-    # Verbosity
     '-v': {'type': 'output', 'description': 'Verbose mode'},
     '--verbose': {'type': 'output', 'description': 'Verbose mode'},
     '--verbose-all': {'type': 'output', 'description': 'Advanced output with response body'},
-    
-    # Method
     '--method': {'type': 'request', 'values': ['GET', 'POST', 'PUT', 'DELETE'], 'description': 'Force request method'},
-    
-    # Bypass techniques
     '--waf-bypass': {'type': 'bypass', 'description': 'Load CDN/WAF evasion payloads'},
     '--csp-bypass': {'type': 'bypass', 'description': 'Load CSP bypass payloads'},
     '--sanitizer-bypass': {'type': 'bypass', 'description': 'Load HTML sanitizer bypass payloads'},
     '--encoder-bypass': {'type': 'bypass', 'description': 'Load encoder bypass payloads'},
     '--encoding-confusion': {'type': 'bypass', 'description': 'Load encoding confusion payloads'},
     '--size-overflow': {'type': 'bypass', 'description': 'Load size overflow payloads'},
-    
-    # Performance
+    '--url-param': {'type': 'url', 'description': 'Analyze and test URL parameters for injection points'},
+    '--url-param-name': {'type': 'url', 'description': 'Specific URL parameter to target for injection'},
+    '--csp-directive': {'type': 'csp', 'description': 'CSP directive to inject (default: script-src-elem)'},
+    '--csp-value': {'type': 'csp', 'description': "CSP value to inject (default: 'unsafe-inline')"},
     '--concurrent': {'type': 'performance', 'range': '10-500', 'default': 50},
     '--timeout': {'type': 'performance', 'range': '3-60', 'default': 15},
     '--batch-size': {'type': 'performance', 'range': '10-1000', 'default': 100},
@@ -81,8 +68,6 @@ FORMPOISON_FLAGS = {
     '--retries': {'type': 'performance', 'range': '1-5', 'default': 2},
     '-s': {'type': 'performance', 'description': 'Delay between requests'},
     '--seconds': {'type': 'performance', 'description': 'Delay between requests'},
-    
-    # Other
     '--filter': {'type': 'filter', 'description': 'Filter payloads by pattern'},
     '--fieldname': {'type': 'target', 'description': 'Specify fieldname to target'},
     '-p': {'type': 'payload', 'description': 'Custom payloads file path'},
@@ -96,8 +81,9 @@ FORMPOISON_FLAGS = {
     '--ssl-verify': {'type': 'connection', 'description': 'Verify SSL certificate'},
     '--max-urls': {'type': 'scan', 'description': 'Max URLs to scan'},
     '--max-depth': {'type': 'scan', 'description': 'Max scan depth'},
-    '--max-workers': {'type': 'scan', 'description': 'Number of workers for scanning'},
+    '--workers': {'type': 'scan', 'description': 'Number of workers for scanning'},
 }
+
 
 class ThreatLevel(Enum):
     CRITICAL = "critical"
@@ -105,6 +91,7 @@ class ThreatLevel(Enum):
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
+
 
 @dataclass
 class FieldAnalysis:
@@ -124,6 +111,24 @@ class FieldAnalysis:
     
     def to_dict(self) -> Dict:
         return asdict(self)
+
+
+@dataclass
+class URLParameterAnalysis:
+    param_name: str = ""
+    param_values: List[str] = field(default_factory=list)
+    potential_vulnerabilities: List[str] = field(default_factory=list)
+    csp_injection_possible: bool = False
+    sql_injection_possible: bool = False
+    xss_possible: bool = False
+    open_redirect_possible: bool = False
+    ssrf_possible: bool = False
+    recommended_payloads: List[str] = field(default_factory=list)
+    threat_level: str = 'low'
+    
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
 
 @dataclass
 class FormAnalysis:
@@ -154,10 +159,11 @@ class FormAnalysis:
             'html_source': self.html_source
         }
 
+
 class FormAtionAnalyzer:
     """Advanced form analysis engine using official FormPoison flags."""
     
-    VERSION = "2.0.0"
+    VERSION = "2.1.0"
     
     def __init__(self, url: str, user_agent: Optional[str] = None, 
                  proxies: Optional[str] = None, timeout: int = 30,
@@ -170,11 +176,11 @@ class FormAtionAnalyzer:
         self.verify_ssl = verify_ssl
         self.session: Optional[aiohttp.ClientSession] = None
         
-        # Results containers
         self.results = {
             'url': url,
             'scan_timestamp': datetime.now().isoformat(),
             'forms_analysis': [],
+            'url_parameter_analysis': [],
             'security_headers': {},
             'technology_stack': {},
             'recommendations': [],
@@ -189,24 +195,21 @@ class FormAtionAnalyzer:
         self.response_headers: Dict[str, str] = {}
         self.page_content: Optional[str] = None
         self.parsed_url = urlparse(url)
+        self.url_params = parse_qs(self.parsed_url.query)
         
-        # Official flag usage tracking
         self.recommended_flags: Set[str] = set()
         self.flag_reasons: Dict[str, str] = {}
         
-        # Security patterns for analysis
         self.security_patterns = self._load_security_patterns()
         self.technology_fingerprints = self._load_technology_fingerprints()
     
     @staticmethod
     def _escape_markup(text: str) -> str:
-        """Escape Rich markup characters in text."""
         if not isinstance(text, str):
             text = str(text)
         return text.replace('[', '\\[')
     
     def _load_security_patterns(self) -> Dict[str, List[str]]:
-        """Load comprehensive security testing patterns."""
         return {
             'xss_vectors': [
                 '<script>alert(1)</script>',
@@ -227,26 +230,37 @@ class FormAtionAnalyzer:
                 '| cat /etc/passwd',
                 '`id`',
                 '$(whoami)'
+            ],
+            'csp_bypass': [
+                ";script-src-elem 'unsafe-inline'",
+                ";script-src 'unsafe-inline'",
+                ";default-src 'unsafe-inline'",
+                ";script-src *",
+                ";script-src-elem *"
             ]
         }
     
     def _load_technology_fingerprints(self) -> Dict[str, Dict[str, Any]]:
-        """Load technology detection fingerprints."""
         return {
             'frameworks': {
                 'React': {
-                    'patterns': ['react', 'react-dom', '_reactRootContainer'],
+                    'patterns': ['react', 'react-dom', '_reactRootContainer', '__NEXT_DATA__'],
                     'version_regex': r'React v?(\d+\.\d+\.\d+)',
                     'category': 'frontend'
                 },
                 'Vue.js': {
-                    'patterns': ['vue', 'vue.js', '__vue__', 'v-bind'],
+                    'patterns': ['vue', 'vue.js', '__vue__', 'v-bind', 'v-model'],
                     'version_regex': r'Vue\.js v?(\d+\.\d+\.\d+)',
                     'category': 'frontend'
                 },
                 'Angular': {
-                    'patterns': ['angular', 'ng-version', 'ng-app'],
+                    'patterns': ['angular', 'ng-version', 'ng-app', 'zone.js'],
                     'version_regex': r'Angular(?:JS)? v?(\d+\.\d+\.\d+)',
+                    'category': 'frontend'
+                },
+                'jQuery': {
+                    'patterns': ['jquery', 'jquery.min.js'],
+                    'version_regex': r'jQuery v?(\d+\.\d+\.\d+)',
                     'category': 'frontend'
                 },
                 'Django': {
@@ -255,32 +269,46 @@ class FormAtionAnalyzer:
                     'category': 'backend'
                 },
                 'Laravel': {
-                    'patterns': ['laravel', 'csrf-token', 'laravel_session'],
+                    'patterns': ['laravel', 'csrf-token', 'laravel_session', 'XSRF-TOKEN'],
                     'version_regex': r'Laravel v?(\d+\.\d+\.\d+)',
+                    'category': 'backend'
+                },
+                'Express.js': {
+                    'patterns': ['express', 'connect.sid'],
+                    'version_regex': r'Express ([\d.]+)',
+                    'category': 'backend'
+                },
+                'Flask': {
+                    'patterns': ['flask', 'werkzeug'],
+                    'version_regex': r'Flask ([\d.]+)',
                     'category': 'backend'
                 }
             },
             'cms': {
                 'WordPress': {
-                    'patterns': ['wp-content', 'wp-includes', 'wp-json'],
+                    'patterns': ['wp-content', 'wp-includes', 'wp-json', 'wp-admin'],
                     'version_regex': r'WordPress ([\d.]+)',
                     'meta_key': 'generator'
                 },
                 'Drupal': {
-                    'patterns': ['drupal', 'sites/default'],
+                    'patterns': ['drupal', 'sites/default', 'core/assets'],
                     'version_regex': r'Drupal ([\d.]+)',
                     'meta_key': 'generator'
                 },
                 'Joomla': {
-                    'patterns': ['joomla', 'media/system/js/'],
+                    'patterns': ['joomla', 'media/system/js/', 'media/jui/'],
                     'version_regex': r'Joomla! ([\d.]+)',
+                    'meta_key': 'generator'
+                },
+                'Magento': {
+                    'patterns': ['magento', 'skin/frontend', 'mage/'],
+                    'version_regex': r'Magento ([\d.]+)',
                     'meta_key': 'generator'
                 }
             }
         }
     
     async def __aenter__(self):
-        """Async context manager entry."""
         connector = aiohttp.TCPConnector(ssl=self.verify_ssl, limit=10)
         self.session = aiohttp.ClientSession(
             timeout=self.timeout,
@@ -290,13 +318,10 @@ class FormAtionAnalyzer:
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
-        if self.session:
+        if self.session and not self.session.closed:
             await self.session.close()
     
     def _add_flag(self, flag: str, reason: str) -> None:
-        """Add a FormPoison flag with reason."""
-        # Normalize flag names
         flag_map = {
             '--verbose': '-v',
             '--check': '-qs',
@@ -315,7 +340,6 @@ class FormAtionAnalyzer:
             self.flag_reasons[flag] = reason
     
     async def analyze_site(self) -> Dict[str, Any]:
-        """Main analysis orchestration method."""
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -327,43 +351,38 @@ class FormAtionAnalyzer:
             console.print(Panel.fit(
                 f"[bold cyan]FormAtion {self.VERSION} - Advanced Web Form Analysis[/bold cyan]\n"
                 f"[dim]Target: {self._escape_markup(self.url)}[/dim]\n"
+                f"[dim]URL Parameters: {len(self.url_params)} detected[/dim]\n"
                 f"[dim]Using official FormPoison flags[/dim]",
                 border_style="cyan"
             ))
             
-            # Phase 1: Fetch and parse
             progress.update(task, description="[cyan]Fetching page content...")
             self.page_content = await self._fetch_page()
             if not self.page_content:
                 console.print("[bold red]Failed to fetch page content[/bold red]")
                 return self.results
             
-            # Phase 2: Form analysis
+            progress.update(task, description="[cyan]Analyzing URL parameters...")
+            await self._analyze_url_parameters()
+            
             progress.update(task, description="[cyan]Analyzing forms and fields...")
             await self._analyze_forms_deep()
             
-            # Phase 3: Security headers
             progress.update(task, description="[cyan]Checking security headers...")
             await self._analyze_security_headers()
             
-            # Phase 4: Technology detection
             progress.update(task, description="[cyan]Detecting technology stack...")
             await self._detect_technology_stack()
             
-            # Phase 5: Generate recommendations with official flags
             progress.update(task, description="[cyan]Generating recommendations...")
             self._generate_recommendations_with_official_flags()
             
-            # Phase 6: Risk assessment
             self._create_risk_assessment()
-            
-            # Display results
             self._display_comprehensive_report()
             
         return self.results
     
     async def _fetch_page(self) -> Optional[str]:
-        """Enhanced page fetching with retry logic."""
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -409,8 +428,85 @@ class FormAtionAnalyzer:
         
         return None
     
+    async def _analyze_url_parameters(self) -> None:
+        """Analyze URL parameters for injection points."""
+        if not self.url_params:
+            return
+        
+        console.print(f"\n[bold yellow]Analyzing {len(self.url_params)} URL parameters...[/bold yellow]")
+        
+        csp_keywords = ['token', 'nonce', 'csp', 'policy', 'script', 'src', 'style', 'callback']
+        sql_keywords = ['id', 'user', 'query', 'search', 'filter', 'sort', 'order', 'page', 'cat']
+        redirect_keywords = ['redirect', 'url', 'next', 'return', 'goto', 'target', 'continue']
+        ssrf_keywords = ['url', 'path', 'proxy', 'fetch', 'request', 'endpoint', 'api', 'host']
+        
+        for param_name, param_values in self.url_params.items():
+            param_lower = param_name.lower()
+            param_analysis = URLParameterAnalysis(
+                param_name=param_name,
+                param_values=param_values
+            )
+            
+            # CSP injection detection
+            if any(keyword in param_lower for keyword in csp_keywords):
+                param_analysis.csp_injection_possible = True
+                param_analysis.potential_vulnerabilities.append('CSP_INJECTION')
+                param_analysis.recommended_payloads.append(
+                    f"&{param_name}=;script-src-elem 'unsafe-inline'"
+                )
+            
+            # SQL injection detection
+            if any(keyword in param_lower for keyword in sql_keywords):
+                param_analysis.sql_injection_possible = True
+                param_analysis.potential_vulnerabilities.append('SQL_INJECTION')
+                param_analysis.recommended_payloads.append(f"{param_name}=' OR 1=1 --")
+            
+            # Open redirect detection
+            if any(keyword in param_lower for keyword in redirect_keywords):
+                param_analysis.open_redirect_possible = True
+                param_analysis.potential_vulnerabilities.append('OPEN_REDIRECT')
+                param_analysis.recommended_payloads.append(f"&{param_name}=https://evil.com")
+            
+            # SSRF detection
+            if any(keyword in param_lower for keyword in ssrf_keywords):
+                param_analysis.ssrf_possible = True
+                param_analysis.potential_vulnerabilities.append('SSRF')
+                param_analysis.recommended_payloads.append(f"&{param_name}=http://169.254.169.254/")
+            
+            # XSS detection (any text parameter can be XSS)
+            param_analysis.xss_possible = True
+            param_analysis.potential_vulnerabilities.append('XSS')
+            param_analysis.recommended_payloads.append(f"{param_name}=<script>alert(1)</script>")
+            
+            # Check values for CSP-like patterns
+            for value in param_values:
+                value_lower = value.lower()
+                if re.search(r'[a-z]+-[a-z]+', value_lower):
+                    param_analysis.potential_vulnerabilities.append('CSP_LIKE_VALUE')
+                if any(sep in value for sep in [';', ',', ' ', '%20', '+']):
+                    param_analysis.potential_vulnerabilities.append('SEPARATOR_IN_VALUE')
+            
+            # Assess threat level
+            threat_score = 0
+            if param_analysis.csp_injection_possible:
+                threat_score += 3
+            if param_analysis.sql_injection_possible:
+                threat_score += 4
+            if param_analysis.open_redirect_possible:
+                threat_score += 2
+            if param_analysis.ssrf_possible:
+                threat_score += 3
+            
+            if threat_score >= 6:
+                param_analysis.threat_level = 'high'
+            elif threat_score >= 3:
+                param_analysis.threat_level = 'medium'
+            else:
+                param_analysis.threat_level = 'low'
+            
+            self.results['url_parameter_analysis'].append(param_analysis.to_dict())
+    
     async def _analyze_forms_deep(self) -> None:
-        """Enhanced form analysis."""
         if not self.page_content:
             return
         
@@ -454,7 +550,6 @@ class FormAtionAnalyzer:
             self.results['forms_analysis'].append(form_analysis.to_dict())
     
     def _analyze_field(self, field, element_type: str) -> FieldAnalysis:
-        """Analyze individual form field."""
         field_type = field.get('type', 'text') if field.name == 'input' else field.name
         field_name = field.get('name', '')
         field_id = field.get('id', '')
@@ -481,7 +576,6 @@ class FormAtionAnalyzer:
         return field_analysis
     
     def _is_text_input(self, field) -> bool:
-        """Check if field is text input."""
         if field.name == 'textarea':
             return True
         if field.name == 'input':
@@ -496,7 +590,6 @@ class FormAtionAnalyzer:
         return False
     
     def _categorize_field(self, name: str, id_: str, type_: str, element_type: str) -> str:
-        """Categorize field by type."""
         name_lower = name.lower()
         id_lower = id_.lower()
         
@@ -532,36 +625,29 @@ class FormAtionAnalyzer:
         return 'other'
     
     def _detect_patterns(self, field_analysis: FieldAnalysis) -> None:
-        """Detect suspicious patterns."""
         name = field_analysis.name.lower()
         attrs = field_analysis.attributes
         field_type = field_analysis.field_type
         
-        # Validation checks
         if field_analysis.is_text_input:
             validation_attrs = ['maxlength', 'pattern', 'required', 'min', 'max', 'minlength']
             if not any(attr in attrs for attr in validation_attrs):
                 field_analysis.suspicious_patterns.append('no_client_side_validation')
         
-        # Sensitive field exposure
         sensitive_names = ['csrf', 'token', 'auth', 'key', 'hash', 'nonce', 'session', 'jwt']
         if any(sensitive in name for sensitive in sensitive_names):
             field_analysis.suspicious_patterns.append('sensitive_field_exposed')
         
-        # Autocomplete issues
         if attrs.get('autocomplete') == 'on' and field_analysis.field_category in ['password', 'login']:
             field_analysis.suspicious_patterns.append('autocomplete_enabled_on_sensitive')
         
-        # Hidden field with value
         if field_type == 'hidden' and field_analysis.value:
             field_analysis.suspicious_patterns.append('hidden_field_with_value')
         
-        # No file type restriction
         if field_analysis.field_category == 'file_upload' and 'accept' not in attrs:
             field_analysis.suspicious_patterns.append('unrestricted_file_types')
     
     def _detect_risks(self, field_analysis: FieldAnalysis) -> None:
-        """Detect PortSwigger risks."""
         field_category = field_analysis.field_category
         field_type = field_analysis.field_type
         
@@ -581,7 +667,6 @@ class FormAtionAnalyzer:
         if field_category in risk_map:
             field_analysis.portswigger_risks.extend(risk_map[field_category])
         
-        # Type-specific risks
         if field_type == 'email':
             field_analysis.portswigger_risks.extend(['email_injection', 'header_injection'])
         elif field_type == 'number':
@@ -590,7 +675,6 @@ class FormAtionAnalyzer:
         field_analysis.portswigger_risks = list(set(field_analysis.portswigger_risks))
     
     def _assess_threat_level(self, field_analysis: FieldAnalysis) -> None:
-        """Assess threat level."""
         threat_score = 0
         
         risk_weights = {
@@ -614,18 +698,15 @@ class FormAtionAnalyzer:
             field_analysis.threat_level = 'info'
     
     def _assess_form_vulnerability(self, form_analysis: FormAnalysis) -> None:
-        """Assess form vulnerability."""
         score = 0
         indicators = []
         vectors = []
         
-        # GET method risks
         if form_analysis.method == 'GET':
             score += 3
             indicators.append('get_method_used')
             vectors.append('reflected_xss_via_get')
         
-        # CSRF check
         has_csrf = any('csrf' in f.name.lower() or 'token' in f.name.lower() 
                       for f in form_analysis.all_fields)
         if not has_csrf:
@@ -633,7 +714,6 @@ class FormAtionAnalyzer:
             indicators.append('no_csrf_protection')
             vectors.append('csrf_vulnerable')
         
-        # Login form detection
         login_fields = sum(1 for f in form_analysis.text_input_fields if f.field_category == 'login')
         password_fields = sum(1 for f in form_analysis.text_input_fields if f.field_category == 'password')
         
@@ -642,13 +722,11 @@ class FormAtionAnalyzer:
             indicators.append('login_form_detected')
             vectors.extend(['credential_stuffing', 'brute_force_login'])
         
-        # File upload detection
         if any(f.field_category == 'file_upload' for f in form_analysis.all_fields):
             score += 5
             indicators.append('file_upload_detected')
             vectors.extend(['malicious_file_upload', 'stored_xss_via_files'])
         
-        # Unvalidated fields
         unvalidated = sum(1 for f in form_analysis.text_input_fields 
                         if 'no_client_side_validation' in f.suspicious_patterns)
         if unvalidated > 0:
@@ -661,22 +739,17 @@ class FormAtionAnalyzer:
         form_analysis.portswigger_vectors = list(set(vectors))
     
     def _detect_attack_vectors(self, form_analysis: FormAnalysis) -> None:
-        """Detect attack vectors."""
-        # DOM XSS
         if any(f.field_category in ['search', 'content', 'url'] 
                for f in form_analysis.text_input_fields):
             form_analysis.portswigger_vectors.append('dom_xss_potential')
         
-        # Template injection
         if any('{{' in f.value or '}}' in f.value or '${' in f.value 
                for f in form_analysis.text_input_fields):
             form_analysis.portswigger_vectors.append('template_injection_potential')
         
-        # HTTP Parameter Pollution
         if form_analysis.method == 'GET' and len(form_analysis.text_input_fields) > 2:
             form_analysis.portswigger_vectors.append('http_parameter_pollution')
         
-        # Business logic
         if any(f.field_category == 'payment' for f in form_analysis.all_fields):
             if any(f.field_category == 'choice' for f in form_analysis.all_fields):
                 form_analysis.portswigger_vectors.append('business_logic_manipulation')
@@ -684,36 +757,14 @@ class FormAtionAnalyzer:
         form_analysis.portswigger_vectors = list(set(form_analysis.portswigger_vectors))
     
     async def _analyze_security_headers(self) -> None:
-        """Analyze security headers."""
         security_headers = {
-            'Content-Security-Policy': {
-                'risk': 'high',
-                'description': 'CSP prevents XSS attacks'
-            },
-            'X-Frame-Options': {
-                'risk': 'medium',
-                'description': 'Prevents clickjacking'
-            },
-            'Strict-Transport-Security': {
-                'risk': 'high',
-                'description': 'Enforces HTTPS'
-            },
-            'X-Content-Type-Options': {
-                'risk': 'low',
-                'description': 'Prevents MIME sniffing'
-            },
-            'X-XSS-Protection': {
-                'risk': 'medium',
-                'description': 'XSS filter'
-            },
-            'Referrer-Policy': {
-                'risk': 'low',
-                'description': 'Controls referrer information'
-            },
-            'Permissions-Policy': {
-                'risk': 'medium',
-                'description': 'Controls browser features'
-            }
+            'Content-Security-Policy': {'risk': 'high', 'description': 'CSP prevents XSS attacks'},
+            'X-Frame-Options': {'risk': 'medium', 'description': 'Prevents clickjacking'},
+            'Strict-Transport-Security': {'risk': 'high', 'description': 'Enforces HTTPS'},
+            'X-Content-Type-Options': {'risk': 'low', 'description': 'Prevents MIME sniffing'},
+            'X-XSS-Protection': {'risk': 'medium', 'description': 'XSS filter'},
+            'Referrer-Policy': {'risk': 'low', 'description': 'Controls referrer information'},
+            'Permissions-Policy': {'risk': 'medium', 'description': 'Controls browser features'}
         }
         
         headers_analysis = {}
@@ -730,7 +781,6 @@ class FormAtionAnalyzer:
                 'is_compliant': value is not None
             }
         
-        # Cookie security
         if 'set-cookie' in self.response_headers:
             cookies = self.response_headers['set-cookie']
             cookie_secure = all(flag in cookies.lower() for flag in ['secure', 'httponly', 'samesite'])
@@ -746,14 +796,12 @@ class FormAtionAnalyzer:
         self.results['security_headers'] = headers_analysis
     
     async def _detect_technology_stack(self) -> None:
-        """Detect technology stack."""
         if not self.page_content:
             return
         
         soup = BeautifulSoup(self.page_content, 'html.parser')
         tech_stack = {}
         
-        # Script-based detection
         scripts = soup.find_all('script')
         for script in scripts:
             src = script.get('src', '').lower()
@@ -771,7 +819,6 @@ class FormAtionAnalyzer:
                     if tech_name not in tech_stack[category]:
                         tech_stack[category].append(tech_name)
         
-        # Meta generator detection
         for meta in soup.find_all('meta'):
             if meta.get('name', '').lower() == 'generator':
                 content = meta.get('content', '').lower()
@@ -786,7 +833,6 @@ class FormAtionAnalyzer:
                         if tech_name not in tech_stack['cms']:
                             tech_stack['cms'].append(tech_name)
         
-        # Server detection
         server = self.response_headers.get('server', '').lower()
         if server:
             tech_stack['web_servers'] = []
@@ -796,11 +842,14 @@ class FormAtionAnalyzer:
                 tech_stack['web_servers'].append('Nginx')
             elif 'iis' in server:
                 tech_stack['web_servers'].append('Microsoft IIS')
+            elif 'cloudflare' in server:
+                tech_stack['web_servers'].append('Cloudflare')
         
-        # Language detection
         powered_by = self.response_headers.get('x-powered-by', '').lower()
-        languages = {'php': 'PHP', 'asp.net': 'C#/ASP.NET', 'node': 'Node.js',
-                    'python': 'Python', 'ruby': 'Ruby', 'java': 'Java'}
+        languages = {
+            'php': 'PHP', 'asp.net': 'C#/ASP.NET', 'node': 'Node.js',
+            'python': 'Python', 'ruby': 'Ruby', 'java': 'Java'
+        }
         
         for indicator, language in languages.items():
             if indicator in server or indicator in powered_by:
@@ -812,11 +861,53 @@ class FormAtionAnalyzer:
         self.results['technology_stack'] = tech_stack
     
     def _generate_recommendations_with_official_flags(self) -> None:
-        """Generate recommendations using only official FormPoison flags."""
         recommendations = []
         attack_vectors = set()
         
-        # Analyze each form
+        # URL Parameter recommendations
+        url_params = self.results.get('url_parameter_analysis', [])
+        
+        if url_params:
+            csp_params = [p for p in url_params if p.get('csp_injection_possible')]
+            sql_params = [p for p in url_params if p.get('sql_injection_possible')]
+            redirect_params = [p for p in url_params if p.get('open_redirect_possible')]
+            ssrf_params = [p for p in url_params if p.get('ssrf_possible')]
+            
+            if csp_params:
+                param_names = ', '.join([p['param_name'] for p in csp_params])
+                recommendations.append(f"[HIGH] CSP injection possible via parameters: {param_names}")
+                self._add_flag('--csp-bypass', f'CSP injection via: {param_names}')
+                self._add_flag('--url-param', f'{len(csp_params)} CSP-vulnerable parameters')
+                attack_vectors.add('CSP Parameter Bypass')
+                
+                # Recommend specific CSP directive
+                self._add_flag('--csp-directive', 'script-src-elem recommended')
+                self._add_flag('--csp-value', "'unsafe-inline'")
+            
+            if sql_params:
+                param_names = ', '.join([p['param_name'] for p in sql_params])
+                recommendations.append(f"[HIGH] SQL injection possible via parameters: {param_names}")
+                self._add_flag('-t SQL', f'SQL injection via: {param_names}')
+                self._add_flag('--url-param', f'{len(sql_params)} SQL-vulnerable parameters')
+                attack_vectors.add('SQL Injection via URL')
+            
+            if redirect_params:
+                param_names = ', '.join([p['param_name'] for p in redirect_params])
+                recommendations.append(f"[MEDIUM] Open redirect possible via: {param_names}")
+                self._add_flag('--url-param', f'{len(redirect_params)} redirect parameters')
+                attack_vectors.add('Open Redirect')
+            
+            if ssrf_params:
+                param_names = ', '.join([p['param_name'] for p in ssrf_params])
+                recommendations.append(f"[HIGH] SSRF possible via: {param_names}")
+                attack_vectors.add('SSRF')
+            
+            if len(url_params) >= 2:
+                recommendations.append(f"[INFO] Multiple URL parameters detected - CSP bypass attack possible")
+                self._add_flag('--csp-bypass', 'Multiple URL parameters - CSP bypass attack')
+                attack_vectors.add('PortSwigger CSP Bypass')
+        
+        # Form analysis recommendations
         for form in self.results['forms_analysis']:
             form_id = form.get('form_id', 0)
             score = form.get('complexity_score', 0)
@@ -824,7 +915,6 @@ class FormAtionAnalyzer:
             vectors = form.get('portswigger_vectors', [])
             text_fields = form.get('text_input_fields', [])
             
-            # High complexity forms
             if score >= 10:
                 recommendations.append(f"[CRITICAL] Form {form_id}: Very high risk (Score: {score})")
                 self._add_flag('--verbose-all', f'Form {form_id} high complexity')
@@ -833,32 +923,27 @@ class FormAtionAnalyzer:
                 recommendations.append(f"[HIGH] Form {form_id}: High risk (Score: {score})")
                 self._add_flag('-v', f'Form {form_id} high risk - verbose recommended')
             
-            # Login forms
             if 'login_form_detected' in indicators:
                 recommendations.append(f"Form {form_id}: Login form detected")
                 self._add_flag('--login', f'Form {form_id} is login form')
                 attack_vectors.add('Authentication Bypass')
             
-            # File upload
             if 'file_upload_detected' in indicators:
                 recommendations.append(f"Form {form_id}: File upload detected")
                 self._add_flag('--filemode', f'Form {form_id} has file upload')
                 attack_vectors.add('File Upload Attack')
             
-            # GET method
             if 'get_method_used' in indicators:
                 recommendations.append(f"Form {form_id}: Uses GET method")
                 self._add_flag('--method GET', 'GET forms detected')
                 attack_vectors.add('Reflected XSS via GET')
             
-            # SQL Injection potential
             sql_fields = [f for f in text_fields if 'sql_injection' in f.get('portswigger_risks', [])]
             if sql_fields:
                 recommendations.append(f"Form {form_id}: SQL injection potential in {len(sql_fields)} fields")
                 self._add_flag('-t SQL', f'Form {form_id} has SQL injection potential')
                 attack_vectors.add('SQL Injection')
             
-            # XSS potential
             xss_fields = [f for f in text_fields if any(r in f.get('portswigger_risks', []) 
                          for r in ['reflected_xss', 'stored_xss', 'dom_xss'])]
             if xss_fields:
@@ -866,13 +951,11 @@ class FormAtionAnalyzer:
                 self._add_flag('-t HTML', f'Form {form_id} has XSS potential')
                 attack_vectors.add('Cross-Site Scripting (XSS)')
             
-            # Mutation XSS
             if 'dom_xss_potential' in vectors:
                 recommendations.append(f"Form {form_id}: DOM XSS potential")
                 self._add_flag('--mXSS', f'Form {form_id} DOM XSS potential')
                 attack_vectors.add('Mutation XSS')
             
-            # Multiple text fields
             if len(text_fields) > 5:
                 recommendations.append(f"Form {form_id}: Multiple text fields ({len(text_fields)})")
                 self._add_flag('--brute', f'Form {form_id} has {len(text_fields)} text fields')
@@ -881,44 +964,37 @@ class FormAtionAnalyzer:
         # Technology-specific recommendations
         tech = self.results.get('technology_stack', {})
         
-        # Frontend frameworks - sanitizer bypass
         if 'frontend_frameworks' in tech:
             frameworks = tech['frontend_frameworks']
             recommendations.append(f"Modern JS frameworks detected: {', '.join(frameworks)}")
-            self._add_flag('--sanitizer-bypass', f'Frameworks detected: {", ".join(frameworks)}')
+            self._add_flag('--sanitizer-bypass', f'Frameworks: {", ".join(frameworks)}')
             self._add_flag('--mXSS', 'Framework mutation XSS')
             attack_vectors.add('Sanitizer Bypass')
         
-        # CMS detection - encoder bypass
         if 'cms' in tech:
             cms_list = tech['cms']
             recommendations.append(f"CMS detected: {', '.join(cms_list)}")
-            self._add_flag('--encoder-bypass', f'CMS detected: {", ".join(cms_list)}')
+            self._add_flag('--encoder-bypass', f'CMS: {", ".join(cms_list)}')
             attack_vectors.add('CMS-Specific Attacks')
         
-        # Backend frameworks
         if 'backend_frameworks' in tech:
             backend = tech['backend_frameworks']
             recommendations.append(f"Backend frameworks: {', '.join(backend)}")
             self._add_flag('--encoder-bypass', f'Backend: {", ".join(backend)}')
         
-        # ASP.NET specific
         if any('ASP.NET' in str(fw) for fw in tech.get('backend_frameworks', [])):
             self._add_flag('--encoding-confusion', 'ASP.NET detected')
             self._add_flag('--encoder-bypass', 'ASP.NET encoder bypass')
         
-        # WordPress specific
         if any('WordPress' in cms for cms in tech.get('cms', [])):
             self._add_flag('--sanitizer-bypass', 'WordPress sanitizer bypass')
         
-        # PHP/Python detection
         if any(lang in str(tech.get('programming_languages', [])) for lang in ['PHP', 'Python']):
             self._add_flag('--encoder-bypass', 'PHP/Python encoder bypass')
         
         # Security headers analysis
         headers = self.results.get('security_headers', {})
         
-        # CSP detection
         if headers.get('Content-Security-Policy', {}).get('is_compliant'):
             recommendations.append("CSP detected - may need bypass")
             self._add_flag('--csp-bypass', 'CSP header present')
@@ -926,37 +1002,31 @@ class FormAtionAnalyzer:
         else:
             recommendations.append("No CSP detected - XSS easier to exploit")
         
-        # CDN/WAF detection
         server = self.response_headers.get('server', '').lower()
         if any(cdn in server for cdn in ['cloudflare', 'cloudfront', 'akamai', 'fastly']):
             recommendations.append("CDN/WAF detected")
             self._add_flag('--waf-bypass', f'CDN/WAF: {server}')
             attack_vectors.add('WAF Bypass')
         
-        # Large forms - size overflow
         total_fields = sum(len(f.get('all_fields', [])) for f in self.results['forms_analysis'])
         if total_fields > 15:
             self._add_flag('--size-overflow', f'Large forms ({total_fields} total fields)')
             attack_vectors.add('Size Overflow')
         
-        # GET forms - encoding confusion
         if any(form.get('method') == 'GET' for form in self.results['forms_analysis']):
             self._add_flag('--encoding-confusion', 'GET forms detected')
         
-        # Scan recommendations
         if total_fields > 10:
             self._add_flag('--scan', 'Complex form structure - deep scan recommended')
             self._add_flag('--auto-target', 'Auto-target based on scan results')
         else:
             self._add_flag('-qs', 'Quick scan recommended')
         
-        # Performance recommendations based on form count
         form_count = len(self.results['forms_analysis'])
         if form_count > 3:
             self._add_flag('--concurrent', 'Multiple forms - concurrent recommended')
             self._add_flag('--batch-size', 'Batch processing recommended')
         
-        # Build final command
         sorted_flags = sorted(self.recommended_flags)
         command = f"python formpoison.py {self.url} {' '.join(sorted_flags)}"
         
@@ -969,8 +1039,8 @@ class FormAtionAnalyzer:
         self.results['attack_vectors'] = list(attack_vectors)
     
     def _create_risk_assessment(self) -> None:
-        """Create overall risk assessment."""
         total_forms = len(self.results['forms_analysis'])
+        url_params_count = len(self.results.get('url_parameter_analysis', []))
         high_risk_forms = sum(1 for f in self.results['forms_analysis'] if f.get('complexity_score', 0) >= 7)
         critical_forms = sum(1 for f in self.results['forms_analysis'] if f.get('complexity_score', 0) >= 10)
         
@@ -978,6 +1048,11 @@ class FormAtionAnalyzer:
         risk_score += len(self.results.get('attack_vectors', [])) * 5
         risk_score += high_risk_forms * 10
         risk_score += critical_forms * 15
+        
+        # URL parameters add risk
+        high_risk_params = sum(1 for p in self.results.get('url_parameter_analysis', []) 
+                              if p.get('threat_level') == 'high')
+        risk_score += high_risk_params * 8
         
         missing_critical = sum(
             1 for info in self.results.get('security_headers', {}).values()
@@ -1006,13 +1081,11 @@ class FormAtionAnalyzer:
             'critical_forms': critical_forms,
             'high_risk_forms': high_risk_forms,
             'total_forms': total_forms,
+            'url_params_count': url_params_count,
             'attack_vectors_count': len(self.results.get('attack_vectors', []))
         }
     
     def _display_comprehensive_report(self) -> None:
-        """Display comprehensive analysis report."""
-        
-        # Executive Summary
         risk = self.results.get('risk_assessment', {})
         risk_color = risk.get('color', 'white')
         risk_level = risk.get('risk_level', 'UNKNOWN')
@@ -1023,12 +1096,45 @@ class FormAtionAnalyzer:
             f"Risk Level: [bold {risk_color}]{risk_level}[/bold {risk_color}]\n"
             f"Risk Score: {risk.get('risk_score', 0)}/100\n"
             f"Forms: {risk.get('total_forms', 0)} "
-            f"(Critical: {risk.get('critical_forms', 0)}, "
-            f"High: {risk.get('high_risk_forms', 0)})\n"
+            f"(Critical: {risk.get('critical_forms', 0)}, High: {risk.get('high_risk_forms', 0)})\n"
+            f"URL Parameters: {risk.get('url_params_count', 0)}\n"
             f"Attack Vectors: {risk.get('attack_vectors_count', 0)}",
             title="FormAtion Analysis",
             border_style=risk_color
         ))
+        
+        # URL Parameter Analysis
+        url_params = self.results.get('url_parameter_analysis', [])
+        if url_params:
+            console.print("\n[bold cyan]URL PARAMETER ANALYSIS[/bold cyan]")
+            
+            param_table = Table(
+                title="URL Parameters",
+                header_style="bold yellow",
+                box=box.ROUNDED
+            )
+            
+            param_table.add_column("Parameter", style="cyan")
+            param_table.add_column("Threat Level", style="white")
+            param_table.add_column("Vulnerabilities", style="red")
+            param_table.add_column("Recommended Payload", style="green")
+            
+            for param in url_params:
+                threat_color = {
+                    'high': 'red', 'medium': 'yellow', 'low': 'green'
+                }.get(param.get('threat_level', 'low'), 'white')
+                
+                vulns = ', '.join(param.get('potential_vulnerabilities', [])[:3])
+                payload = param.get('recommended_payloads', [''])[0] if param.get('recommended_payloads') else ''
+                
+                param_table.add_row(
+                    self._escape_markup(param.get('param_name', '')),
+                    f"[{threat_color}]{param.get('threat_level', 'low').upper()}[/{threat_color}]",
+                    self._escape_markup(vulns) if vulns else 'None',
+                    self._escape_markup(payload[:60]) if payload else ''
+                )
+            
+            console.print(param_table)
         
         # Forms Analysis
         if self.results['forms_analysis']:
@@ -1144,8 +1250,8 @@ class FormAtionAnalyzer:
                 else:
                     console.print(f"  {rec}")
 
+
 async def main():
-    """Main entry point."""
     parser = argparse.ArgumentParser(
         description="FormAtion - Advanced Web Form Analyzer for FormPoison"
     )
