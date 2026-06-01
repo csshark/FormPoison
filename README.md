@@ -26,6 +26,8 @@ optionally perform deeper front-end code scan:
 python3 formpoison.py target.com/delivery?startQuery=1 --fieldname "Order Title" -s 4 --filter 'iframe, onload, document.cookie' --verbose</pre></code>
 *The command above is gonna be looking for field named "Order Title" (ensure to get field names from DevTools), delay between requests is set to 4 seconds and script is going to filter the payloads from list to these containing only 'iframe', 'onload', 'document.cookie'. Verbose mode is here to visualize results in real time and help with debugging.* 
 
+<p>To make yourself even better with tool, check <a href=PoC.md>PoC</a> of FormPoison! 
+
 ### Possible optional flags: 
 <div align ="center">
   <details><summary><b>Click to expand detailed full flags table.</b></summary>
@@ -92,9 +94,6 @@ If there is need to inject payloads in specific part of the input, framework is 
 <pre><code>Field 1: admin''poison'
 Field 2: diff'poison'iculty</code></pre>
 Interactive mode supports a lot of flags and there is still need to provide them for this mode (threat type, filter, delay etc.).
-### Scan mode
-Scan mode has been extended into JavaScript code scanning and looking for common vectors of code / inproper value injection to bypass some filters. The scanner is separate project integrated into FormPoison by default. It is recommended to run scan to identify attack vectors by yourself first. Scanner works for <b>10 minutes max.</b> for smaller apps, to keep lightweight form - this is not autonomus DAST replacement. By default scanner runs with 100 3 10 (100 MaxURLs, 3 MaxDepth, 10 Workers) to suit all the enviroments. However user is allowed to change those values via FormPoison flags. Output file is named *scan_report_[targetURL]_[dateTime].json*. Scanner recognizes ~20 patterns in Java web files and also checks for OWASP Top 10 vulnerabilities. Scanner output gives recommendations and points to forms that might be vulnerable (false-positive reduction applied).
-
 
 ### payload sources:
 - **payloadbox**: https://github.com/payloadbox/sql-injection-payload-list
