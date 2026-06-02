@@ -10,6 +10,7 @@ CSP-Bypass is usually possible via URL param. So we need to provide such flags:
 <li>--csp-bypass</li>
 <li>--url-param</li>
 <li>--verbose (optional but recommended)</li>
+
 So the final command becomes:
 <pre><code>python3 formpoison.py https://PORTSWIGGER-LAB.web-security-academy.net --url-param --csp-bypass --verbose
 </code></pre>
