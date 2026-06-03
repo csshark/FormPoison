@@ -113,7 +113,7 @@ FormAtion performs lightweight form reconnaissance and suggests optimized FormPo
 
 ---
 
-## 2. Perform Frontend Reconnaissance
+## 2. Perform Deep Frontend Reconnaissance (optional)
 
 Analyze:
 
