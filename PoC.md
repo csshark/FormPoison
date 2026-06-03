@@ -17,3 +17,9 @@ So the final command becomes:
 Now we can wait for lab to get solved.
 <img width="1854" height="369" alt="image" src="https://github.com/user-attachments/assets/1a4016e6-448e-4b5a-8692-bf541a6402dc" />
 simple as that. 
+
+## FormPoison is here to assist you
+Are you preparing for an exam where open-source tools are allowed? FormPoison is one of them and can help you find your XSS on the web application. 
+To use more advanced flags you need to have desired knowledge - for example you need to understand why your payload got blocked.
+> FormAtion is not< a scanner. It sends one request and performs short analysis of source files.
+
