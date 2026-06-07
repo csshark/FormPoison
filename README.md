@@ -135,11 +135,7 @@ python3 formpoison.py https://target.com --scan
 Use filtered payloads against identified fields:
 
 ```bash
-python3 formpoison.py \
-https://target.com/contact \
---fieldname "Message" \
---filter "script,onerror,svg" \
---verbose
+python3 formpoison.py https://target.com/contact --fieldname "Message" --filter "script,onerror,svg" --verbose
 ```
 
 ---
