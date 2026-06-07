@@ -6,7 +6,7 @@
 
 Smart form-focused injection framework built from practical experience with data validation flaws, XSS vulnerabilities and real-world web application testing.
 
-The primary goal of FormPoison is to maximize XSS attack surface coverage by focusing on user-controlled forms, reflected inputs, frontend behavior and validation weaknesses. While the framework includes payloads for SQL Injection and HTML Injection testing, **XSS discovery and exploitation remains its core purpose**.
+The primary goal of FormPoison is to maximize XSS attack surface coverage by focusing on user-controlled forms, reflected inputs, frontend behavior and validation weaknesses. While the framework includes payloads for SQL Injection **XSS discovery and exploitation remains its core purpose**.
 
 FormPoison should not be considered a replacement for tools such as Burp Suite, OWASP ZAP, XSStrike or Nuclei. Instead, it is designed to complement existing offensive security workflows and improve testing efficiency during manual assessments.
 
