@@ -207,9 +207,8 @@ Instead it focuses on:
 * reflection identification
 * field relationship mapping
 
-Its purpose is simple:
 
-**Generate optimized FormPoison commands before running payloads.**
+**FormAtion suggests optimized FormPoison commands before running payloads.**
 
 Example:
 
@@ -261,7 +260,7 @@ Interactive Mode supports most standard flags including:
 
 ## Standard Mode
 
-Recommended for most assessments.
+Recommended for most assessments. <code>--verbose</code> flag is also recommended in most of assessments.
 
 ```bash
 python3 formpoison.py https://target.com
