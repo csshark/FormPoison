@@ -16,7 +16,7 @@ So the final command becomes:
 </code></pre>
 Now we can wait for lab to get solved.
 <img width="1854" height="369" alt="image" src="https://github.com/user-attachments/assets/1a4016e6-448e-4b5a-8692-bf541a6402dc" />
-simple as that. 
+simple as that. Obviously FormPoison features include PortSwigger techniques (Web Academy is brilliant source) so this tool should deal good with any labs but also might help you with exam :)  
 
 ## FormPoison is here to assist you
 Are you preparing for an exam where open-source tools are allowed? FormPoison is one of them and can help you find your XSS on the web application. 
