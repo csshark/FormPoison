@@ -1,25 +1,32 @@
 # Welcome to PoC of FormPoison 
 
-FormPoison can solve PortSwigger PRACTITIONER marked labs and has been tested in that field. 
+It is nowdays more complicated to deliver new ideas to community, that's why this file has been created. For people who are sceptical about new tools and learning them. Please take a minute and see FormPoison in action!
 
 ## Example 1: PortSwigger CSP bypass XSS lab
 
 From the lab description we know we need to bypass CSP somehow. There is one way to do this in FormPoison. 
 
 CSP-Bypass is usually possible via URL param. So we need to provide such flags:
-<li>--csp-bypass</li>
-<li>--url-param</li>
-<li>--verbose (optional but recommended)</li>
-
+<li><code>--csp-bypass</code> - FormPoison will generate CSP-Bypass payloads.</li>
+<li><code>--url-param</code> - we specify which url param to use, you <b>must</b> assign a sample value to the param.</li>
+<li><code>--verbose</code> (optional but recommended)</li>
+<p></p>
 So the final command becomes:
-<pre><code>python3 formpoison.py https://PORTSWIGGER-LAB.web-security-academy.net --url-param --csp-bypass --verbose
+<pre><code>python3 formpoison.py https://PORTSWIGGER-LAB.web-security-academy.net/?urlparam=somevalue --url-param --csp-bypass --verbose
 </code></pre>
 Now we can wait for lab to get solved.
 <img width="1854" height="369" alt="image" src="https://github.com/user-attachments/assets/1a4016e6-448e-4b5a-8692-bf541a6402dc" />
 simple as that. Obviously FormPoison features include PortSwigger techniques (Web Academy is brilliant source) so this tool should deal good with any labs but also might help you with exam :)  
 
+## Example 2: PortSwigger URL-param-based XSS
+Sometimes FormPoison won't be able to deal with fuzzing directly into forms, use <code>--url-param</code> flag whenever it's possible. This will make your efforts <b>extremely</b> shorter. This is not a big surprise most of XSS labs could be solved with this tool, but this is very valuable during exams or with stronger enterprise input sanitizers. 
+<img width="1185" height="760" alt="image" src="https://github.com/user-attachments/assets/22270df2-5a4e-4d0f-8c88-47fd58f86b67" />
+
+A lot of flags are implemented for more protected environments please read how do they work in <a href=README.md#Flags>flags</a> section.
+
 ## FormPoison is here to assist you
 Are you preparing for an exam where open-source tools are allowed? FormPoison is one of them and can help you find your XSS on the web application. 
 To use more advanced flags you need to have desired knowledge - for example you need to understand why your payload got blocked.
-> FormAtion is not< a scanner. It sends one request and performs short analysis of source files.
+> FormAtion is not a scanner. It sends one request and performs short analysis of source files. When scanners are forbidden you can use <code>-qs</code> flag with no worries.
 
+<p>Now you should see that this tool is not just a script kiddie random tool, but the fuzzer only <b>you</b> can control.</p>
