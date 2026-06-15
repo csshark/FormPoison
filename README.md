@@ -1,4 +1,4 @@
-# FormPoison <div align ="center"></div><p><sub><sup><sub>Latest update: 15.06.2026, 21:25 (GMT+2)</sub></sup></sub></p>
+# FormPoison <div align ="center"></div><p><sub><sup><sub>Latest update: 15.06.2026, 22:25 (GMT+2)</sub></sup></sub></p>
 
 <p align="center">
   <img src="FormPoison-logo.png" width=500/>
@@ -10,454 +10,99 @@ The primary goal of FormPoison is to maximize XSS attack surface coverage by foc
 
 ---
 
-# Installation
+## Installation
 
-```bash
-git clone https://github.com/csshark/FormPoison.git
-
+<pre><code>git clone https://github.com/csshark/FormPoison.git
 cd FormPoison
 
 pip install -r requirements.txt
-```
-
-Ensure Selenium dependencies are available:
-
-```bash
-pip install webdriver-manager
-```
-
+pip install webdriver-manager</code></pre>
 ---
 
-# Quick Start
+## Quick Start
 
-Before launching large injection campaigns, understand how the target behaves and familiarize yourself with available flags.
+Basic attack:
 
-Basic usage:
+<pre><code>python3 formpoison.py https://target.com --verbose</code></pre>
 
-```bash
-python3 formpoison.py -h
-```
+Frontend deep reconnaissance (requires GoScanner compilation):
 
-Display all supported options.
+<pre><code>python3 formpoison.py https://target.com --scan</code></pre>
 
-Start testing:
+Quick reflection discovery:
 
-```bash
-python3 formpoison.py https://targetsite.com
-```
+<pre><code>python3 formpoison.py https://target.com -qs</code></pre>
 
-Perform deeper frontend reconnaissance:
+Target a specific field:
 
-```bash
-python3 formpoison.py https://targetsite.com --scan
-```
-
-Example targeted assessment:
-
-```bash
-python3 formpoison.py \
-https://target.com/delivery?startQuery=1 \
---fieldname "Order Title" \
--s 4 \
---filter "iframe,onload,document.cookie" \
+<pre><code>python3 formpoison.py \
+https://target.com/contact \
+--fieldname "Message" \
+--filter "script,onerror,svg" \
 --verbose
-```
+</code></pre>
+---
 
-This command:
+## Features
 
-* targets the field named `Order Title`
-* delays requests by 4 seconds
-* loads only matching payloads
-* displays results in real time
-* simplifies debugging and payload validation
+- XSS-focused payload engine
+- Reflection detection and validation
+- Form reconnaissance (FormAtion)
+- Frontend discovery
+- DOM sink identification
+- Interactive injection mode
+- Login and authenticated testing
+- CSP bypass
+- WAF bypass
+- Mutation XSS payloads
+- Encoding confusion payloads
+- High-speed brute mode
 
 ---
 
-# Recommended Pentest Workflow
+## Useful Options
+<div align="center">
+  
+| Flag | Description |
+|------|-------------|
+| --scan | Frontend reconnaissance |
+| --url-param | Target an URL parameter | 
+| --csp-bypass | Generate and use CSP bypass payloads | 
+| -qs | Quick reflection discovery |
+| --interactive | Manual injection placement |
+| --fieldname | Target a specific field |
+| --filter | Use payloads matching keyword |
+| --cookies | Authenticated testing |
+| --login | Login workflow testing |
+| --verbose | Real-time output |
+| --brute | Maximum throughput mode |
+</div>
+Display all available options:
 
-## 1. Discover Forms
-
-Run FormAtion first:
-
-```bash
-python3 formpoison.py https://target.com -qs
-```
-
-FormAtion performs lightweight form reconnaissance and suggests optimized FormPoison commands.
-
----
-
-## 2. Perform Deep Frontend Reconnaissance (optional)
-
-Analyze:
-
-* JavaScript files
-* hidden endpoints
-* forms
-* suspicious values
-* parameters
-* potential DOM sinks
-
-```bash
-python3 formpoison.py https://target.com --scan
-```
+<pre><code>python3 formpoison.py -h</code></pre>
 
 ---
 
-## 3. Test Reflections
+## Examples
 
-Use filtered payloads against identified fields:
+Authentication required:
 
-```bash
-python3 formpoison.py https://target.com/contact --fieldname "Message" --filter "script,onerror,svg" --verbose
-```
+<pre><code>python3 formpoison.py https://target.com/profile --cookies "SESSIONID=value"</code></pre>
 
----
+Interactive mode:
 
-## 4. Escalate Payload Categories
+<pre><code>python3 formpoison.py https://target.com --interactive</code></pre>
 
-Enable specialized payload collections when required:
+Custom payloads file:
 
-```bash
---waf-bypass
-```
-
-```bash
---csp-bypass
-```
-
-```bash
---mXSS
-```
-
-```bash
---sanitizer-bypass
-```
-
-```bash
---encoding-confusion
-```
+<pre><code>python3 formpoison.py https://target.com -p payloads.json</code></pre>
 
 ---
 
-## 5. Precision Testing
+## Contributing
 
-For complex applications:
-
-```bash
-python3 formpoison.py https://target.com --interactive
-```
-
-Inject payloads at exact positions:
-
-```text
-admin''poison'
-```
-
-or
-
-```text
-diff'poison'iculty
-```
-
-This is useful when testing:
-
-* template rendering
-* broken validation logic
-* partial reflections
-* context-dependent XSS
-* difficult sanitizer bypasses
+Contributions are welcome through Issues and Pull Requests.
 
 ---
 
-# FormAtion Module (-qs and --check flag)
-
-FormAtion is a lightweight reconnaissance module.
-
-Unlike `--scan`, it does not crawl JavaScript or perform source code auditing.
-
-Instead it focuses on:
-
-* form discovery
-* response analysis
-* reflection identification
-* field relationship mapping
-
-
-**FormAtion suggests optimized FormPoison commands before running payloads.**
-
-Example:
-
-```bash
-python3 formpoison.py https://target.com -qs
-```
-
-> Warning: FormAtion does not validate flag compatibility. Always verify generated commands before execution.
-
----
-
-# Interactive Mode
-
-Interactive Mode gives complete control over injection placement.
-
-```bash
-python3 formpoison.py [URL] [FLAGS] --interactive
-```
-
-When prompted, define the payload position using:
-
-```text
-'poison'
-```
-
-Examples:
-
-```text
-Field 1:
-admin''poison'
-
-Field 2:
-diff'poison'iculty
-```
-
-Without the `'poison'` marker, FormPoison treats the input as static user data.
-
-Interactive Mode supports most standard flags including:
-
-* threat selection
-* filtering
-* delays
-* authentication
-* bypass payload categories
-
----
-
-# Performance Modes
-
-## Standard Mode
-
-Recommended for most assessments. <code>--verbose</code> flag is also recommended in most of assessments.
-
-```bash
-python3 formpoison.py https://target.com
-```
-
----
-
-## Brute Mode
-
-Maximum request throughput.
-
-```bash
-python3 formpoison.py https://target.com --brute
-```
-
-Additional tuning options:
-
-```bash
---concurrent
---timeout
---batch-size
---batch-delay
---retries
-```
-
-> Warning: Brute Mode can overwhelm fragile targets and significantly increase the chance of triggering rate limits or security controls.
-
----
-
-# Flags
-
-<details>
-<summary><b>Click to expand full flags table</b></summary>
-
-| Flag                 | Function                         |
-| -------------------- | -------------------------------- |
-| -h --help            | Display help                     |
-| --no-banner          | Disable banner animation         |
-| -t --threat          | Select threat type               |
-| --filter             | Filter payloads                  |
-| --fieldname          | Target specific field            |
-| --filemode           | Filename injection mode          |
-| -p --payloads        | Custom payload file              |
-| --cookies            | Authenticated testing            |
-| -ua --user-agent     | Custom User-Agent                |
-| -v --verbose         | Verbose mode                     |
-| --verbose-all        | Include response body            |
-| --login              | Login testing mode               |
-| --mXSS               | Mutation XSS payloads            |
-| --brute              | Maximum throughput mode          |
-| --concurrent         | Concurrent requests              |
-| --timeout            | Request timeout                  |
-| --batch-size         | Requests per batch               |
-| --batch-delay        | Delay between batches            |
-| --retries            | Retry count                      |
-| --ssl-cert           | SSL certificate                  |
-| --ssl-key            | SSL key                          |
-| --ssl-verify         | SSL validation                   |
-| --proxy              | Proxy support                    |
-| --method             | Force HTTP method                |
-| -s --seconds         | Delay between requests           |
-| --interactive        | Interactive injection mode       |
-| -qs --check          | Quick reflection check           |
-| --scan               | Frontend reconnaissance          |
-| --max-urls           | Maximum URLs                     |
-| --max-depth          | Crawl depth                      |
-| --max-workers        | Worker threads                   |
-| --auto-target        | Auto-injection from scan results |
-| --waf-bypass         | WAF evasion payloads             |
-| --csp-bypass         | CSP bypass payloads              |
-| --sanitizer-bypass   | Sanitizer bypass payloads        |
-| --encoder-bypass     | Framework/CMS payloads           |
-| --encoding-confusion | Encoding confusion payloads      |
-| --size-overflow      | Overflow payloads                |
-| --url-param          | URL parameter analysis and testing (specify: _?param=value_)          |
-| --url-param-name     | Specific parameter               |
-| --csp-directive      | CSP directive injection          |
-| --csp-value          | CSP value injection              |
-
-</details>
-
----
-
-# Example Commands
-
-Basic:
-
-```bash
-python3 formpoison.py https://target.org
-```
-
-Authenticated assessment:
-
-```bash
-python3 formpoison.py \
-https://target.org/profile \
---cookies "JSESSIONID=123456789"
-```
-
-Login workflow testing:
-
-```bash
-python3 formpoison.py \
-https://target.org/login \
---login \
---verbose
-```
-
-Custom payloads:
-
-```bash
-python3 formpoison.py \
-https://target.org \
--p custom_payloads.json
-```
-
----
-
-# Payload Sources
-
-* PayloadBox SQL Injection Payload List
-* Varun Sulakhe HTML Injector
-* Custom payload collections
-
----
-
-# Extending Payloads
-
-To expand payload coverage use:
-
-```bash
-converter.py
-```
-
-Create:
-
-```text
-input.txt
-```
-
-Example:
-
-```html
-<script>alert('XSS')</script>
-<a href=javascript:alert('XSS')>Click</a>
-<svg onload=alert(1)>
-```
-
-Convert payloads into FormPoison-compatible JSON format.
-
-You may also create your own payload database and use:
-
-```bash
--p payloads.json
-```
-
-without modifying framework source code.
-
----
-
-# False Positives
-
-FormPoison includes:
-
-* reflection validation
-* response comparison
-* basic false-positive reduction
-
-However, some applications:
-
-* always return 200 responses
-* reflect input without execution
-* rewrite payloads dynamically
-* alter behavior through WAFs
-
-Always manually verify findings before reporting vulnerabilities.
-
----
-
-# Bugs & Issues
-
-FormPoison is an independent community-driven project.
-
-Not every feature receives extensive testing across all frameworks and edge cases.
-
-If you discover:
-
-* bugs
-* bypass techniques
-* framework-specific payloads
-* performance improvements
-
-please open an issue or contribute directly.
-
----
-
-# Recent Improvements
-
-* Interactive field injection
-* High-speed brute mode
-* Multithreaded request execution
-* Login mode filtering support
-* Full CSP bypass implementation
-* Reflection validator improvements
-* Better payload filtering logic
-
----
-
-# Contributing
-
-Contributions are welcome.
-
-If you have ideas for:
-
-* payload categories
-* bypass techniques
-* framework support
-* detection improvements
-
-feel free to open a Pull Request.
-
----
-
-InjOy! 💉
+**InjOy! 💉**
