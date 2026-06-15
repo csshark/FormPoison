@@ -1,12 +1,10 @@
-# FormPoison <div align ="center"></div><p><sub><sup><sub>Latest update: 01.06.2026, 22:30 (GMT+2)</sub></sup></sub></p>
+# FormPoison <div align ="center"></div><p><sub><sup><sub>Latest update: 15.06.2026, 21:25 (GMT+2)</sub></sup></sub></p>
 
 <p align="center">
   <img src="FormPoison-logo.png" width=500/>
-  <h3><p align="center">Version 2.0.</p></h3>
 </p>
 
-
-Smart form-focused injection framework built from practical experience with data validation flaws, XSS vulnerabilities and real-world web application testing.
+Smart form-focused XSS framework built from practical experience with data validation flawsin real-world web application testing.
 
 The primary goal of FormPoison is to maximize XSS attack surface coverage by focusing on user-controlled forms, reflected inputs, frontend behavior and validation weaknesses. While the framework includes payloads for SQL Injection **XSS discovery and exploitation remains its core purpose**.
 
