@@ -41,6 +41,9 @@ https://target.com/contact \
 --filter "script,onerror,svg" \
 --verbose
 </code></pre>
+
+Check <a href=PoC.md>PoC</a> for more tool usage examples.
+
 ---
 
 ## Features
