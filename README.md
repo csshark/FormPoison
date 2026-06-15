@@ -2,31 +2,13 @@
 
 <p align="center">
   <img src="FormPoison-logo.png" width=500/>
+  <h3><p align="center">Version 2.0.</p></h3>
 </p>
+
 
 Smart form-focused injection framework built from practical experience with data validation flaws, XSS vulnerabilities and real-world web application testing.
 
 The primary goal of FormPoison is to maximize XSS attack surface coverage by focusing on user-controlled forms, reflected inputs, frontend behavior and validation weaknesses. While the framework includes payloads for SQL Injection **XSS discovery and exploitation remains its core purpose**.
-
----
-
-# Why FormPoison?
-
-Most scanners attack every parameter blindly.
-
-FormPoison focuses on:
-
-* Reflected XSS
-* Stored XSS
-* Mutation XSS (mXSS)
-* HTML Injection
-* CSP bypass testing
-* Sanitizer bypass validation
-* Frontend reconnaissance
-* Form workflow analysis
-* Context-aware payload filtering
-
-Instead of throwing thousands of payloads at every field, FormPoison helps identify meaningful injection points and test them efficiently.
 
 ---
 
