@@ -335,7 +335,7 @@ Additional tuning options:
 | --encoder-bypass     | Framework/CMS payloads           |
 | --encoding-confusion | Encoding confusion payloads      |
 | --size-overflow      | Overflow payloads                |
-| --url-param          | URL parameter analysis           |
+| --url-param          | URL parameter analysis and testing (specify: _?param=value_)          |
 | --url-param-name     | Specific parameter               |
 | --csp-directive      | CSP directive injection          |
 | --csp-value          | CSP value injection              |
