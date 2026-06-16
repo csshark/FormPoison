@@ -30,8 +30,12 @@ To use more advanced flags you need to have desired knowledge - for example you 
 > FormAtion is not a scanner. It sends one request and performs short analysis of source files. When scanners are forbidden you can use <code>-qs</code> flag with no worries.
 
 ## Example 3: DVWA Interactive mode showcase
-You can specify which field to target when FormPoison founds it. The best thing is you can provide your own escape sequence before injecting `'poison'` to valid position. In this scenario I used `--interactive` flag with additional information.<n>
+You can specify which field to target when FormPoison founds it. The best thing is you can provide your own escape sequence before injecting `'poison'` to valid position. In this scenario I used `--interactive` flag with additional information. We use comamnd:
+<pre><code>python3 formpoison.py https://pentest-ground.com:4280 --interactive --filter alert --verbose</code></pre>
 <img width="1086" height="774" alt="image" src="https://github.com/user-attachments/assets/ecfc4666-f3ef-4a8f-8fcc-933bd3b6e205" />
 
 
-<p>Now you should see that this tool is not just a script kiddie random tool, but the fuzzer only <b>you</b> can control.</p>
+<p>Now you should see that this tool is not just a script kiddie random tool, but the smart fuzzer only <b>you</b> can control.</p>
+
+## Expand payload list with your favorites
+Payloads are stored in .json file so you can specify `-p` flag to specify your own set (check payloads file syntax!). I also created `converter.py` for this simple conversion. You are hardcoding payload category and convert them all into json structured data file. By default there is about 3500 payloads (+ generated ones) included.  
