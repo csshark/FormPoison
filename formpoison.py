@@ -1503,7 +1503,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                                    verbose=False, verbose_all=False, secs=0,
                                    brute_mode=False, max_concurrent=50, timeout=15.0,
                                    batch_size=100, batch_delay=1.0, max_retries=2):
-    """Interactive mode for manual injection testing"""
     
     initial_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
     content = await get_page_content(url, initial_user_agent, proxies, ssl_cert, ssl_key, ssl_verify)
@@ -1517,6 +1516,15 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
     if not input_fields:
         console.print("[bold yellow]No input fields found on the page[/bold yellow]")
         return []
+
+    # Detect form method from the page if possible
+    soup = BeautifulSoup(content, 'html.parser')
+    forms = soup.find_all('form')
+    if forms:
+        form_method = forms[0].get('method', 'GET').upper()
+        if form_method in ['GET', 'POST']:
+            method = form_method
+            console.print(f"[yellow]Detected form method: {method}[/yellow]")
 
     field_values, poison_fields = await get_user_input_for_fields(input_fields, url)
 
@@ -1554,132 +1562,159 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
     async def test_with_user_config(payload_index=None):
         async with semaphore:
-            try:
-                current_user_agent = random.choice(user_agents) if len(user_agents) > 1 else user_agents[0]
-                headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
-                data = {}
+            current_method = method  # Use local variable for method switching
+            for retry in range(max_retries + 1):
+                try:
+                    current_user_agent = random.choice(user_agents) if len(user_agents) > 1 else user_agents[0]
+                    headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
+                    data = {}
 
-                for field_name, user_value in field_values.items():
-                    if user_value is None:
-                        # Field marked for payload injection
-                        if payload_index is not None and payloads:
-                            payload = payloads[payload_index % len(payloads)]
-                            data[field_name] = payload['inputField']
-                            payload_category = payload['category']
+                    for field_name, user_value in field_values.items():
+                        if user_value is None:
+                            # Field marked for payload injection
+                            if payload_index is not None and payloads:
+                                payload = payloads[payload_index % len(payloads)]
+                                data[field_name] = payload['inputField']
+                                payload_category = payload['category']
+                            else:
+                                data[field_name] = "' OR 1=1 --"
+                                payload_category = "SQL"
+
+                        elif "'poison'" in str(user_value):
+                            # Replace 'poison' placeholder with payload
+                            if payload_index is not None and payloads:
+                                payload = payloads[payload_index % len(payloads)]
+                                data[field_name] = user_value.replace("'poison'", payload['inputField'])
+                                payload_category = payload['category'] + "_INJECTED"
+                            else:
+                                data[field_name] = user_value.replace("'poison'", "' OR 1=1 --")
+                                payload_category = "SQL_INJECTED"
+
                         else:
-                            data[field_name] = "' OR 1=1 --"
-                            payload_category = "SQL"
+                            # User-defined value
+                            data[field_name] = user_value
+                            payload_category = "USER_DEFINED"
 
-                    elif "'poison'" in str(user_value):
-                        # Replace 'poison' placeholder with payload
-                        if payload_index is not None and payloads:
-                            payload = payloads[payload_index % len(payloads)]
-                            data[field_name] = user_value.replace("'poison'", payload['inputField'])
-                            payload_category = payload['category'] + "_INJECTED"
-                        else:
-                            data[field_name] = user_value.replace("'poison'", "' OR 1=1 --")
-                            payload_category = "SQL_INJECTED"
+                    proxy_url = proxies.get('http') if proxies else None
 
+                    if brute_mode:
+                        async with aiohttp.ClientSession(
+                            cookie_jar=cookie_jar,
+                            connector=connector,
+                            timeout=timeout_config
+                        ) as session:
+                            async with session.request(
+                                current_method, url, 
+                                data=data if current_method == 'POST' else None,
+                                params=data if current_method == 'GET' else None,
+                                headers=headers,
+                                proxy=proxy_url, ssl=ssl_verify
+                            ) as response:
+                                response_content = await response.text()
+                                status_code = response.status
+                                response_headers = response.headers
                     else:
-                        # User-defined value
-                        data[field_name] = user_value
-                        payload_category = "USER_DEFINED"
+                        ssl_ctx = ssl.create_default_context()
+                        if ssl_cert and ssl_key:
+                            ssl_ctx.load_cert_chain(ssl_cert, ssl_key)
 
-                proxy_url = proxies.get('http') if proxies else None
+                        async with aiohttp.ClientSession(
+                            cookie_jar=cookie_jar,
+                            connector=aiohttp.TCPConnector(ssl=ssl_ctx)
+                        ) as session:
+                            async with session.request(
+                                current_method, url,
+                                data=data if current_method == 'POST' else None,
+                                params=data if current_method == 'GET' else None,
+                                headers=headers,
+                                proxy=proxy_url, ssl=ssl_verify
+                            ) as response:
+                                response_content = await response.text()
+                                status_code = response.status
+                                response_headers = response.headers
 
-                if brute_mode:
-                    async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar,
-                        connector=connector,
-                        timeout=timeout_config
-                    ) as session:
-                        async with session.request(
-                            method, url, data=data, headers=headers,
-                            proxy=proxy_url, ssl=ssl_verify
-                        ) as response:
-                            response_content = await response.text()
-                            status_code = response.status
-                            response_headers = response.headers
-                else:
-                    ssl_ctx = ssl.create_default_context()
-                    if ssl_cert and ssl_key:
-                        ssl_ctx.load_cert_chain(ssl_cert, ssl_key)
+                    # If we get 405, try the other method
+                    if status_code == 405 and retry < max_retries:
+                        old_method = current_method
+                        current_method = 'GET' if current_method == 'POST' else 'POST'
+                        console.print(f"[yellow]Got 405 with {old_method}, retrying with {current_method}...[/yellow]")
+                        continue
 
-                    async with aiohttp.ClientSession(
-                        cookie_jar=cookie_jar,
-                        connector=aiohttp.TCPConnector(ssl=ssl_ctx)
-                    ) as session:
-                        async with session.request(
-                            method, url, data=data, headers=headers,
-                            proxy=proxy_url, ssl=ssl_verify
-                        ) as response:
-                            response_content = await response.text()
-                            status_code = response.status
-                            response_headers = response.headers
+                    current_payload = "USER_CONFIG"
+                    for f in poison_fields:
+                        if f in data:
+                            current_payload = data[f]
+                            break
 
-                current_payload = "USER_CONFIG"
-                for f in poison_fields:
-                    if f in data:
-                        current_payload = data[f]
-                        break
+                    vulnerabilities = analyze_response(
+                        response_content, response_headers, 
+                        payload_category, current_payload, status_code, verbose_all
+                    )
+                    
+                    reflected = is_payload_reflected(response_content, current_payload)
+                    _, execution_indicators = is_payload_executed(
+                        response_content, current_payload, 
+                        response_headers, status_code
+                    )
 
-                vulnerabilities = analyze_response(
-                    response_content, response_headers, 
-                    payload_category, current_payload, status_code, verbose_all
-                )
-                
-                reflected = is_payload_reflected(response_content, current_payload)
-                _, execution_indicators = is_payload_executed(
-                    response_content, current_payload, 
-                    response_headers, status_code
-                )
+                    timestamp = time.strftime("%H:%M:%S")
+                    short_payload = current_payload[:50] + "..." if len(current_payload) > 50 else current_payload
+                    
+                    if status_code >= 500:
+                        status_display = f"[bold red]{status_code}[/bold red]"
+                    elif status_code >= 400:
+                        status_display = f"[bold yellow]{status_code}[/bold yellow]"
+                    else:
+                        status_display = f"[green]{status_code}[/green]"
+                    
+                    injection_detected = any(ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED'] for ind in execution_indicators)
+                    
+                    if injection_detected:
+                        console.print(f"[{timestamp}] {short_payload} -> {status_display} [bold red]VULNERABLE[/bold red]")
+                        for ind in execution_indicators:
+                            if ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED']:
+                                console.print(f"[{timestamp}]   [red]{ind}[/red]")
+                    else:
+                        console.print(f"[{timestamp}] {short_payload} -> {status_display} | Reflected: {reflected}")
 
-                timestamp = time.strftime("%H:%M:%S")
-                short_payload = current_payload[:50] + "..." if len(current_payload) > 50 else current_payload
-                
-                if status_code >= 500:
-                    status_display = f"[bold red]{status_code}[/bold red]"
-                elif status_code >= 400:
-                    status_display = f"[bold yellow]{status_code}[/bold yellow]"
-                else:
-                    status_display = f"[green]{status_code}[/green]"
-                
-                injection_detected = any(ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED'] for ind in execution_indicators)
-                
-                if injection_detected:
-                    console.print(f"[{timestamp}] {short_payload} -> {status_display} [bold red]VULNERABLE[/bold red]")
-                    for ind in execution_indicators:
-                        if ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED']:
-                            console.print(f"[{timestamp}]   [red]{ind}[/red]")
-                else:
-                    console.print(f"[{timestamp}] {short_payload} -> {status_display} | Reflected: {reflected}")
+                    return {
+                        "user_config": field_values,
+                        "poison_fields": poison_fields,
+                        "payload_used": current_payload,
+                        "user_agent": current_user_agent,
+                        "response_code": status_code,
+                        "reflected": reflected,
+                        "vulnerabilities": vulnerabilities,
+                        "execution_indicators": execution_indicators,
+                        "request_data": data,
+                        "method_used": current_method
+                    }
 
-                return {
-                    "user_config": field_values,
-                    "poison_fields": poison_fields,
-                    "payload_used": current_payload,
-                    "user_agent": current_user_agent,
-                    "response_code": status_code,
-                    "reflected": reflected,
-                    "vulnerabilities": vulnerabilities,
-                    "execution_indicators": execution_indicators,
-                    "request_data": data
-                }
-
-            except Exception as e:
-                current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
-                console.print(f"[red]Error: {str(e)[:80]}[/red]")
-                return {
-                    "user_config": field_values,
-                    "poison_fields": poison_fields,
-                    "payload_used": "ERROR",
-                    "user_agent": current_user_agent,
-                    "response_code": 0,
-                    "reflected": False,
-                    "vulnerabilities": [f"Request Failed: {str(e)}"],
-                    "execution_indicators": [],
-                    "request_data": {}
-                }
+                except Exception as e:
+                    if retry < max_retries:
+                        # If error might be method-related, try switching method
+                        if "405" in str(e) or "Method Not Allowed" in str(e):
+                            old_method = current_method
+                            current_method = 'GET' if current_method == 'POST' else 'POST'
+                            console.print(f"[yellow]Method error, retrying with {current_method}...[/yellow]")
+                        else:
+                            console.print(f"[yellow]Error on attempt {retry + 1}, retrying... ({str(e)[:50]})[/yellow]")
+                        await asyncio.sleep(1)
+                        continue
+                    current_user_agent = user_agents[0] if user_agents else "FormPoison/v.1.0.1"
+                    console.print(f"[red]Error after {max_retries + 1} attempts: {str(e)[:80]}[/red]")
+                    return {
+                        "user_config": field_values,
+                        "poison_fields": poison_fields,
+                        "payload_used": "ERROR",
+                        "user_agent": current_user_agent,
+                        "response_code": 405 if "405" in str(e) else 0,
+                        "reflected": False,
+                        "vulnerabilities": [f"Request Failed: {str(e)}"],
+                        "execution_indicators": [],
+                        "request_data": {},
+                        "method_used": current_method
+                    }
 
     if poison_fields and payloads:
         console.print(f"\n[bold green]Testing {len(payloads)} payloads on {len(poison_fields)} poison fields[/bold green]")
@@ -1725,10 +1760,13 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
     total_tests = len(results)
     reflected_count = sum(1 for r in results if r.get('reflected'))
     executed_count = sum(1 for r in results if r.get('execution_indicators') and len(r['execution_indicators']) > 0)
+    error_405_count = sum(1 for r in results if r.get('response_code') == 405)
     
     console.print(f"\n[bold green]Interactive Testing Completed: {total_tests} requests[/bold green]")
     console.print(f"[yellow]Reflected: {reflected_count}/{total_tests}[/yellow]")
     console.print(f"[bold red]Executed: {executed_count}/{total_tests}[/bold red]")
+    if error_405_count > 0:
+        console.print(f"[bold yellow]405 Errors: {error_405_count}/{total_tests} (Method Not Allowed)[/bold yellow]")
 
     # Save results
     with open("interactive_test_results.json", "w") as f:
@@ -1737,7 +1775,8 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                 "interactive_mode": True,
                 "user_field_config": field_values,
                 "poison_fields": poison_fields,
-                "brute_mode": brute_mode
+                "brute_mode": brute_mode,
+                "method_used": method
             },
             "results": results
         }, f, indent=4)
@@ -2023,26 +2062,58 @@ async def main():
     if args.interactive:
         console.print("[bold blue]INTERACTIVE MODE[/bold blue]")
         
+        # Try both GET and POST to find what works
+        test_methods = ['GET', 'POST']
         page_content = None
-        for current_user_agent in user_agents:
-            page_content = await get_page_content(args.url, current_user_agent, proxies, args.ssl_cert, args.ssl_key, args.ssl_verify)
+        working_method = args.method  # Start with user-specified method or default POST
+        
+        for test_method in test_methods:
+            console.print(f"[dim]Trying {test_method} request...[/dim]")
+            for current_user_agent in user_agents:
+                try:
+                    headers = {'User-Agent': sanitize_user_agent(current_user_agent)}
+                    ssl_context = ssl.create_default_context()
+                    if args.ssl_cert and args.ssl_key:
+                        ssl_context.load_cert_chain(args.ssl_cert, args.ssl_key)
+                    
+                    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+                        if test_method == 'GET':
+                            async with session.get(args.url, headers=headers, 
+                                                 proxy=proxies.get('http') if proxies else None,
+                                                 ssl=args.ssl_verify) as response:
+                                if response.status != 405:
+                                    page_content = await response.text()
+                                    working_method = 'GET'
+                                    break
+                        else:
+                            async with session.post(args.url, headers=headers,
+                                                  proxy=proxies.get('http') if proxies else None,
+                                                  ssl=args.ssl_verify) as response:
+                                if response.status != 405:
+                                    page_content = await response.text()
+                                    working_method = 'POST'
+                                    break
+                except:
+                    continue
             if page_content:
                 break
-
+        
         if not page_content:
-            console.print("[bold red]Failed to fetch page content.[/bold red]")
-            sys.exit()
+            console.print("[bold red]Failed to fetch page content with any method.[/bold red]")
+            return
+
+        console.print(f"[green]Successfully connected using {working_method}[/green]")
 
         input_fields = get_string_input_fields(page_content)
         
         if not input_fields:
             console.print("[bold yellow]No input fields found.[/bold yellow]")
-            sys.exit(0)
+            return
             
         console.print(f"[bold green]{len(input_fields)} input fields found[/bold green]")
         
         await interactive_injection_mode(
-            args.url, payloads, cookies, user_agents, args.method,
+            args.url, payloads, cookies, user_agents, working_method,
             proxies, args.ssl_cert, args.ssl_key, args.ssl_verify,
             args.verbose, args.verbose_all, args.seconds,
             brute_mode=args.brute, max_concurrent=args.concurrent,
