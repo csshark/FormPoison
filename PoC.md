@@ -29,4 +29,9 @@ Are you preparing for an exam where open-source tools are allowed? FormPoison is
 To use more advanced flags you need to have desired knowledge - for example you need to understand why your payload got blocked.
 > FormAtion is not a scanner. It sends one request and performs short analysis of source files. When scanners are forbidden you can use <code>-qs</code> flag with no worries.
 
+## Example 3: DVWA Interactive mode showcase
+You can specify which field to target when FormPoison founds it. The best thing is you can provide your own escape sequence before injecting `'poison'` to valid position. In this scenario I used `--interactive` flag with additional information.<n>
+<img width="1086" height="774" alt="image" src="https://github.com/user-attachments/assets/ecfc4666-f3ef-4a8f-8fcc-933bd3b6e205" />
+
+
 <p>Now you should see that this tool is not just a script kiddie random tool, but the fuzzer only <b>you</b> can control.</p>
