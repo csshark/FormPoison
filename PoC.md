@@ -10,6 +10,7 @@ CSP-Bypass is usually possible via URL param. So we need to provide such flags:
 <li><code>--csp-bypass</code> - FormPoison will generate CSP-Bypass payloads.</li>
 <li><code>--url-param</code> - we specify which url param to use, you <b>must</b> assign a sample value to the param.</li>
 <li><code>--verbose</code> (optional but recommended)</li>
+<li><code>--filter alert</code> - most important flag, you specify the keywords that need to be present in payloads you wanna use</li>
 <p></p>
 So the final command becomes:
 <pre><code>python3 formpoison.py https://PORTSWIGGER-LAB.web-security-academy.net/?urlparam=somevalue --url-param --csp-bypass --verbose
