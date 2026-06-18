@@ -21,7 +21,7 @@ pip install webdriver-manager</code></pre>
 
 ## Quick Start
 
-Basic attack:
+Basic attack (use `--verbose` flag **always**) :
 
 <pre><code>python3 formpoison.py https://target.com --verbose</code></pre>
 
