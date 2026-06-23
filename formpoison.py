@@ -24,7 +24,7 @@ import subprocess
 import os
 import tempfile
 from pathlib import Path
-import html
+import html as html_module
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from typing import Dict, List, Optional, Tuple, Set
 from functions import *
@@ -37,6 +37,191 @@ def handle_sigint(signum, frame):
     sys.exit(0)
 
 signal.signal(signal.SIGINT, handle_sigint)
+
+
+######################### ENHANCED XSS DETECTION MODULE ###################
+class XSSExecutionDetector:
+    """
+    Context-aware XSS execution detection to minimize false positives.
+    Only flags XSS when the payload appears in an actually executable context.
+    """
+    
+    def __init__(self):
+        self.executable_event_handlers = [
+            'onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout',
+            'onfocus', 'onblur', 'onchange', 'onsubmit', 'onkeydown',
+            'onkeyup', 'onkeypress', 'ondblclick', 'oncontextmenu',
+            'oninput', 'oninvalid', 'onsearch', 'onselect', 'ontoggle',
+            'onanimationend', 'onanimationstart', 'oncopy', 'oncut', 'onpaste'
+        ]
+        
+        self.js_protocol_attributes = ['href', 'src', 'action', 'formaction', 'data']
+        self.dangerous_svg_elements = ['use', 'animate', 'set', 'animateMotion', 'animateTransform']
+        
+    def find_executable_script_injection(self, soup, payload):
+        for script in soup.find_all('script'):
+            if script.get('type') and script['type'] not in ['', 'text/javascript', 'application/javascript', 'module']:
+                continue
+                
+            if script.string and ('alert(' in script.string or 'confirm(' in script.string or 'prompt(' in script.string):
+                parent = script.parent
+                if parent and parent.name in ['textarea', 'xmp', 'noscript']:
+                    continue
+                    
+                script_str = str(script)
+                if not ('<!--' in script_str and '-->' in script_str and 'alert(' in script_str[script_str.find('<!--'):script_str.find('-->')]):
+                    return True
+        return False
+    
+    def find_executable_event_handler(self, soup, payload):
+        for tag in soup.find_all(True):
+            for attr_name, attr_value in tag.attrs.items():
+                if attr_name.lower() in self.executable_event_handlers:
+                    if isinstance(attr_value, str) and ('alert(' in attr_value or 'confirm(' in attr_value or 'prompt(' in attr_value):
+                        if not self._is_in_non_executable_context(tag, soup):
+                            return True
+                            
+                elif attr_name.lower() in self.js_protocol_attributes:
+                    if isinstance(attr_value, str) and attr_value.strip().lower().startswith('javascript:'):
+                        if 'alert(' in attr_value or 'confirm(' in attr_value or 'prompt(' in attr_value:
+                            if not self._is_in_non_executable_context(tag, soup):
+                                return True
+        return False
+    
+    def find_executable_svg_xss(self, soup, payload):
+        for svg in soup.find_all('svg'):
+            for child in svg.find_all(True):
+                for attr_name in child.attrs:
+                    if attr_name.lower() in self.executable_event_handlers:
+                        if 'alert(' in str(child[attr_name]):
+                            return True
+            
+            for script in svg.find_all('script'):
+                if script.string and 'alert(' in script.string:
+                    return True
+                    
+            for elem_name in self.dangerous_svg_elements:
+                for elem in svg.find_all(elem_name):
+                    for attr_name in elem.attrs:
+                        if attr_name.lower() in self.executable_event_handlers:
+                            if 'alert(' in str(elem[attr_name]):
+                                return True
+        return False
+    
+    def find_executable_mathml_xss(self, soup, payload):
+        for math in soup.find_all('math'):
+            for script in math.find_all('script'):
+                if script.string and 'alert(' in script.string:
+                    return True
+            
+            for tag in math.find_all(True):
+                for attr_name in tag.attrs:
+                    if attr_name.lower() in self.executable_event_handlers:
+                        if 'alert(' in str(tag[attr_name]):
+                            return True
+        return False
+    
+    def find_template_injection(self, soup, payload):
+        for template in soup.find_all(['template', 'noscript']):
+            template.decompose()
+        
+        remaining_html = str(soup)
+        dangerous_patterns = [
+            '<script>alert(',
+            'onerror=alert(',
+            'onload=alert(',
+            'javascript:alert(',
+            '<img src=x onerror=alert(',
+            '<svg onload=alert(',
+            '<body onload=alert('
+        ]
+        
+        for pattern in dangerous_patterns:
+            if pattern in remaining_html:
+                temp_soup = BeautifulSoup(remaining_html, 'html.parser')
+                if (self.find_executable_script_injection(temp_soup, payload) or
+                    self.find_executable_event_handler(temp_soup, payload)):
+                    return True
+        return False
+    
+    def _is_in_non_executable_context(self, tag, soup):
+        non_executable_parents = ['textarea', 'xmp', 'noscript', 'template']
+        
+        parent = tag.parent
+        while parent:
+            if parent.name in non_executable_parents:
+                return True
+            parent = parent.parent
+        
+        tag_str = str(tag)
+        if '<!--' in tag_str and '-->' in tag_str:
+            comment_start = tag_str.find('<!--')
+            comment_end = tag_str.find('-->')
+            if comment_start < tag_str.find(str(tag)) < comment_end:
+                return True
+        
+        if '<![CDATA[' in tag_str and ']]>' in tag_str:
+            return True
+        
+        return False
+    
+    def is_xss_executed(self, html_content, payload, content_type=None):
+        if content_type and 'html' not in content_type.lower():
+            return False
+        
+        if not html_content or not payload:
+            return False
+        
+        if not self._is_payload_reflected_enhanced(html_content, payload):
+            return False
+        
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            if self.find_executable_script_injection(soup, payload):
+                return True
+            if self.find_executable_event_handler(soup, payload):
+                return True
+            if self.find_executable_svg_xss(soup, payload):
+                return True
+            if self.find_executable_mathml_xss(soup, payload):
+                return True
+            if self.find_template_injection(soup, payload):
+                return True
+            
+        except Exception as e:
+            pass
+        
+        return False
+    
+    def _is_payload_reflected_enhanced(self, content, payload):
+        if not payload or len(payload) < 3:
+            return False
+        
+        if payload in content:
+            return True
+        
+        payload_clean = re.sub(r'[%\+]', '', payload)
+        content_clean = re.sub(r'[%\+]', '', content)
+        
+        if len(payload_clean) > 10 and payload_clean in content_clean:
+            return True
+        
+        decoded_content = html_module.unescape(content)
+        if payload in decoded_content:
+            return True
+        
+        payload_parts = payload.split()
+        if len(payload_parts) > 1:
+            all_parts_found = all(part in content or part in decoded_content for part in payload_parts)
+            if all_parts_found:
+                return True
+        
+        return False
+
+
+# Initialize the detector
+xss_detector = XSSExecutionDetector()
 
 
 ######################### URL PARAMETER ANALYZER ###################
@@ -703,6 +888,7 @@ async def get_page_content(url, user_agent, proxies=None, ssl_cert=None, ssl_key
 
 
 def is_payload_reflected(content, payload):
+    """Basic reflection check"""
     if not payload or len(payload) < 3:
         return False
     
@@ -718,57 +904,85 @@ def is_payload_reflected(content, payload):
     return False
 
 
-def is_payload_executed(content, payload, response_headers, status_code):
-    content_lower = content.lower()
+def is_payload_executed(content, payload, response_headers, status_code, content_type=None):
+    """
+    ENHANCED: Context-aware payload execution validation.
+    Significantly reduces false positives by analyzing actual executable contexts.
+    """
+    content_lower = content.lower() if content else ""
     execution_indicators = []
     
-    reflected = is_payload_reflected(content, payload)
+    # Check if payload is reflected using enhanced detection
+    reflected = xss_detector._is_payload_reflected_enhanced(content, payload)
     
+    # Server errors - useful for fuzzing but NOT XSS
     if status_code and status_code >= 500:
         execution_indicators.append(f"ERROR_{status_code}")
     
-    csp_header = response_headers.get('Content-Security-Policy', '')
-    if csp_header and 'unsafe-inline' in csp_header.lower():
-        execution_indicators.append("CSP_MODIFIED")
-    
-    sql_errors = ["sql syntax", "mysql_fetch", "ora-", "postgresql", "sqlite3", "unclosed quotation", "division by zero"]
+    # SQL errors - keep separate from XSS
+    sql_errors = [
+        "sql syntax", "mysql_fetch", "ora-", "postgresql", "sqlite3",
+        "unclosed quotation", "division by zero", "sql error",
+        "warning: mysql", "microsoft ole db", "odbc drivers",
+        "mysql_num_rows", "mysql_query", "pg_query"
+    ]
     if any(error in content_lower for error in sql_errors):
         execution_indicators.append("SQL_ERROR")
     
-    xss_indicators = ["<script>alert", "onerror=alert", "onload=alert", "javascript:alert", "<img src=x onerror"]
-    if any(indicator in content_lower for indicator in xss_indicators):
-        execution_indicators.append("XSS_EXECUTED")
-    
-    if len(content) < 100:
-        execution_indicators.append("SHORT_RESPONSE")
+    # CONTEXT-AWARE XSS DETECTION - Only flag if actually executable
+    if reflected:
+        xss_executed = xss_detector.is_xss_executed(content, payload, content_type)
+        if xss_executed:
+            execution_indicators.append("XSS_EXECUTED")
     
     return reflected, execution_indicators
 
 
 def analyze_response(content, headers, payload_category, payload, status_code, verbose_all=False):
+    """Enhanced response analysis with improved categorization"""
     vulnerabilities = []
     
-    if any(error in content.lower() for error in ["sql syntax", "mysql", "ora-", "postgresql", "unclosed quotation"]):
+    # Get content type for context-aware analysis
+    content_type = headers.get('Content-Type', '')
+    
+    # SQL error detection (separate from XSS)
+    sql_errors = [
+        "sql syntax", "mysql_fetch", "ora-", "postgresql", "sqlite3",
+        "unclosed quotation", "division by zero", "microsoft ole db",
+        "odbc drivers", "mysql_num_rows", "mysql_query", "pg_query"
+    ]
+    if any(error in content.lower() for error in sql_errors):
         vulnerabilities.append("SQL_ERROR_DETECTED")
     
-    if any(pattern in content.lower() for pattern in ["<script>", "alert(", "onerror=", "onload=", "javascript:"]):
-        vulnerabilities.append("XSS_PATTERN_DETECTED")
+    # Context-aware XSS detection
+    reflected, execution_indicators = is_payload_executed(
+        content, payload, headers, status_code, content_type
+    )
     
+    if reflected:
+        vulnerabilities.append("PAYLOAD_REFLECTED")
+    
+    # Only add execution indicators that are meaningful
+    for indicator in execution_indicators:
+        if indicator in ['XSS_EXECUTED', 'SQL_ERROR']:
+            vulnerabilities.append(indicator)
+        elif indicator.startswith('ERROR_'):
+            vulnerabilities.append(indicator)
+    
+    # Server information (useful for fingerprinting)
     if "Server" in headers:
         vulnerabilities.append(f"Server: {headers['Server']}")
     if "X-Powered-By" in headers:
         vulnerabilities.append(f"X-Powered-By: {headers['X-Powered-By']}")
     
-    reflected, execution_indicators = is_payload_executed(content, payload, headers, status_code)
-    
-    if reflected:
-        vulnerabilities.append("PAYLOAD_REFLECTED")
-    
-    vulnerabilities.extend(execution_indicators)
-    
-    if any(ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED'] for ind in execution_indicators):
+    # Confidence calculation based on actual execution context
+    if 'XSS_EXECUTED' in execution_indicators:
         confidence = "VERY_HIGH" if reflected else "HIGH"
         vulnerabilities.append(f"CONFIDENCE_{confidence}")
+    elif 'SQL_ERROR' in execution_indicators:
+        vulnerabilities.append("CONFIDENCE_HIGH")
+    elif reflected:
+        vulnerabilities.append("CONFIDENCE_LOW")
     
     return vulnerabilities
 
@@ -872,11 +1086,15 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                 vulnerabilities = analyze_response(response_content, response_headers, 
                                                  payload['category'], payload['inputField'], status_code, verbose_all)
 
-                reflected = is_payload_reflected(response_content, payload['inputField'])
+                reflected = xss_detector._is_payload_reflected_enhanced(response_content, payload['inputField'])
                 _, execution_indicators = is_payload_executed(response_content, payload['inputField'], 
-                                                             response_headers, status_code)
+                                                             response_headers, status_code,
+                                                             response_headers.get('Content-Type', ''))
                 
-                is_vulnerable = len(execution_indicators) > 0 or reflected
+                # Enhanced vulnerability check - separate XSS from other findings
+                has_xss = 'XSS_EXECUTED' in execution_indicators
+                has_sql = 'SQL_ERROR' in execution_indicators
+                is_vulnerable = has_xss or has_sql or (status_code and status_code >= 500)
 
                 timestamp = time.strftime("%H:%M:%S")
                 short_payload = payload['inputField'][:60] + "..." if len(payload['inputField']) > 60 else payload['inputField']
@@ -890,7 +1108,14 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                 else:
                     status_display = f"[green]{status_code}[/green]"
                 
-                reflected_display = "[yellow]REFLECTED[/yellow]" if reflected else "[dim]no[/dim]"
+                # Enhanced display with better categorization
+                if has_xss:
+                    reflected_display = "[bold red]XSS EXECUTED![/bold red]"
+                elif reflected:
+                    reflected_display = "[yellow]REFLECTED[/yellow]"
+                else:
+                    reflected_display = "[dim]no[/dim]"
+                
                 vuln_display = ", ".join(execution_indicators[:2]) if execution_indicators else "-"
                 
                 if is_vulnerable or verbose:
@@ -901,7 +1126,9 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     "response_code": status_code,
                     "reflected": reflected,
                     "vulnerabilities": vulnerabilities,
-                    "execution_indicators": execution_indicators
+                    "execution_indicators": execution_indicators,
+                    "has_xss": has_xss,
+                    "has_sql": has_sql
                 }
 
             except Exception as e:
@@ -914,7 +1141,9 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                     "response_code": 0,
                     "reflected": False,
                     "vulnerabilities": [f"Error: {str(e)}"],
-                    "execution_indicators": []
+                    "execution_indicators": [],
+                    "has_xss": False,
+                    "has_sql": False
                 }
 
     if brute_mode:
@@ -954,24 +1183,30 @@ async def test_all_forms(url, payloads, threat_type, cookies, user_agents, metho
                 if secs > 0:
                     await asyncio.sleep(secs)
 
+    # Enhanced summary with better categorization
     total_tests = len(results)
     reflected_count = sum(1 for r in results if r.get('reflected'))
-    executed_count = sum(1 for r in results if r.get('execution_indicators') and len(r['execution_indicators']) > 0)
+    xss_executed_count = sum(1 for r in results if r.get('has_xss'))
+    sql_error_count = sum(1 for r in results if r.get('has_sql'))
     error_count = sum(1 for r in results if r.get('response_code', 0) >= 500)
     
     console.print(f"\n[bold green]Testing completed: {total_tests} requests[/bold green]")
-    console.print(f"[yellow]Reflected: {reflected_count}/{total_tests}[/yellow]")
-    console.print(f"[bold red]Executed: {executed_count}/{total_tests}[/bold red]")
+    console.print(f"[yellow]Payloads reflected: {reflected_count}/{total_tests}[/yellow]")
+    console.print(f"[bold red]XSS Executed (confirmed): {xss_executed_count}/{total_tests}[/bold red]")
+    console.print(f"[yellow]SQL errors detected: {sql_error_count}/{total_tests}[/yellow]")
     console.print(f"[red]Server errors: {error_count}/{total_tests}[/red]")
     
-    vulnerable_results = [r for r in results if r.get('execution_indicators')]
+    # Show confirmed XSS vulnerabilities
+    vulnerable_results = [r for r in results if r.get('has_xss')]
     if vulnerable_results:
-        console.print(f"\n[bold red]VULNERABLE RESULTS:[/bold red]")
+        console.print(f"\n[bold red]CONFIRMED XSS VULNERABILITIES:[/bold red]")
         for result in vulnerable_results[:15]:
             console.print(f"[red]Payload: {result['payload'][:80]}[/red]")
-            console.print(f"[red]Status: {result['response_code']} | Reflected: {result['reflected']}[/red]")
+            console.print(f"[red]Status: {result['response_code']} | Context: Executable[/red]")
             console.print(f"[red]Indicators: {', '.join(result['execution_indicators'])}[/red]")
             console.print("")
+    else:
+        console.print("[green]No confirmed XSS vulnerabilities found (reflections may exist but in non-executable contexts)[/green]")
     
     return results
 
@@ -1047,24 +1282,27 @@ async def test_csp_parameter_bypass(url, xss_payloads, csp_payloads, cookies, us
                             status_code = response.status
                             response_headers = response.headers
                 
-                xss_reflected = xss_payload in content
+                # Use enhanced XSS detection
+                xss_reflected = xss_detector._is_payload_reflected_enhanced(content, xss_payload)
+                xss_executed = xss_detector.is_xss_executed(content, xss_payload, response_headers.get('Content-Type', ''))
+                
                 csp_header = response_headers.get('Content-Security-Policy', '')
                 csp_report_only = response_headers.get('Content-Security-Policy-Report-Only', '')
                 csp_modified = 'unsafe-inline' in csp_header.lower() or 'unsafe-inline' in csp_report_only.lower()
-                script_executed = '<script>alert' in content.lower() or 'onerror=alert' in content.lower()
-                attack_successful = xss_reflected and csp_modified
                 
-                if attack_successful or script_executed or verbose:
+                attack_successful = xss_executed and (csp_modified or not csp_header)
+                
+                if attack_successful or verbose:
                     timestamp = time.strftime("%H:%M:%S")
                     
                     if attack_successful:
                         console.print(f"[{timestamp}] [bold red]CSP BYPASS SUCCESS![/bold red]")
                         console.print(f"[{timestamp}] URL: {test_url}")
-                        console.print(f"[{timestamp}] Status: {status_code} | XSS reflected: {xss_reflected} | CSP modified: {csp_modified}")
+                        console.print(f"[{timestamp}] Status: {status_code} | XSS executed: {xss_executed} | CSP modified: {csp_modified}")
                         console.print("")
                     elif verbose:
                         status_display = f"[red]{status_code}[/red]" if status_code >= 500 else f"[green]{status_code}[/green]"
-                        console.print(f"[{timestamp}] {xss_param}={xss_payload[:30]} + {csp_param}={csp_payload[:30]} -> {status_display} | CSP:{csp_modified} | XSS:{xss_reflected}")
+                        console.print(f"[{timestamp}] {xss_param}={xss_payload[:30]} + {csp_param}={csp_payload[:30]} -> {status_display} | CSP:{csp_modified} | XSS:{xss_executed}")
                 
                 return {
                     'xss_param': xss_param,
@@ -1074,6 +1312,7 @@ async def test_csp_parameter_bypass(url, xss_payloads, csp_payloads, cookies, us
                     'url': test_url,
                     'status': status_code,
                     'xss_reflected': xss_reflected,
+                    'xss_executed': xss_executed,
                     'csp_modified': csp_modified,
                     'attack_successful': attack_successful
                 }
@@ -1088,6 +1327,7 @@ async def test_csp_parameter_bypass(url, xss_payloads, csp_payloads, cookies, us
                     'csp_payload': csp_payload,
                     'status': 0,
                     'xss_reflected': False,
+                    'xss_executed': False,
                     'csp_modified': False,
                     'attack_successful': False,
                     'error': str(e)
@@ -1139,11 +1379,13 @@ async def test_csp_parameter_bypass(url, xss_payloads, csp_payloads, cookies, us
     
     successful = [r for r in results if r.get('attack_successful')]
     reflected = [r for r in results if r.get('xss_reflected')]
+    executed = [r for r in results if r.get('xss_executed')]
     csp_mod = [r for r in results if r.get('csp_modified')]
     
     console.print(f"\n[bold green]CSP Parameter Bypass Results:[/bold green]")
     console.print(f"[yellow]Total tests: {len(results)}[/yellow]")
     console.print(f"[yellow]XSS reflected: {len(reflected)}[/yellow]")
+    console.print(f"[bold red]XSS executed: {len(executed)}[/bold red]")
     console.print(f"[yellow]CSP modified: {len(csp_mod)}[/yellow]")
     console.print(f"[bold red]Attack successful: {len(successful)}[/bold red]")
     
@@ -1211,8 +1453,10 @@ async def test_url_parameters(url, payloads, cookies, user_agents, proxies=None,
                             status_code = response.status
                             response_headers = response.headers
                 
-                reflected = is_payload_reflected(content, payload['inputField'])
-                _, execution_indicators = is_payload_executed(content, payload['inputField'], response_headers, status_code)
+                reflected, execution_indicators = is_payload_executed(
+                    content, payload['inputField'], response_headers, status_code,
+                    response_headers.get('Content-Type', '')
+                )
                 
                 if verbose or execution_indicators:
                     timestamp = time.strftime("%H:%M:%S")
@@ -1277,11 +1521,11 @@ async def test_url_parameters(url, payloads, cookies, user_agents, proxies=None,
             results.append(result)
     
     reflected_count = sum(1 for r in results if r.get('reflected'))
-    executed_count = sum(1 for r in results if r.get('execution_indicators') and len(r['execution_indicators']) > 0)
+    executed_count = sum(1 for r in results if 'XSS_EXECUTED' in r.get('execution_indicators', []))
     
     console.print(f"\n[bold green]URL Testing Completed[/bold green]")
     console.print(f"[yellow]Reflected: {reflected_count}/{len(results)}[/yellow]")
-    console.print(f"[bold red]Executed: {executed_count}/{len(results)}[/bold red]")
+    console.print(f"[bold red]XSS Executed: {executed_count}/{len(results)}[/bold red]")
     
     return results
 
@@ -1409,6 +1653,7 @@ def analyze_mutation_xss_response(content, payload):
             vulnerabilities.append(f"MUTATED_{elem.name.upper()}")
     
     return vulnerabilities
+
 def show_interactive_banner():
     banner = """
 ⠒⠤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -1420,6 +1665,7 @@ def show_interactive_banner():
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠊⠀
 """
     console.print(banner, style="bold cyan")
+
 async def get_user_input_for_fields(input_fields, url):
     """Interactive field configuration"""
     show_interactive_banner()
@@ -1517,7 +1763,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
         console.print("[bold yellow]No input fields found on the page[/bold yellow]")
         return []
 
-    # Detect form method from the page if possible
     soup = BeautifulSoup(content, 'html.parser')
     forms = soup.find_all('form')
     if forms:
@@ -1562,7 +1807,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
     async def test_with_user_config(payload_index=None):
         async with semaphore:
-            current_method = method  # Use local variable for method switching
+            current_method = method
             for retry in range(max_retries + 1):
                 try:
                     current_user_agent = random.choice(user_agents) if len(user_agents) > 1 else user_agents[0]
@@ -1571,7 +1816,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
                     for field_name, user_value in field_values.items():
                         if user_value is None:
-                            # Field marked for payload injection
                             if payload_index is not None and payloads:
                                 payload = payloads[payload_index % len(payloads)]
                                 data[field_name] = payload['inputField']
@@ -1581,7 +1825,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                                 payload_category = "SQL"
 
                         elif "'poison'" in str(user_value):
-                            # Replace 'poison' placeholder with payload
                             if payload_index is not None and payloads:
                                 payload = payloads[payload_index % len(payloads)]
                                 data[field_name] = user_value.replace("'poison'", payload['inputField'])
@@ -1591,7 +1834,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                                 payload_category = "SQL_INJECTED"
 
                         else:
-                            # User-defined value
                             data[field_name] = user_value
                             payload_category = "USER_DEFINED"
 
@@ -1633,7 +1875,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                                 status_code = response.status
                                 response_headers = response.headers
 
-                    # If we get 405, try the other method
                     if status_code == 405 and retry < max_retries:
                         old_method = current_method
                         current_method = 'GET' if current_method == 'POST' else 'POST'
@@ -1651,10 +1892,11 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                         payload_category, current_payload, status_code, verbose_all
                     )
                     
-                    reflected = is_payload_reflected(response_content, current_payload)
+                    reflected = xss_detector._is_payload_reflected_enhanced(response_content, current_payload)
                     _, execution_indicators = is_payload_executed(
                         response_content, current_payload, 
-                        response_headers, status_code
+                        response_headers, status_code,
+                        response_headers.get('Content-Type', '')
                     )
 
                     timestamp = time.strftime("%H:%M:%S")
@@ -1667,14 +1909,11 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                     else:
                         status_display = f"[green]{status_code}[/green]"
                     
-                    injection_detected = any(ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED'] for ind in execution_indicators)
+                    has_xss = 'XSS_EXECUTED' in execution_indicators
                     
-                    if injection_detected:
-                        console.print(f"[{timestamp}] {short_payload} -> {status_display} [bold red]VULNERABLE[/bold red]")
-                        for ind in execution_indicators:
-                            if ind in ['XSS_EXECUTED', 'SQL_ERROR', 'CSP_MODIFIED']:
-                                console.print(f"[{timestamp}]   [red]{ind}[/red]")
-                    else:
+                    if has_xss:
+                        console.print(f"[{timestamp}] {short_payload} -> {status_display} [bold red]XSS EXECUTED![/bold red]")
+                    elif reflected:
                         console.print(f"[{timestamp}] {short_payload} -> {status_display} | Reflected: {reflected}")
 
                     return {
@@ -1692,7 +1931,6 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
 
                 except Exception as e:
                     if retry < max_retries:
-                        # If error might be method-related, try switching method
                         if "405" in str(e) or "Method Not Allowed" in str(e):
                             old_method = current_method
                             current_method = 'GET' if current_method == 'POST' else 'POST'
@@ -1751,24 +1989,21 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
                 if secs > 0:
                     await asyncio.sleep(secs)
     else:
-        # Single request with user configuration only
         console.print("\n[bold yellow]Testing with user configuration (single request)[/bold yellow]")
         result = await test_with_user_config()
         results.append(result)
 
-    # Summary
     total_tests = len(results)
     reflected_count = sum(1 for r in results if r.get('reflected'))
-    executed_count = sum(1 for r in results if r.get('execution_indicators') and len(r['execution_indicators']) > 0)
+    xss_executed_count = sum(1 for r in results if 'XSS_EXECUTED' in r.get('execution_indicators', []))
     error_405_count = sum(1 for r in results if r.get('response_code') == 405)
     
     console.print(f"\n[bold green]Interactive Testing Completed: {total_tests} requests[/bold green]")
     console.print(f"[yellow]Reflected: {reflected_count}/{total_tests}[/yellow]")
-    console.print(f"[bold red]Executed: {executed_count}/{total_tests}[/bold red]")
+    console.print(f"[bold red]XSS Executed: {xss_executed_count}/{total_tests}[/bold red]")
     if error_405_count > 0:
         console.print(f"[bold yellow]405 Errors: {error_405_count}/{total_tests} (Method Not Allowed)[/bold yellow]")
 
-    # Save results
     with open("interactive_test_results.json", "w") as f:
         json.dump({
             "parameters": {
@@ -1784,6 +2019,7 @@ async def interactive_injection_mode(url, payloads, cookies, user_agents, method
     console.print(f"[bold green]Interactive test results saved to 'interactive_test_results.json'[/bold green]")
 
     return results
+
 async def main():
     parser = argparse.ArgumentParser(description="Over 3500 payloads included!")
     parser.add_argument("url", help="Form URL")
@@ -2062,10 +2298,9 @@ async def main():
     if args.interactive:
         console.print("[bold blue]INTERACTIVE MODE[/bold blue]")
         
-        # Try both GET and POST to find what works
         test_methods = ['GET', 'POST']
         page_content = None
-        working_method = args.method  # Start with user-specified method or default POST
+        working_method = args.method
         
         for test_method in test_methods:
             console.print(f"[dim]Trying {test_method} request...[/dim]")
