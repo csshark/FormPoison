@@ -4,7 +4,7 @@ It is nowdays more complicated to deliver new ideas to community, that's why thi
 
 ## Example 1: PortSwigger CSP bypass XSS lab
 
-From the lab description we know we need to bypass CSP somehow. There is one way to do this in FormPoison. 
+From the lab description we know we need to bypass CSP somehow. There is one way to do this with FormPoison. 
 
 CSP-Bypass is usually possible via URL param. So we need to provide such flags:
 <li><code>--csp-bypass</code> - FormPoison will generate CSP-Bypass payloads.</li>
