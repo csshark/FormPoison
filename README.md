@@ -72,7 +72,7 @@ Check <a href=PoC.md>PoC</a> for more tool usage examples.
 | --url-param | Target an URL parameter | 
 | --csp-bypass | Generate and use CSP bypass payloads | 
 | -qs | Quick reflection discovery |
-| --interactive | Manual injection placement |
+| --interactive | Manual injection placement (**main feature**) |
 | --fieldname | Target a specific field |
 | --filter | Use payloads matching keyword |
 | --cookies | Authenticated testing |
