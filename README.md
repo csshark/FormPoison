@@ -71,10 +71,10 @@ Check <a href=PoC.md>PoC</a> for more tool usage examples.
 | --scan | Frontend reconnaissance |
 | --url-param | Target an URL parameter | 
 | --csp-bypass | Generate and use CSP bypass payloads | 
-| -qs | Quick reflection discovery |
+| -qs | Quick response analysis |
 | --interactive | Manual injection placement (**main feature**) |
 | --fieldname | Target a specific field |
-| --filter | Use payloads matching keyword |
+| --filter | Use payloads matching keyword/phrase |
 | --cookies | Authenticated testing |
 | --login | Login workflow testing |
 | --verbose | Real-time output |
