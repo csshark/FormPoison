@@ -42,6 +42,8 @@ https://target.com/contact \
 --verbose
 </code></pre>
 
+**Important**: FormPoison has false-positives reduction, but each app behaves different. Always verify output manually, fuzzer can make mistakes.
+
 ---
 
 ## Features
