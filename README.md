@@ -4,9 +4,9 @@
   <img src="FormPoison-logo.png" width=500/>
 </p>
 
-Smart form-focused XSS framework built from practical experience with data validation flawsin real-world web application testing.
+Smart form-focused XSS fuzzer built from practical experience with data validation flawsin real-world web application testing.
 
-The primary goal of FormPoison is to maximize XSS attack surface coverage by focusing on user-controlled forms, reflected inputs, frontend behavior and validation weaknesses. While the framework includes payloads for SQL Injection **XSS discovery and exploitation remains its core purpose**.
+The primary goal of FormPoison is to maximize XSS attack surface coverage by focusing on user-controlled forms, reflected inputs, frontend behavior and validation weaknesses. The tool stands out for its nearly complete control over fuzzing. You decide where and what to inject each iteration!
 
 ---
 
